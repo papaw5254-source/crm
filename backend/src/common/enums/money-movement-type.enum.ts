@@ -1,0 +1,9 @@
+export enum MoneyMovementType {
+  INCOME = 'INCOME',
+  EXPENSE = 'EXPENSE',
+  SALE = 'SALE',
+  DEBT_PAYMENT = 'DEBT_PAYMENT',
+  PREPAYMENT = 'PREPAYMENT',
+  WORKER_PAYMENT = 'WORKER_PAYMENT',
+  OTHER = 'OTHER',
+}

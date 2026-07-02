@@ -1,0 +1,32 @@
+import { api } from './api'
+import type { ReserveMovement, ReserveBalance, PaginatedResponse, PaginationParams } from '@/types'
+
+export interface CreateReserveMovementDto {
+  brickType: string
+  movementType: string
+  quantity: number
+  reason?: string
+  date: string
+}
+
+export const reserveService = {
+  async getAll(params?: PaginationParams & { brickType?: string; movementType?: string }): Promise<PaginatedResponse<ReserveMovement>> {
+    const res = await api.get('/reserve/movements', { params })
+    return res.data.data
+  },
+
+  async create(data: CreateReserveMovementDto): Promise<ReserveMovement> {
+    const res = await api.post('/reserve/movements', data)
+    return res.data.data
+  },
+
+  async getBalance(): Promise<ReserveBalance> {
+    const res = await api.get('/reserve/balance')
+    return res.data.data
+  },
+
+  async getReport(params?: { dateFrom?: string; dateTo?: string }) {
+    const res = await api.get('/reserve/report', { params })
+    return res.data.data
+  },
+}

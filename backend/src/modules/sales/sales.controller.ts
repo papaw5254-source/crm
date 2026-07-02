@@ -1,0 +1,64 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Role } from '../../common/enums/role.enum';
+import { PaginationDto } from '../../common/dto/pagination.dto';
+import { CreateSaleDto } from './dto/create-sale.dto';
+import { UpdateSaleDto } from './dto/update-sale.dto';
+import { SalesService } from './sales.service';
+
+@ApiTags('sales')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('sales')
+export class SalesController {
+  constructor(private readonly salesService: SalesService) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Create a new sale (Chiqim)' })
+  create(@Body() createDto: CreateSaleDto, @CurrentUser('id') userId: string) {
+    return this.salesService.create(createDto, userId);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Get all sales' })
+  findAll(@Query() paginationDto: PaginationDto) {
+    return this.salesService.findAll(paginationDto);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get sale by id' })
+  findOne(@Param('id') id: string) {
+    return this.salesService.findOne(id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update sale' })
+  update(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateSaleDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.salesService.update(id, updateDto, userId);
+  }
+
+  @Delete(':id')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Delete sale (Admin only)' })
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.salesService.remove(id, userId);
+  }
+}

@@ -1,0 +1,292 @@
+'use client'
+
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Plus, ShoppingCart, Pencil, Trash2 } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { toast } from 'sonner'
+import { salesService } from '@/services/sales.service'
+import { PageHeader } from '@/components/shared/page-header'
+import { StatsCard } from '@/components/shared/stats-card'
+import { DataTable } from '@/components/shared/data-table'
+import { SearchInput } from '@/components/shared/search-input'
+import { Pagination } from '@/components/shared/pagination'
+import { ConfirmDialog } from '@/components/shared/confirm-dialog'
+import { EmptyState } from '@/components/shared/empty-state'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Card, CardContent } from '@/components/ui/card'
+import { formatDate, formatCurrency, paymentTypeLabel, paymentTypeColor, getErrorMessage } from '@/lib/utils'
+import { useDebounce } from '@/hooks/use-debounce'
+import { usePagination } from '@/hooks/use-pagination'
+import { useAuth } from '@/providers/auth-provider'
+import type { Sale, PaymentType } from '@/types'
+
+const schema = z.object({
+  quantity: z.coerce.number().min(1, 'Miqdor 1 dan katta bo\'lishi kerak'),
+  pricePerBrick: z.coerce.number().min(0.01, 'Narx 0 dan katta bo\'lishi kerak'),
+  paymentType: z.enum(['CASH', 'CARD', 'DEBT']),
+  customerName: z.string().optional(),
+  customerPhone: z.string().optional(),
+  description: z.string().optional(),
+  date: z.string().min(1, 'Sana kiritilishi shart'),
+})
+
+type FormData = z.infer<typeof schema>
+
+export default function SalesPage() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
+  const queryClient = useQueryClient()
+  const [search, setSearch] = useState('')
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editItem, setEditItem] = useState<Sale | null>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState<PaymentType | 'ALL'>('ALL')
+  const { page, limit, setPage } = usePagination()
+  const debouncedSearch = useDebounce(search)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['sales', page, limit, debouncedSearch],
+    queryFn: () => salesService.getAll({ page, limit, search: debouncedSearch }),
+  })
+
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { date: new Date().toISOString().split('T')[0], paymentType: 'CASH' },
+  })
+
+  const qty = watch('quantity')
+  const price = watch('pricePerBrick')
+  const total = (qty || 0) * (price || 0)
+
+  const createMutation = useMutation({
+    mutationFn: (data: FormData) => salesService.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales'] })
+      queryClient.invalidateQueries({ queryKey: ['stock'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['debtors'] })
+      toast.success('Sotuv muvaffaqiyatli qo\'shildi')
+      setDialogOpen(false)
+      reset({ date: new Date().toISOString().split('T')[0], paymentType: 'CASH' })
+    },
+    onError: (e) => toast.error(getErrorMessage(e)),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: (data: FormData) => salesService.update(editItem!.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales'] })
+      queryClient.invalidateQueries({ queryKey: ['stock'] })
+      toast.success('Sotuv yangilandi')
+      setEditItem(null)
+      setDialogOpen(false)
+      reset()
+    },
+    onError: (e) => toast.error(getErrorMessage(e)),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => salesService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales'] })
+      queryClient.invalidateQueries({ queryKey: ['stock'] })
+      toast.success('Sotuv o\'chirildi')
+      setDeleteId(null)
+    },
+    onError: (e) => toast.error(getErrorMessage(e)),
+  })
+
+  const openEdit = (item: Sale) => {
+    setEditItem(item)
+    setValue('quantity', item.quantity)
+    setValue('pricePerBrick', Number(item.pricePerBrick))
+    setValue('paymentType', item.paymentType)
+    setValue('customerName', item.customerName || '')
+    setValue('customerPhone', item.customerPhone || '')
+    setValue('description', item.description || '')
+    setValue('date', item.date)
+    setDialogOpen(true)
+  }
+
+  const onSubmit = (data: FormData) => {
+    if (editItem) updateMutation.mutate(data)
+    else createMutation.mutate(data)
+  }
+
+  const filteredData = paymentTypeFilter === 'ALL'
+    ? data?.data ?? []
+    : (data?.data ?? []).filter((s) => s.paymentType === paymentTypeFilter)
+
+  const totalAmount = (data?.data ?? []).reduce((s, x) => s + Number(x.totalAmount), 0)
+  const totalQty = (data?.data ?? []).reduce((s, x) => s + x.quantity, 0)
+
+  const columns = [
+    { key: 'date', header: 'Sana', cell: (r: Sale) => <span className="font-medium">{formatDate(r.date)}</span> },
+    { key: 'customer', header: 'Mijoz', cell: (r: Sale) => <span>{r.customerName || "Noma'lum"}</span> },
+    { key: 'qty', header: 'Miqdor', cell: (r: Sale) => <span className="font-medium">{r.quantity.toLocaleString()} dona</span> },
+    { key: 'price', header: 'Narx', cell: (r: Sale) => <span>{formatCurrency(Number(r.pricePerBrick))}</span> },
+    { key: 'total', header: 'Jami', cell: (r: Sale) => <span className="font-semibold text-primary">{formatCurrency(Number(r.totalAmount))}</span> },
+    {
+      key: 'type',
+      header: "To'lov turi",
+      cell: (r: Sale) => (
+        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${paymentTypeColor(r.paymentType)}`}>
+          {paymentTypeLabel(r.paymentType)}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      cell: (r: Sale) => (
+        <div className="flex gap-1 justify-end">
+          <Button variant="ghost" size="icon-sm" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
+          {isAdmin && (
+            <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteId(r.id)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Chiqim (Sotuvlar)"
+        description="G'isht sotuvlari boshqaruvi"
+        actions={
+          <Button onClick={() => { setEditItem(null); reset({ date: new Date().toISOString().split('T')[0], paymentType: 'CASH' }); setDialogOpen(true) }}>
+            <Plus className="h-4 w-4 mr-1" /> Sotuv qo&apos;shish
+          </Button>
+        }
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatsCard title="Jami sotuvlar" value={data?.meta.total ?? 0} icon={ShoppingCart} color="emerald" format="number" suffix="ta" />
+        <StatsCard title="Jami summa" value={totalAmount} icon={ShoppingCart} color="blue" />
+        <StatsCard title="Jami miqdor" value={totalQty} icon={ShoppingCart} color="purple" format="number" suffix="dona" />
+      </div>
+
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Mijoz nomi bo'yicha..." className="sm:max-w-sm" />
+            <div className="flex gap-2">
+              {(['ALL', 'CASH', 'CARD', 'DEBT'] as const).map((type) => (
+                <Button
+                  key={type}
+                  variant={paymentTypeFilter === type ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPaymentTypeFilter(type)}
+                >
+                  {type === 'ALL' ? 'Barchasi' : paymentTypeLabel(type)}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {filteredData.length === 0 && !isLoading ? (
+            <EmptyState icon={ShoppingCart} title="Sotuv yo'q" description="Birinchi sotuvni qo'shing" action={<Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />Sotuv qo&apos;shish</Button>} />
+          ) : (
+            <>
+              <DataTable columns={columns} data={filteredData} loading={isLoading} />
+              {data && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editItem ? 'Sotuvni tahrirlash' : "Sotuv qo'shish"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Miqdor (dona) *</Label>
+                <Input {...register('quantity')} type="number" placeholder="1000" />
+                {errors.quantity && <p className="text-destructive text-xs">{errors.quantity.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Narx (1 dona) *</Label>
+                <Input {...register('pricePerBrick')} type="number" step="0.01" placeholder="450" />
+                {errors.pricePerBrick && <p className="text-destructive text-xs">{errors.pricePerBrick.message}</p>}
+              </div>
+            </div>
+
+            {total > 0 && (
+              <div className="rounded-xl bg-primary/10 p-3 text-sm">
+                <span className="text-muted-foreground">Jami summa: </span>
+                <span className="font-bold text-primary">{formatCurrency(total)}</span>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>To&apos;lov turi *</Label>
+              <Select
+                defaultValue="CASH"
+                onValueChange={(v) => setValue('paymentType', v as PaymentType)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Naqd</SelectItem>
+                  <SelectItem value="CARD">Karta</SelectItem>
+                  <SelectItem value="DEBT">Nasiya</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Mijoz ismi</Label>
+                <Input {...register('customerName')} placeholder="Ahmadjon" />
+              </div>
+              <div className="space-y-2">
+                <Label>Telefon</Label>
+                <Input {...register('customerPhone')} placeholder="+998901234567" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Sana *</Label>
+              <Input {...register('date')} type="date" />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Izoh</Label>
+              <Input {...register('description')} placeholder="Qo'shimcha ma'lumot..." />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Bekor qilish</Button>
+              <Button type="submit" loading={isSubmitting || createMutation.isPending || updateMutation.isPending}>
+                {editItem ? 'Saqlash' : "Qo'shish"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        title="Sotuvni o'chirishni tasdiqlang"
+        description="Ombor miqdori tiklanadi."
+        onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
+        loading={deleteMutation.isPending}
+      />
+    </div>
+  )
+}
