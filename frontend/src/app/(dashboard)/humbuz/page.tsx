@@ -76,7 +76,7 @@ export default function HumbuzPage() {
       setDialogOpen(false)
       reset({ date: new Date().toISOString().split('T')[0], kilnName: 'HUMBUZ_1' })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const updateMutation = useMutation({
@@ -88,7 +88,7 @@ export default function HumbuzPage() {
       setDialogOpen(false)
       reset()
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const deleteMutation = useMutation({
@@ -98,7 +98,7 @@ export default function HumbuzPage() {
       toast.success("Operatsiya o'chirildi")
       setDeleteId(null)
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const openEdit = (item: KilnOperation) => {
@@ -120,8 +120,8 @@ export default function HumbuzPage() {
   }
 
   const allOps = data?.data ?? []
-  const totalRawIn = allOps.reduce((s, x) => s + Number(x.rawBricksEntered), 0)
-  const totalBakedOut = allOps.reduce((s, x) => s + Number(x.bakedBricksOutput), 0)
+  const totalRawIn = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.rawBricksEntered), 0)
+  const totalBakedOut = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.bakedBricksOutput), 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: KilnOperation) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -193,7 +193,7 @@ export default function HumbuzPage() {
       </div>
 
       {/* Kiln tabs */}
-      <Tabs value={kilnFilter} onValueChange={(v) => { setKilnFilter(v as KilnName | 'ALL'); setPage(1) }}>
+      <Tabs value={kilnFilter} onValueChange={(v: string) => { setKilnFilter(v as KilnName | 'ALL'); setPage(1) }}>
         <TabsList>
           <TabsTrigger value="ALL">Barchasi</TabsTrigger>
           {KILNS.map((k) => (
@@ -232,7 +232,7 @@ export default function HumbuzPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Humbuz *</Label>
-                <Select defaultValue="HUMBUZ_1" onValueChange={(v) => setValue('kilnName', v as KilnName)}>
+                <Select defaultValue="HUMBUZ_1" onValueChange={(v: string) => setValue('kilnName', v as KilnName)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {KILNS.map((k) => <SelectItem key={k} value={k}>{kilnNameLabel(k)}</SelectItem>)}
@@ -261,7 +261,7 @@ export default function HumbuzPage() {
             {Number(rawBricksEntered) > 0 && (
               <div className="space-y-2">
                 <Label>Xom g&apos;isht manbai</Label>
-                <Select onValueChange={(v) => setValue('rawBrickSource', v as 'FIELD' | 'RESERVE')}>
+                <Select onValueChange={(v: string) => setValue('rawBrickSource', v as 'FIELD' | 'RESERVE')}>
                   <SelectTrigger><SelectValue placeholder="Manbani tanlang" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="FIELD">Daladan</SelectItem>

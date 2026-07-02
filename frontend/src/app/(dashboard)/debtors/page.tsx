@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Users, DollarSign, TrendingDown } from 'lucide-react'
+import { Plus, Users, Banknote, TrendingDown } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatCurrency, getErrorMessage } from '@/lib/utils'
-import type { Debtor } from '@/types'
+import type { Debtor, DebtPayment } from '@/types'
 
 const paymentSchema = z.object({
   amount: z.coerce.number().min(0.01, "Summa 0 dan katta bo'lishi kerak"),
@@ -77,19 +77,19 @@ export default function DebtorsPage() {
       setPaymentOpen(false)
       reset({ date: new Date().toISOString().split('T')[0] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const visibleDebtors = debtors
-    .filter((d) => showActive ? !d.isPaid : true)
-    .filter((d) =>
+    .filter((d: Debtor) => showActive ? !d.isPaid : true)
+    .filter((d: Debtor) =>
       d.fullName.toLowerCase().includes(search.toLowerCase()) ||
       (d.phone && d.phone.includes(search))
     )
 
-  const totalDebt = debtors.reduce((s, d) => s + Number(d.totalDebt), 0)
-  const totalPaid = debtors.reduce((s, d) => s + Number(d.paidAmount), 0)
-  const totalRemaining = debtors.reduce((s, d) => s + Number(d.remainingDebt), 0)
+  const totalDebt = debtors.reduce((s: number, d: Debtor) => s + Number(d.totalDebt), 0)
+  const totalPaid = debtors.reduce((s: number, d: Debtor) => s + Number(d.paidAmount), 0)
+  const totalRemaining = debtors.reduce((s: number, d: Debtor) => s + Number(d.remainingDebt), 0)
 
   return (
     <div className="space-y-6">
@@ -100,7 +100,7 @@ export default function DebtorsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatsCard title="Jami nasiya" value={totalDebt} icon={Users} color="amber" />
-        <StatsCard title="To'langan" value={totalPaid} icon={DollarSign} color="emerald" />
+        <StatsCard title="To'langan" value={totalPaid} icon={Banknote} color="emerald" />
         <StatsCard title="Qolgan qarz" value={totalRemaining} icon={TrendingDown} color="red" />
       </div>
 
@@ -133,7 +133,7 @@ export default function DebtorsPage() {
             <EmptyState icon={Users} title="Qarzdor yo'q" description="Nasiya sotuvlar bu yerda ko'rinadi" />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {visibleDebtors.map((debtor) => {
+              {visibleDebtors.map((debtor: Debtor) => {
                 const remaining = Number(debtor.remainingDebt)
                 const total = Number(debtor.totalDebt)
                 const paid = Number(debtor.paidAmount)
@@ -243,7 +243,7 @@ export default function DebtorsPage() {
             ) : payments.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">To&apos;lov yo&apos;q</p>
             ) : (
-              payments.map((p) => (
+              payments.map((p: DebtPayment) => (
                 <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
                   <div>
                     <p className="font-medium text-sm text-emerald-600 dark:text-emerald-400">

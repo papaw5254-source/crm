@@ -87,6 +87,8 @@ export default function IshchilarPage() {
       year: currentYear,
       debtFromPreviousMonth: 0,
       paidAmount: 0,
+      category: 'OTHER',
+      amount: 0,
     },
   })
 
@@ -102,9 +104,9 @@ export default function IshchilarPage() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success("Ishchi to'lovi qo'shildi")
       setDialogOpen(false)
-      reset({ date: new Date().toISOString().split('T')[0], month: currentMonth, year: currentYear, debtFromPreviousMonth: 0, paidAmount: 0 })
+      reset({ date: new Date().toISOString().split('T')[0], month: currentMonth, year: currentYear, debtFromPreviousMonth: 0, paidAmount: 0, category: 'OTHER', amount: 0 })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const updateMutation = useMutation({
@@ -116,7 +118,7 @@ export default function IshchilarPage() {
       setDialogOpen(false)
       reset()
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const deleteMutation = useMutation({
@@ -126,7 +128,7 @@ export default function IshchilarPage() {
       toast.success("To'lov o'chirildi")
       setDeleteId(null)
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const openEdit = (item: WorkerPayment) => {
@@ -144,9 +146,9 @@ export default function IshchilarPage() {
   }
 
   const allItems = data?.data ?? []
-  const totalAmount = allItems.reduce((s, x) => s + Number(x.amount), 0)
-  const totalPaid = allItems.reduce((s, x) => s + Number(x.paidAmount), 0)
-  const totalDebt = allItems.reduce((s, x) => s + Number(x.remainingDebt), 0)
+  const totalAmount = allItems.reduce((s: number, x: WorkerPayment) => s + Number(x.amount), 0)
+  const totalPaid = allItems.reduce((s: number, x: WorkerPayment) => s + Number(x.paidAmount), 0)
+  const totalDebt = allItems.reduce((s: number, x: WorkerPayment) => s + Number(x.remainingDebt), 0)
 
   const columns = [
     { key: 'worker', header: 'Ishchi', cell: (r: WorkerPayment) => <span className="font-medium">{r.workerName}</span> },
@@ -200,7 +202,7 @@ export default function IshchilarPage() {
         title="Ishchilar"
         description="Ishchi to'lovlari va qarz boshqaruvi"
         actions={
-          <Button onClick={() => { setEditItem(null); reset({ date: new Date().toISOString().split('T')[0], month: currentMonth, year: currentYear, debtFromPreviousMonth: 0, paidAmount: 0 }); setDialogOpen(true) }}>
+          <Button onClick={() => { setEditItem(null); reset({ date: new Date().toISOString().split('T')[0], month: currentMonth, year: currentYear, debtFromPreviousMonth: 0, paidAmount: 0, category: 'OTHER', amount: 0 }); setDialogOpen(true) }}>
             <Plus className="h-4 w-4 mr-1" /> To&apos;lov qo&apos;shish
           </Button>
         }
@@ -212,7 +214,7 @@ export default function IshchilarPage() {
         <StatsCard title="Jami qarz" value={totalDebt} icon={HardHat} color="red" />
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as 'list' | 'report')}>
+      <Tabs value={tab} onValueChange={(v: string) => setTab(v as 'list' | 'report')}>
         <TabsList>
           <TabsTrigger value="list">Ro&apos;yxat</TabsTrigger>
           <TabsTrigger value="report"><BarChart3 className="h-4 w-4 mr-1" />Oylik hisobot</TabsTrigger>
@@ -236,13 +238,13 @@ export default function IshchilarPage() {
 
         <TabsContent value="report" className="mt-4 space-y-4">
           <div className="flex gap-3 items-center">
-            <Select value={String(reportMonth)} onValueChange={(v) => setReportMonth(Number(v))}>
+            <Select value={String(reportMonth)} onValueChange={(v: string) => setReportMonth(Number(v))}>
               <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {MONTHS.map((m, i) => <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={String(reportYear)} onValueChange={(v) => setReportYear(Number(v))}>
+            <Select value={String(reportYear)} onValueChange={(v: string) => setReportYear(Number(v))}>
               <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[2023, 2024, 2025, 2026].map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
@@ -304,7 +306,7 @@ export default function IshchilarPage() {
               </div>
               <div className="space-y-2">
                 <Label>Kategoriya *</Label>
-                <Select defaultValue={editItem?.category ?? 'OTHER'} onValueChange={(v) => setValue('category', v)}>
+                <Select defaultValue={editItem?.category ?? 'OTHER'} onValueChange={(v: string) => setValue('category', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{workerPaymentCategoryLabel(c)}</SelectItem>)}
@@ -316,7 +318,7 @@ export default function IshchilarPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Oy</Label>
-                <Select defaultValue={String(editItem?.month ?? currentMonth)} onValueChange={(v) => setValue('month', Number(v))}>
+                <Select defaultValue={String(editItem?.month ?? currentMonth)} onValueChange={(v: string) => setValue('month', Number(v))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {MONTHS.map((m, i) => <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>)}
@@ -325,7 +327,7 @@ export default function IshchilarPage() {
               </div>
               <div className="space-y-2">
                 <Label>Yil</Label>
-                <Select defaultValue={String(editItem?.year ?? currentYear)} onValueChange={(v) => setValue('year', Number(v))}>
+                <Select defaultValue={String(editItem?.year ?? currentYear)} onValueChange={(v: string) => setValue('year', Number(v))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {[2023, 2024, 2025, 2026].map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}

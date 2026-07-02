@@ -214,8 +214,9 @@ export interface PrepaymentDelivery {
   id: string
   prepaymentId: string
   quantity: number
-  deliveredAt: string
-  notes?: string
+  date: string
+  deliveredAt?: string
+  description?: string
   createdBy?: User
 }
 

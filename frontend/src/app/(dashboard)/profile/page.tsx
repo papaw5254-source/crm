@@ -51,7 +51,7 @@ export default function ProfilePage() {
       await refreshUser()
       toast.success('Profil yangilandi')
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const changePasswordMutation = useMutation({
@@ -60,7 +60,7 @@ export default function ProfilePage() {
       toast.success('Parol muvaffaqiyatli o\'zgartirildi')
       passwordForm.reset()
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   return (

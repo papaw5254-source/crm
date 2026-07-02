@@ -21,16 +21,17 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
-import { formatDate, formatCurrency, paymentTypeLabel, paymentTypeColor, getErrorMessage } from '@/lib/utils'
+import { formatDate, formatCurrency, brickTypeLabel, brickTypeColor, paymentTypeLabel, paymentTypeColor, getErrorMessage } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
-import type { Sale, PaymentType } from '@/types'
+import type { Sale, PaymentType, BrickType } from '@/types'
 
 const schema = z.object({
+  brickType: z.enum(['RAW_BRICK', 'BAKED_BRICK']),
   quantity: z.coerce.number().min(1, 'Miqdor 1 dan katta bo\'lishi kerak'),
   pricePerBrick: z.coerce.number().min(0.01, 'Narx 0 dan katta bo\'lishi kerak'),
-  paymentType: z.enum(['CASH', 'CARD', 'DEBT']),
+  paymentType: z.enum(['CASH', 'CARD', 'DEBT', 'PREPAYMENT']),
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
   description: z.string().optional(),
@@ -58,7 +59,7 @@ export default function SalesPage() {
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { date: new Date().toISOString().split('T')[0], paymentType: 'CASH' },
+    defaultValues: { date: new Date().toISOString().split('T')[0], paymentType: 'CASH', brickType: 'BAKED_BRICK' },
   })
 
   const qty = watch('quantity')
@@ -76,7 +77,7 @@ export default function SalesPage() {
       setDialogOpen(false)
       reset({ date: new Date().toISOString().split('T')[0], paymentType: 'CASH' })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const updateMutation = useMutation({
@@ -89,7 +90,7 @@ export default function SalesPage() {
       setDialogOpen(false)
       reset()
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const deleteMutation = useMutation({
@@ -100,11 +101,12 @@ export default function SalesPage() {
       toast.success('Sotuv o\'chirildi')
       setDeleteId(null)
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const openEdit = (item: Sale) => {
     setEditItem(item)
+    setValue('brickType', (item.brickType ?? 'BAKED_BRICK') as BrickType)
     setValue('quantity', item.quantity)
     setValue('pricePerBrick', Number(item.pricePerBrick))
     setValue('paymentType', item.paymentType)
@@ -122,14 +124,23 @@ export default function SalesPage() {
 
   const filteredData = paymentTypeFilter === 'ALL'
     ? data?.data ?? []
-    : (data?.data ?? []).filter((s) => s.paymentType === paymentTypeFilter)
+    : (data?.data ?? []).filter((s: Sale) => s.paymentType === paymentTypeFilter)
 
-  const totalAmount = (data?.data ?? []).reduce((s, x) => s + Number(x.totalAmount), 0)
-  const totalQty = (data?.data ?? []).reduce((s, x) => s + x.quantity, 0)
+  const totalAmount = (data?.data ?? []).reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0)
+  const totalQty = (data?.data ?? []).reduce((s: number, x: Sale) => s + x.quantity, 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: Sale) => <span className="font-medium">{formatDate(r.date)}</span> },
     { key: 'customer', header: 'Mijoz', cell: (r: Sale) => <span>{r.customerName || "Noma'lum"}</span> },
+    {
+      key: 'brickType',
+      header: "G'isht turi",
+      cell: (r: Sale) => (
+        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${brickTypeColor(r.brickType ?? 'BAKED_BRICK')}`}>
+          {brickTypeLabel(r.brickType ?? 'BAKED_BRICK')}
+        </span>
+      ),
+    },
     { key: 'qty', header: 'Miqdor', cell: (r: Sale) => <span className="font-medium">{r.quantity.toLocaleString()} dona</span> },
     { key: 'price', header: 'Narx', cell: (r: Sale) => <span>{formatCurrency(Number(r.pricePerBrick))}</span> },
     { key: 'total', header: 'Jami', cell: (r: Sale) => <span className="font-semibold text-primary">{formatCurrency(Number(r.totalAmount))}</span> },
@@ -211,6 +222,21 @@ export default function SalesPage() {
             <DialogTitle>{editItem ? 'Sotuvni tahrirlash' : "Sotuv qo'shish"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label>G&apos;isht turi *</Label>
+              <Select
+                defaultValue={editItem?.brickType ?? 'BAKED_BRICK'}
+                key={editItem?.id ?? 'new'}
+                onValueChange={(v: string) => setValue('brickType', v as BrickType)}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BAKED_BRICK">Pishgan g&apos;isht</SelectItem>
+                  <SelectItem value="RAW_BRICK">Xom g&apos;isht</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Miqdor (dona) *</Label>
@@ -235,7 +261,7 @@ export default function SalesPage() {
               <Label>To&apos;lov turi *</Label>
               <Select
                 defaultValue="CASH"
-                onValueChange={(v) => setValue('paymentType', v as PaymentType)}
+                onValueChange={(v: string) => setValue('paymentType', v as PaymentType)}
               >
                 <SelectTrigger>
                   <SelectValue />

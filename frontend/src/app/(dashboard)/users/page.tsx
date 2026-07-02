@@ -76,7 +76,7 @@ export default function UsersPage() {
       setCreateOpen(false)
       createForm.reset()
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const updateMutation = useMutation({
@@ -86,7 +86,7 @@ export default function UsersPage() {
       toast.success('Foydalanuvchi yangilandi')
       setEditItem(null)
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const deleteMutation = useMutation({
@@ -96,7 +96,7 @@ export default function UsersPage() {
       toast.success("Foydalanuvchi o'chirildi")
       setDeleteId(null)
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const openEdit = (u: User) => {
@@ -232,7 +232,7 @@ export default function UsersPage() {
             </div>
             <div className="space-y-2">
               <Label>Rol *</Label>
-              <Select defaultValue="EMPLOYEE" onValueChange={(v) => createForm.setValue('role', v as UserRole)}>
+              <Select defaultValue="EMPLOYEE" onValueChange={(v: string) => createForm.setValue('role', v as UserRole)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="EMPLOYEE">Xodim</SelectItem>
@@ -249,7 +249,7 @@ export default function UsersPage() {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editItem} onOpenChange={(o) => !o && setEditItem(null)}>
+      <Dialog open={!!editItem} onOpenChange={(o: boolean) => !o && setEditItem(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Foydalanuvchini tahrirlash — {editItem?.username}</DialogTitle>
@@ -264,7 +264,7 @@ export default function UsersPage() {
               <Label>Rol *</Label>
               <Select
                 value={editForm.watch('role')}
-                onValueChange={(v) => editForm.setValue('role', v as UserRole)}
+                onValueChange={(v: string) => editForm.setValue('role', v as UserRole)}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -277,7 +277,7 @@ export default function UsersPage() {
               <Label>Holat</Label>
               <Select
                 value={editForm.watch('isActive') ? 'true' : 'false'}
-                onValueChange={(v) => editForm.setValue('isActive', v === 'true')}
+                onValueChange={(v: string) => editForm.setValue('isActive', v === 'true')}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, DollarSign, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Banknote, Pencil, Trash2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -75,7 +75,7 @@ export default function KirimlarPage() {
       setDialogOpen(false)
       reset({ date: new Date().toISOString().split('T')[0], source: 'OTHER' })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const updateMutation = useMutation({
@@ -87,7 +87,7 @@ export default function KirimlarPage() {
       setDialogOpen(false)
       reset()
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const deleteMutation = useMutation({
@@ -97,7 +97,7 @@ export default function KirimlarPage() {
       toast.success("Kirim o'chirildi")
       setDeleteId(null)
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const openEdit = (item: MoneyIncome) => {
@@ -110,7 +110,7 @@ export default function KirimlarPage() {
     setDialogOpen(true)
   }
 
-  const totalAmount = (data?.data ?? []).reduce((s, x) => s + Number(x.amount), 0)
+  const totalAmount = (data?.data ?? []).reduce((s: number, x: MoneyIncome) => s + Number(x.amount), 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: MoneyIncome) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -161,8 +161,8 @@ export default function KirimlarPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatsCard title="Jami kirimlar" value={data?.meta.total ?? 0} icon={DollarSign} color="emerald" format="number" suffix="ta" />
-        <StatsCard title="Jami summa" value={totalAmount} icon={DollarSign} color="blue" />
+        <StatsCard title="Jami kirimlar" value={data?.meta.total ?? 0} icon={Banknote} color="emerald" format="number" suffix="ta" />
+        <StatsCard title="Jami summa" value={totalAmount} icon={Banknote} color="blue" />
       </div>
 
       {/* Source filter chips */}
@@ -194,7 +194,7 @@ export default function KirimlarPage() {
         <CardContent className="p-4 space-y-4">
           <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Kimdan yoki izoh bo'yicha..." className="max-w-sm" />
           {(data?.data ?? []).length === 0 && !isLoading ? (
-            <EmptyState icon={DollarSign} title="Kirim yo'q" description="Birinchi kirimni qo'shing" action={<Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />Kirim qo&apos;shish</Button>} />
+            <EmptyState icon={Banknote} title="Kirim yo'q" description="Birinchi kirimni qo'shing" action={<Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />Kirim qo&apos;shish</Button>} />
           ) : (
             <>
               <DataTable columns={columns} data={data?.data ?? []} loading={isLoading} />
@@ -218,7 +218,7 @@ export default function KirimlarPage() {
               </div>
               <div className="space-y-2">
                 <Label>Manba *</Label>
-                <Select defaultValue={editItem?.source ?? 'OTHER'} onValueChange={(v) => setValue('source', v as MoneyIncomeSource)}>
+                <Select defaultValue={editItem?.source ?? 'OTHER'} onValueChange={(v: string) => setValue('source', v as MoneyIncomeSource)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {SOURCES.map((s) => <SelectItem key={s} value={s}>{moneyIncomeSourceLabel(s)}</SelectItem>)}

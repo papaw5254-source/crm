@@ -32,7 +32,7 @@ export const prepaymentsService = {
     return res.data.data
   },
 
-  async update(id: string, data: Partial<CreatePrepaymentDto>): Promise<Prepayment> {
+  async update(id: string, data: Partial<CreatePrepaymentDto> & { status?: string }): Promise<Prepayment> {
     const res = await api.patch(`/prepayments/${id}`, data)
     return res.data.data
   },

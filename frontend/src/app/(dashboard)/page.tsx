@@ -5,7 +5,7 @@ import {
   Package,
   TrendingUp,
   TrendingDown,
-  DollarSign,
+  Banknote,
   Calendar,
   BarChart3,
   AlertCircle,
@@ -17,13 +17,13 @@ import {
 } from 'lucide-react'
 import {
   AreaChart,
-  Area,
+  Area as AreaC,
   BarChart,
-  Bar,
-  XAxis,
-  YAxis,
+  Bar as BarC,
+  XAxis as XAxisC,
+  YAxis as YAxisC,
   CartesianGrid,
-  Tooltip,
+  Tooltip as TooltipC,
   ResponsiveContainer,
 } from 'recharts'
 import { reportsService } from '@/services/reports.service'
@@ -33,6 +33,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency, formatDate, paymentTypeLabel, paymentTypeColor } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
+import type { Sale, Expense } from '@/types'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const [Area, Bar, XAxis, YAxis, Tooltip] = [AreaC, BarC, XAxisC, YAxisC, TooltipC].map((C) => C as unknown as any)
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -47,7 +51,7 @@ export default function DashboardPage() {
   const salesChartData = dashboard?.recentSales
     ?.slice()
     .reverse()
-    .map((sale) => ({
+    .map((sale: Sale) => ({
       date: formatDate(sale.date, 'dd.MM'),
       amount: Number(sale.totalAmount),
     })) ?? []
@@ -55,7 +59,7 @@ export default function DashboardPage() {
   const expenseChartData = dashboard?.recentExpenses
     ?.slice()
     .reverse()
-    .map((exp) => ({
+    .map((exp: Expense) => ({
       date: formatDate(exp.date, 'dd.MM'),
       amount: Number(exp.amount),
     })) ?? []
@@ -114,7 +118,7 @@ export default function DashboardPage() {
       <div>
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Moliyaviy ko&apos;rsatkichlar</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          <StatsCard title="Bugungi tushum" value={dashboard?.todayCashReceived ?? 0} icon={DollarSign} color="emerald" loading={isLoading} />
+          <StatsCard title="Bugungi tushum" value={dashboard?.todayCashReceived ?? 0} icon={Banknote} color="emerald" loading={isLoading} />
           <StatsCard title="Bugungi xarajat" value={dashboard?.todayExpenses ?? 0} icon={TrendingDown} color="red" loading={isLoading} />
           <StatsCard title="Bugungi foyda" value={dashboard?.todayProfit ?? 0} icon={TrendingUp} color={(dashboard?.todayProfit ?? 0) >= 0 ? 'emerald' : 'red'} loading={isLoading} />
           <StatsCard title="Oylik foyda" value={dashboard?.monthlyProfit ?? 0} icon={Calendar} color="purple" loading={isLoading} />
@@ -195,7 +199,7 @@ export default function DashboardPage() {
             {isLoading
               ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
               : (dashboard?.recentSales?.length ?? 0) > 0
-                ? dashboard!.recentSales.map((sale) => (
+                ? dashboard!.recentSales.map((sale: Sale) => (
                     <div key={sale.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
                       <div>
                         <p className="font-medium text-sm">{sale.customerName || "Noma'lum mijoz"}</p>
@@ -224,7 +228,7 @@ export default function DashboardPage() {
             {isLoading
               ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
               : (dashboard?.recentExpenses?.length ?? 0) > 0
-                ? dashboard!.recentExpenses.map((expense) => (
+                ? dashboard!.recentExpenses.map((expense: Expense) => (
                     <div key={expense.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
                       <div>
                         <p className="font-medium text-sm">{expense.description || expense.category}</p>

@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3001",
-    "build": "node --max-old-space-size=4096 node_modules/next/dist/bin/next build",
+    "dev": "set \"NODE_PATH=%CD%\\node_modules\" && node --max-old-space-size=6144 node_modules/next/dist/bin/next dev --port 3001",
+    "build": "set \"NODE_PATH=%CD%\\node_modules\" && node --max-old-space-size=6144 node_modules/next/dist/bin/next build",
     "start": "next start --port 3001",
     "lint": "next lint"
   },

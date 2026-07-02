@@ -2,6 +2,7 @@ import { api } from './api'
 import type { Sale, PaginatedResponse, PaginationParams, PaymentType } from '@/types'
 
 export interface CreateSaleDto {
+  brickType?: string
   quantity: number
   pricePerBrick: number
   paymentType: PaymentType
@@ -9,10 +10,11 @@ export interface CreateSaleDto {
   customerPhone?: string
   description?: string
   date: string
+  isReserveSale?: boolean
 }
 
 export const salesService = {
-  async getAll(params?: PaginationParams): Promise<PaginatedResponse<Sale>> {
+  async getAll(params?: PaginationParams & { isReserveSale?: boolean }): Promise<PaginatedResponse<Sale>> {
     const res = await api.get('/sales', { params })
     return res.data.data
   },

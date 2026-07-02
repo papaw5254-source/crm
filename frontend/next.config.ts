@@ -13,10 +13,10 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     workerThreads: false,
+    cpus: 1,
+    webpackMemoryOptimizations: true,
   },
   webpack: (config) => {
-    // Prevent webpack from resolving junctions to their real D: paths,
-    // which would create invalid cross-drive relative paths.
     config.resolve.symlinks = false
     return config
   },

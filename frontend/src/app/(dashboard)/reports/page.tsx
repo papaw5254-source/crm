@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, TrendingUp, TrendingDown, DollarSign, Package, Warehouse, ArrowUp, ArrowDown } from 'lucide-react'
+import { BarChart3, TrendingUp, TrendingDown, Banknote, Package, Warehouse, ArrowUp, ArrowDown } from 'lucide-react'
 import {
-  AreaChart, Area, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  PieChart, Pie, Cell,
+  AreaChart, Area as AreaC, BarChart, Bar as BarC,
+  XAxis as XAxisC, YAxis as YAxisC, CartesianGrid, Tooltip as TooltipC,
+  ResponsiveContainer, Legend as LegendC, PieChart, Pie as PieC, Cell,
 } from 'recharts'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const [Area, Bar, XAxis, YAxis, Tooltip, Legend, Pie] = [AreaC, BarC, XAxisC, YAxisC, TooltipC, LegendC, PieC].map((C) => C as unknown as any)
 import { reportsService } from '@/services/reports.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
@@ -18,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency, formatDate, formatNumber, expenseCategoryLabel } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
+import type { DayData, MonthData, Debtor } from '@/types'
 
 function ChartSkeleton() {
   return <Skeleton className="h-64 w-full" />
@@ -80,7 +83,7 @@ export default function ReportsPage() {
   })
 
   const monthlyChartData = monthly?.groupedByDay
-    ? Object.entries(monthly.groupedByDay).map(([date, d]) => ({
+    ? (Object.entries(monthly.groupedByDay) as [string, DayData][]).map(([date, d]) => ({
         date: formatDate(date, 'dd.MM'),
         savdo: Number(d.salesAmount),
         xarajat: Number(d.expenses),
@@ -89,7 +92,7 @@ export default function ReportsPage() {
     : []
 
   const yearlyChartData = yearly?.groupedByMonth
-    ? Object.entries(yearly.groupedByMonth).map(([key, m]) => ({
+    ? (Object.entries(yearly.groupedByMonth) as [string, MonthData][]).map(([key, m]) => ({
         oy: `${key.split('-')[1]}-oy`,
         savdo: Number(m.salesAmount),
         xarajat: Number(m.expenses),
@@ -133,7 +136,7 @@ export default function ReportsPage() {
             <>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatsCard title="Jami sotuv" value={Number(daily?.totalSalesAmount ?? 0)} icon={TrendingUp} color="emerald" />
-                <StatsCard title="Naqd tushum" value={Number(daily?.receivedCash ?? 0)} icon={DollarSign} color="blue" />
+                <StatsCard title="Naqd tushum" value={Number(daily?.receivedCash ?? 0)} icon={Banknote} color="blue" />
                 <StatsCard title="Xarajatlar" value={Number(daily?.totalExpenses ?? 0)} icon={TrendingDown} color="red" />
                 <StatsCard title="Sof foyda" value={Number(daily?.netProfit ?? 0)} icon={BarChart3} color={Number(daily?.netProfit ?? 0) >= 0 ? 'emerald' : 'red'} />
               </div>
@@ -175,7 +178,7 @@ export default function ReportsPage() {
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <StatsCard title="Jami sotuv" value={Number(monthly?.totalSalesAmount ?? 0)} icon={TrendingUp} color="emerald" />
-              <StatsCard title="Naqd tushum" value={Number(monthly?.cashReceived ?? 0)} icon={DollarSign} color="blue" />
+              <StatsCard title="Naqd tushum" value={Number(monthly?.cashReceived ?? 0)} icon={Banknote} color="blue" />
               <StatsCard title="Xarajatlar" value={Number(monthly?.totalExpenses ?? 0)} icon={TrendingDown} color="red" />
               <StatsCard title="Sof foyda" value={Number(monthly?.netProfit ?? 0)} icon={BarChart3} color={Number(monthly?.netProfit ?? 0) >= 0 ? 'emerald' : 'red'} />
             </div>
@@ -216,7 +219,7 @@ export default function ReportsPage() {
                 {monthlyLoading ? <ChartSkeleton /> : expensePieData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={260}>
                     <PieChart>
-                      <Pie data={expensePieData} cx="50%" cy="50%" outerRadius={90} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                      <Pie data={expensePieData} cx="50%" cy="50%" outerRadius={90} dataKey="value" label={({ name, percent }: { name: string; percent: number }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
                         {expensePieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                       </Pie>
                       <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ borderRadius: '12px' }} />
@@ -243,7 +246,7 @@ export default function ReportsPage() {
             ) : (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatsCard title="Jami sotuv" value={Number(yearly?.totalSalesAmount ?? 0)} icon={TrendingUp} color="emerald" />
-                <StatsCard title="Naqd tushum" value={Number(yearly?.cashReceived ?? 0)} icon={DollarSign} color="blue" />
+                <StatsCard title="Naqd tushum" value={Number(yearly?.cashReceived ?? 0)} icon={Banknote} color="blue" />
                 <StatsCard title="Xarajatlar" value={Number(yearly?.totalExpenses ?? 0)} icon={TrendingDown} color="red" />
                 <StatsCard title="Sof foyda" value={Number(yearly?.netProfit ?? 0)} icon={BarChart3} color={Number(yearly?.netProfit ?? 0) >= 0 ? 'emerald' : 'red'} />
               </div>
@@ -324,7 +327,7 @@ export default function ReportsPage() {
               <CardHeader className="pb-2"><CardTitle className="text-base">To&apos;lanmagan qarzlar</CardTitle></CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
-                  {debts!.unpaidDebtors.map((d) => (
+                  {debts!.unpaidDebtors.map((d: Debtor) => (
                     <div key={d.id} className="flex items-center justify-between px-4 py-3">
                       <div>
                         <p className="font-medium text-sm">{d.fullName}</p>
@@ -359,7 +362,7 @@ export default function ReportsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <StatsCard title="Jami kirim" value={cashflow.totalInflows} icon={ArrowUp} color="emerald" />
                 <StatsCard title="Jami chiqim" value={cashflow.totalOutflows} icon={ArrowDown} color="red" />
-                <StatsCard title="Sof pul oqimi" value={cashflow.netCashflow} icon={DollarSign} color={cashflow.netCashflow >= 0 ? 'emerald' : 'red'} />
+                <StatsCard title="Sof pul oqimi" value={cashflow.netCashflow} icon={Banknote} color={cashflow.netCashflow >= 0 ? 'emerald' : 'red'} />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

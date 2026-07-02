@@ -71,7 +71,7 @@ export default function InventoryPage() {
       setDialogOpen(false)
       reset({ date: new Date().toISOString().split('T')[0] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const updateMutation = useMutation({
@@ -84,7 +84,7 @@ export default function InventoryPage() {
       setDialogOpen(false)
       reset()
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const deleteMutation = useMutation({
@@ -95,7 +95,7 @@ export default function InventoryPage() {
       toast.success("Kirim o'chirildi")
       setDeleteId(null)
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const openEdit = (item: InventoryIncome) => {

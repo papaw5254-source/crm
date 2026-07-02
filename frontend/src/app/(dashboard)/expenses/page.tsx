@@ -78,7 +78,7 @@ export default function ExpensesPage() {
       setDialogOpen(false)
       reset({ date: new Date().toISOString().split('T')[0], category: 'OTHER' })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const updateMutation = useMutation({
@@ -90,7 +90,7 @@ export default function ExpensesPage() {
       setDialogOpen(false)
       reset()
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const deleteMutation = useMutation({
@@ -100,7 +100,7 @@ export default function ExpensesPage() {
       toast.success("Xarajat o'chirildi")
       setDeleteId(null)
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const openEdit = (item: Expense) => {
@@ -112,7 +112,7 @@ export default function ExpensesPage() {
     setDialogOpen(true)
   }
 
-  const totalAmount = (data?.data ?? []).reduce((s, x) => s + Number(x.amount), 0)
+  const totalAmount = (data?.data ?? []).reduce((s: number, x: Expense) => s + Number(x.amount), 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: Expense) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -219,7 +219,7 @@ export default function ExpensesPage() {
             </div>
             <div className="space-y-2">
               <Label>Kategoriya *</Label>
-              <Select defaultValue={editItem?.category ?? 'OTHER'} onValueChange={(v) => setValue('category', v)}>
+              <Select defaultValue={editItem?.category ?? 'OTHER'} onValueChange={(v: string) => setValue('category', v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {ALL_CATEGORIES.map((cat) => (
