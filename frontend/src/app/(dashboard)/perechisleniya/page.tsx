@@ -111,7 +111,7 @@ export default function PerechisleniyaPage() {
           title="Jami firmalar"
           value={totalFirms}
           icon={Building2}
-          color="indigo"
+          color="purple"
           format="number"
           suffix="ta"
         />

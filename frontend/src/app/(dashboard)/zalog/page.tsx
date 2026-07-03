@@ -30,7 +30,7 @@ import type { Prepayment, PrepaymentDelivery, PrepaymentStatus, BrickType } from
 const today = () => new Date().toISOString().split('T')[0]
 
 const createSchema = z.object({
-  customerName: z.string().min(1, 'Mijoz ismi kiritilishi shart'),
+  customerName: z.string().optional(),
   customerPhone: z.string().optional(),
   brickType: z.enum(['RAW_BRICK', 'BAKED_BRICK']),
   quantity: z.coerce.number().min(1, "Miqdor 0 dan katta bo'lishi kerak"),
@@ -305,11 +305,8 @@ export default function ZalogPage() {
           <form onSubmit={createForm.handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Mijoz ismi *</Label>
+                <Label>Mijoz ismi</Label>
                 <Input {...createForm.register('customerName')} placeholder="Ahmadjon" />
-                {createForm.formState.errors.customerName && (
-                  <p className="text-destructive text-xs">{createForm.formState.errors.customerName.message}</p>
-                )}
               </div>
               <div className="space-y-2">
                 <Label>Telefon</Label>

@@ -12,9 +12,10 @@ import {
 import { BrickType } from '../../../common/enums/brick-type.enum';
 
 export class CreatePrepaymentDto {
-  @ApiProperty({ example: 'Ahmadjon Toshmatov' })
+  @ApiPropertyOptional({ example: 'Ahmadjon Toshmatov' })
+  @IsOptional()
   @IsString()
-  customerName: string;
+  customerName?: string;
 
   @ApiPropertyOptional({ example: '+998901234567' })
   @IsOptional()

@@ -156,7 +156,6 @@ export default function HumbuzPage() {
         </span>
       ),
     },
-    { key: 'worker', header: 'Ishchi', cell: (r: KilnOperation) => <span className="text-sm text-muted-foreground">{r.responsibleWorker || '—'}</span> },
     { key: 'desc', header: 'Izoh', cell: (r: KilnOperation) => <span className="text-sm text-muted-foreground">{r.description || '—'}</span> },
     {
       key: 'actions',
@@ -274,11 +273,6 @@ export default function HumbuzPage() {
                 </p>
               </div>
             )}
-
-            <div className="space-y-2">
-              <Label>Mas&apos;ul ishchi</Label>
-              <Input {...register('responsibleWorker')} placeholder="Ishchi ismi" />
-            </div>
 
             <div className="space-y-2">
               <Label>Izoh</Label>
