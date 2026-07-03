@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { BrickType } from '../../../common/enums/brick-type.enum';
 
 export class CreateInventoryIncomeDto {
@@ -21,4 +21,16 @@ export class CreateInventoryIncomeDto {
   @ApiProperty({ example: '2024-01-15' })
   @IsDateString()
   date: string;
+
+  @ApiPropertyOptional({ example: 30 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  workerRatePerBrick?: number;
+
+  @ApiPropertyOptional({ example: 150000 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  workerPaidAmount?: number;
 }

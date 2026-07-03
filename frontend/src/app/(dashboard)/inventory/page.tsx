@@ -21,7 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
-import { formatDate, formatNumber, getErrorMessage } from '@/lib/utils'
+import { formatDate, formatNumber, formatCurrency, getErrorMessage } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
@@ -31,6 +31,8 @@ const schema = z.object({
   quantity: z.coerce.number().min(1, "Miqdor 1 dan katta bo'lishi kerak"),
   description: z.string().optional(),
   date: z.string().min(1, "Sana kiritilishi shart"),
+  workerRatePerBrick: z.coerce.number().min(0).optional(),
+  workerPaidAmount: z.coerce.number().min(0).optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -56,10 +58,16 @@ export default function InventoryPage() {
     queryFn: stockService.getStock,
   })
 
-  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { date: new Date().toISOString().split('T')[0] },
   })
+
+  const watchedQty = watch('quantity') || 0
+  const watchedRate = watch('workerRatePerBrick') || 0
+  const watchedPaid = watch('workerPaidAmount') || 0
+  const totalWorkerCost = watchedQty * watchedRate
+  const workerDebt = totalWorkerCost - watchedPaid
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => inventoryService.create(data),
@@ -131,6 +139,19 @@ export default function InventoryPage() {
       cell: (row: InventoryIncome) => (
         <span className="font-semibold text-primary">{formatNumber(row.quantity)}</span>
       ),
+    },
+    {
+      key: 'workerCost',
+      header: 'Ishchi puli',
+      cell: (row: InventoryIncome) => row.totalWorkerCost ? (
+        <div className="text-sm">
+          <div className="font-medium">{formatCurrency(Number(row.totalWorkerCost))}</div>
+          <div className="text-xs text-muted-foreground">
+            <span className="text-emerald-600">Berildi: {formatCurrency(Number(row.workerPaidAmount ?? 0))}</span>
+            {Number(row.workerDebt) > 0 && <span className="text-red-500 ml-1">Qarz: {formatCurrency(Number(row.workerDebt))}</span>}
+          </div>
+        </div>
+      ) : <span className="text-muted-foreground">—</span>,
     },
     {
       key: 'description',
@@ -245,16 +266,49 @@ export default function InventoryPage() {
             <DialogTitle>{editItem ? 'Kirimni tahrirlash' : "Kirim qo'shish"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Miqdor (dona) *</Label>
-              <Input {...register('quantity')} type="number" placeholder="5000" />
-              {errors.quantity && <p className="text-destructive text-xs">{errors.quantity.message}</p>}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Miqdor (dona) *</Label>
+                <Input {...register('quantity')} type="number" placeholder="10000" />
+                {errors.quantity && <p className="text-destructive text-xs">{errors.quantity.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Sana *</Label>
+                <Input {...register('date')} type="date" />
+                {errors.date && <p className="text-destructive text-xs">{errors.date.message}</p>}
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Sana *</Label>
-              <Input {...register('date')} type="date" />
-              {errors.date && <p className="text-destructive text-xs">{errors.date.message}</p>}
+
+            <div className="rounded-lg border border-dashed p-3 space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (ixtiyoriy)</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>1 dona uchun narx (so&apos;m)</Label>
+                  <Input {...register('workerRatePerBrick')} type="number" placeholder="30" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Bugun berildi (so&apos;m)</Label>
+                  <Input {...register('workerPaidAmount')} type="number" placeholder="0" />
+                </div>
+              </div>
+              {totalWorkerCost > 0 && (
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div className="rounded-md bg-muted px-3 py-2 text-center">
+                    <div className="text-xs text-muted-foreground">Jami ishchi puli</div>
+                    <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
+                  </div>
+                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
+                    <div className="text-xs text-muted-foreground">Berildi</div>
+                    <div className="font-semibold text-emerald-600">{formatCurrency(watchedPaid)}</div>
+                  </div>
+                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
+                    <div className="text-xs text-muted-foreground">Zavod qarzi</div>
+                    <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, workerDebt))}</div>
+                  </div>
+                </div>
+              )}
             </div>
+
             <div className="space-y-2">
               <Label>Izoh</Label>
               <Input {...register('description')} placeholder="Kunlik ishlab chiqarish..." />

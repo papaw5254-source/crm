@@ -67,6 +67,10 @@ export interface InventoryIncome {
   brickType?: BrickType
   description?: string
   date: string
+  workerRatePerBrick?: number
+  totalWorkerCost?: number
+  workerPaidAmount?: number
+  workerDebt?: number
   createdById?: string
   createdBy?: User
   createdAt: string

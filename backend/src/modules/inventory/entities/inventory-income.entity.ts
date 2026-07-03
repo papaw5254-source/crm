@@ -26,6 +26,18 @@ export class InventoryIncome {
   @Column({ type: 'date' })
   date: string;
 
+  @Column({ name: 'worker_rate_per_brick', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  workerRatePerBrick: number;
+
+  @Column({ name: 'total_worker_cost', type: 'decimal', precision: 14, scale: 2, nullable: true })
+  totalWorkerCost: number;
+
+  @Column({ name: 'worker_paid_amount', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  workerPaidAmount: number;
+
+  @Column({ name: 'worker_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  workerDebt: number;
+
   @ManyToOne(() => User, { nullable: true, eager: false })
   createdBy: User;
 

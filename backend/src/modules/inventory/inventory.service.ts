@@ -3,8 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { BrickType } from '../../common/enums/brick-type.enum';
+import { WorkerPaymentCategory } from '../../common/enums/worker-payment-category.enum';
 import { StockMovementType } from '../../common/enums/stock-movement-type.enum';
 import { StockService } from '../stock/stock.service';
+import { WorkerPayment } from '../worker-payments/entities/worker-payment.entity';
 import { CreateInventoryIncomeDto } from './dto/create-inventory-income.dto';
 import { UpdateInventoryIncomeDto } from './dto/update-inventory-income.dto';
 import { InventoryIncome } from './entities/inventory-income.entity';
@@ -14,14 +16,42 @@ export class InventoryService {
   constructor(
     @InjectRepository(InventoryIncome)
     private readonly inventoryIncomeRepository: Repository<InventoryIncome>,
+    @InjectRepository(WorkerPayment)
+    private readonly workerPaymentRepository: Repository<WorkerPayment>,
     private readonly stockService: StockService,
   ) {}
 
   async create(createDto: CreateInventoryIncomeDto, userId: string): Promise<InventoryIncome> {
     const brickType = createDto.brickType || BrickType.BAKED_BRICK;
+
+    let totalWorkerCost: number | null = null;
+    let workerDebt: number | null = null;
+
+    if (createDto.workerRatePerBrick) {
+      totalWorkerCost = createDto.quantity * createDto.workerRatePerBrick;
+      const paid = createDto.workerPaidAmount || 0;
+      workerDebt = totalWorkerCost - paid;
+
+      await this.workerPaymentRepository.save(
+        this.workerPaymentRepository.create({
+          workerName: 'Ishchilar (press)',
+          category: WorkerPaymentCategory.PRESS,
+          amount: totalWorkerCost,
+          paidAmount: paid,
+          remainingDebt: workerDebt,
+          date: createDto.date,
+          description: `${createDto.quantity} dona xom g'isht (${createDto.workerRatePerBrick} so'm/dona)`,
+          createdById: userId,
+        }),
+      );
+    }
+
     const income = this.inventoryIncomeRepository.create({
       ...createDto,
       brickType,
+      totalWorkerCost,
+      workerPaidAmount: createDto.workerPaidAmount || 0,
+      workerDebt,
       createdById: userId,
     });
     const saved = await this.inventoryIncomeRepository.save(income);

@@ -12,7 +12,7 @@ export const inventoryService = {
     return res.data.data
   },
 
-  async create(data: { quantity: number; description?: string; date: string }): Promise<InventoryIncome> {
+  async create(data: { quantity: number; description?: string; date: string; workerRatePerBrick?: number; workerPaidAmount?: number }): Promise<InventoryIncome> {
     const res = await api.post('/inventory/income', data)
     return res.data.data
   },
