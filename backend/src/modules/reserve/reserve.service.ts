@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -32,8 +33,8 @@ export class ReserveService {
     const rawBalance = await this.getCurrentBalance(BrickType.RAW_BRICK);
     const bakedBalance = await this.getCurrentBalance(BrickType.BAKED_BRICK);
     return {
-      rawBrick: rawBalance,
-      bakedBrick: bakedBalance,
+      [BrickType.RAW_BRICK]: rawBalance,
+      [BrickType.BAKED_BRICK]: bakedBalance,
     };
   }
 
@@ -108,6 +109,28 @@ export class ReserveService {
 
     const [data, total] = await qb.getManyAndCount();
     return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async deleteMovement(id: string): Promise<void> {
+    const movement = await this.reserveMovementRepository.findOne({ where: { id } });
+    if (!movement) throw new NotFoundException('Movement not found');
+
+    const { brickType } = movement;
+    await this.reserveMovementRepository.remove(movement);
+
+    const allMovements = await this.reserveMovementRepository.find({
+      where: { brickType },
+      order: { createdAt: 'ASC' },
+    });
+
+    let balance = 0;
+    for (const m of allMovements) {
+      const delta = m.newQuantity - m.previousQuantity;
+      m.previousQuantity = balance;
+      m.newQuantity = balance + delta;
+      balance = m.newQuantity;
+      await this.reserveMovementRepository.save(m);
+    }
   }
 
   async getReport(dateFrom?: string, dateTo?: string) {

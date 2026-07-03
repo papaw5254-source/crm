@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -27,6 +27,12 @@ export class ReserveController {
   @ApiOperation({ summary: 'Zaxira harakatlar tarixini olish' })
   findAll(@Query() paginationDto: PaginationDto) {
     return this.reserveService.findAll(paginationDto);
+  }
+
+  @Delete('movements/:id')
+  @ApiOperation({ summary: 'Zaxira harakatini ochirish' })
+  deleteMovement(@Param('id') id: string) {
+    return this.reserveService.deleteMovement(id);
   }
 
   @Get('balance')
