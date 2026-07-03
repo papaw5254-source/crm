@@ -13,6 +13,8 @@ import { StockMovementType } from '../../common/enums/stock-movement-type.enum';
 import { StockMovement } from '../stock/entities/stock-movement.entity';
 import { Stock } from '../stock/entities/stock.entity';
 import { ReserveMovement } from '../reserve/entities/reserve-movement.entity';
+import { WorkerPaymentCategory } from '../../common/enums/worker-payment-category.enum';
+import { WorkerPayment } from '../worker-payments/entities/worker-payment.entity';
 import { CreateKilnOperationDto } from './dto/create-kiln-operation.dto';
 import { UpdateKilnOperationDto } from './dto/update-kiln-operation.dto';
 import { KilnOperation } from './entities/kiln-operation.entity';
@@ -36,6 +38,29 @@ export class KilnService {
     return await this.dataSource.transaction(async (manager) => {
       const operation = manager.create(KilnOperation, { ...dto, rawBricksEntered: rawEntered, bakedBricksOutput: bakedOutput, createdById: userId });
       const saved = await manager.save(KilnOperation, operation);
+
+      if (dto.workerRatePerBrick && dto.workerRatePerBrick > 0) {
+        const totalBricks = (rawEntered || 0) + (bakedOutput || 0);
+        const totalWorkerCost = totalBricks * dto.workerRatePerBrick;
+        const paid = dto.workerPaidAmount || 0;
+        const workerDebt = totalWorkerCost - paid;
+
+        await manager.save(WorkerPayment, manager.create(WorkerPayment, {
+          workerName: 'Ishchilar (humbuz)',
+          category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
+          amount: totalWorkerCost,
+          paidAmount: paid,
+          remainingDebt: workerDebt,
+          date: dto.date,
+          description: `${totalBricks} dona (${dto.workerRatePerBrick} so'm/dona) - ${dto.kilnName}`,
+          createdById: userId,
+        }));
+
+        saved.totalWorkerCost = totalWorkerCost;
+        saved.workerPaidAmount = paid;
+        saved.workerDebt = workerDebt;
+        await manager.save(KilnOperation, saved);
+      }
 
       if (rawEntered > 0) {
         if (dto.rawBrickSource === RawBrickSource.FIELD) {

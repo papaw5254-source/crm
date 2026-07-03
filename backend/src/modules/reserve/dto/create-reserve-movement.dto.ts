@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { BrickType } from '../../../common/enums/brick-type.enum';
 import { ReserveMovementType } from '../../../common/enums/reserve-movement-type.enum';
 
@@ -25,4 +25,26 @@ export class CreateReserveMovementDto {
   @ApiProperty({ example: '2024-01-15' })
   @IsDateString()
   date: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  customerName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  customerPhone?: string;
+
+  @ApiPropertyOptional({ example: 25 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  workerRatePerBrick?: number;
+
+  @ApiPropertyOptional({ example: 100000 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  workerPaidAmount?: number;
 }

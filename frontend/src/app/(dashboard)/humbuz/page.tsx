@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { formatDate, formatNumber, kilnNameLabel, rawBrickSourceLabel, getErrorMessage } from '@/lib/utils'
+import { formatDate, formatNumber, formatCurrency, kilnNameLabel, rawBrickSourceLabel, getErrorMessage } from '@/lib/utils'
 import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
 import type { KilnOperation, KilnName } from '@/types'
@@ -34,6 +34,8 @@ const schema = z.object({
   responsibleWorker: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
   description: z.string().optional(),
+  workerRatePerBrick: z.coerce.number().min(0).optional(),
+  workerPaidAmount: z.coerce.number().min(0).optional(),
 })
 type FormData = z.infer<typeof schema>
 
@@ -65,6 +67,11 @@ export default function HumbuzPage() {
   })
 
   const rawBricksEntered = watch('rawBricksEntered') ?? 0
+  const watchedRate = watch('workerRatePerBrick') || 0
+  const watchedPaid = watch('workerPaidAmount') || 0
+  const totalBricksForWorker = (watch('rawBricksEntered') || 0) + (watch('bakedBricksOutput') || 0)
+  const totalWorkerCost = totalBricksForWorker * watchedRate
+  const workerDebt = totalWorkerCost - watchedPaid
 
   const createMutation = useMutation({
     mutationFn: (d: FormData) => kilnService.create(d),
@@ -155,6 +162,19 @@ export default function HumbuzPage() {
           {r.bakedBricksOutput > 0 ? formatNumber(r.bakedBricksOutput) + ' dona' : '—'}
         </span>
       ),
+    },
+    {
+      key: 'workerCost',
+      header: 'Ishchi puli',
+      cell: (r: KilnOperation) => r.totalWorkerCost ? (
+        <div className="text-sm">
+          <div className="font-medium">{formatCurrency(Number(r.totalWorkerCost))}</div>
+          <div className="text-xs text-muted-foreground">
+            <span className="text-emerald-600">Berildi: {formatCurrency(Number(r.workerPaidAmount ?? 0))}</span>
+            {Number(r.workerDebt) > 0 && <span className="text-red-500 ml-1">Qarz: {formatCurrency(Number(r.workerDebt))}</span>}
+          </div>
+        </div>
+      ) : <span className="text-muted-foreground text-xs">—</span>,
     },
     { key: 'desc', header: 'Izoh', cell: (r: KilnOperation) => <span className="text-sm text-muted-foreground">{r.description || '—'}</span> },
     {
@@ -277,6 +297,36 @@ export default function HumbuzPage() {
             <div className="space-y-2">
               <Label>Izoh</Label>
               <Input {...register('description')} placeholder="Qo'shimcha ma'lumot..." />
+            </div>
+
+            <div className="rounded-lg border border-dashed p-3 space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (ixtiyoriy)</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>1 dona uchun narx (so&apos;m)</Label>
+                  <Input {...register('workerRatePerBrick')} type="number" placeholder="25" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Bugun berildi (so&apos;m)</Label>
+                  <Input {...register('workerPaidAmount')} type="number" placeholder="0" />
+                </div>
+              </div>
+              {totalWorkerCost > 0 && (
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div className="rounded-md bg-muted px-3 py-2 text-center">
+                    <div className="text-xs text-muted-foreground">Jami ishchi puli</div>
+                    <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
+                  </div>
+                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
+                    <div className="text-xs text-muted-foreground">Berildi</div>
+                    <div className="font-semibold text-emerald-600">{formatCurrency(watchedPaid)}</div>
+                  </div>
+                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
+                    <div className="text-xs text-muted-foreground">Zavod qarzi</div>
+                    <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, workerDebt))}</div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <DialogFooter>

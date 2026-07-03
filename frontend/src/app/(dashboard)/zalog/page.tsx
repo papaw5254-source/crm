@@ -21,7 +21,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
-import { formatDate, formatCurrency, formatNumber, brickTypeLabel, prepaymentStatusLabel, prepaymentStatusColor, getErrorMessage } from '@/lib/utils'
+import { formatDate, formatCurrency, formatNumber, brickTypeLabel, prepaymentStatusLabel, prepaymentStatusColor, paymentTypeLabel, paymentTypeColor, getErrorMessage } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
@@ -38,6 +38,7 @@ const createSchema = z.object({
   paidAmount: z.coerce.number().min(0),
   date: z.string().min(1, 'Sana kiritilishi shart'),
   description: z.string().optional(),
+  paymentType: z.enum(['CASH', 'CARD', 'BANK_TRANSFER']).optional(),
 })
 
 const deliverSchema = z.object({
@@ -312,6 +313,18 @@ export default function ZalogPage() {
                 <Label>Telefon</Label>
                 <Input {...createForm.register('customerPhone')} placeholder="+998..." />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>To&apos;lov turi</Label>
+              <Select onValueChange={(v: string) => createForm.setValue('paymentType', v as 'CASH' | 'CARD' | 'BANK_TRANSFER')}>
+                <SelectTrigger><SelectValue placeholder="Tanlang" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Naqd</SelectItem>
+                  <SelectItem value="CARD">Karta</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Perechisleniya</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

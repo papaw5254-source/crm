@@ -21,9 +21,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { cn, formatDate, formatNumber, brickTypeLabel, brickTypeColor, reserveMovementTypeLabel, reserveMovementTypeColor, getErrorMessage } from '@/lib/utils'
+import { cn, formatDate, formatNumber, formatCurrency, brickTypeLabel, brickTypeColor, reserveMovementTypeLabel, reserveMovementTypeColor, paymentTypeLabel, paymentTypeColor, getErrorMessage } from '@/lib/utils'
 import { usePagination } from '@/hooks/use-pagination'
-import type { ReserveMovement, BrickType, ReserveMovementType, Sale, PaymentType } from '@/types'
+import type { ReserveMovement, BrickType, ReserveMovementType, Sale } from '@/types'
 
 // ─── Movement form ────────────────────────────────────────────────────────────
 const movementSchema = z.object({
@@ -32,6 +32,8 @@ const movementSchema = z.object({
   quantity: z.coerce.number().min(1, "Miqdor 0 dan katta bo'lishi kerak"),
   reason: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
+  workerRatePerBrick: z.coerce.number().min(0).optional(),
+  workerPaidAmount: z.coerce.number().min(0).optional(),
 })
 type MovementForm = z.infer<typeof movementSchema>
 
@@ -40,7 +42,7 @@ const saleSchema = z.object({
   brickType: z.enum(['RAW_BRICK', 'BAKED_BRICK']),
   quantity: z.coerce.number().min(1, "Miqdor 0 dan katta bo'lishi kerak"),
   pricePerBrick: z.coerce.number().min(1, "Narx 0 dan katta bo'lishi kerak"),
-  paymentType: z.enum(['CASH', 'CARD', 'DEBT']),
+  paymentType: z.enum(['CASH', 'CARD', 'DEBT', 'BANK_TRANSFER']),
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
   description: z.string().optional(),
@@ -49,16 +51,6 @@ const saleSchema = z.object({
 type SaleForm = z.infer<typeof saleSchema>
 
 const MOVEMENT_TYPES: ReserveMovementType[] = ['ADD', 'REMOVE', 'SALE', 'TO_KILN', 'ADJUSTMENT']
-
-const paymentLabel = (t: string) =>
-  t === 'CASH' ? 'Naqd' : t === 'CARD' ? 'Karta' : t === 'DEBT' ? 'Nasiya' : t
-
-const paymentColor = (t: string) =>
-  t === 'CASH'
-    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-    : t === 'CARD'
-      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-      : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
 
 export default function ZaxiraPage() {
   const queryClient = useQueryClient()
@@ -121,6 +113,12 @@ export default function ZaxiraPage() {
   const watchedSaleQty = saleForm.watch('quantity') || 0
   const watchedSalePrice = saleForm.watch('pricePerBrick') || 0
   const totalAmount = watchedSaleQty * watchedSalePrice
+
+  const watchedMovRate = movForm.watch('workerRatePerBrick') || 0
+  const watchedMovPaid = movForm.watch('workerPaidAmount') || 0
+  const watchedMovQty = movForm.watch('quantity') || 0
+  const totalMovWorkerCost = watchedMovQty * watchedMovRate
+  const movWorkerDebt = totalMovWorkerCost - watchedMovPaid
 
   const saleMutation = useMutation({
     mutationFn: (d: SaleForm) =>
@@ -227,8 +225,8 @@ export default function ZaxiraPage() {
       key: 'payment',
       header: "To'lov",
       cell: (r: Sale) => (
-        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${paymentColor(r.paymentType)}`}>
-          {paymentLabel(r.paymentType)}
+        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${paymentTypeColor(r.paymentType)}`}>
+          {paymentTypeLabel(r.paymentType)}
         </span>
       ),
     },
@@ -440,6 +438,35 @@ export default function ZaxiraPage() {
               <Label>Sabab / Izoh</Label>
               <Input {...movForm.register('reason')} placeholder="Harakat sababi..." />
             </div>
+            <div className="rounded-lg border border-dashed p-3 space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (ixtiyoriy)</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>1 dona uchun narx (so&apos;m)</Label>
+                  <Input {...movForm.register('workerRatePerBrick')} type="number" placeholder="25" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Bugun berildi (so&apos;m)</Label>
+                  <Input {...movForm.register('workerPaidAmount')} type="number" placeholder="0" />
+                </div>
+              </div>
+              {totalMovWorkerCost > 0 && (
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div className="rounded-md bg-muted px-3 py-2 text-center">
+                    <div className="text-xs text-muted-foreground">Jami ishchi puli</div>
+                    <div className="font-semibold">{formatCurrency(totalMovWorkerCost)}</div>
+                  </div>
+                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
+                    <div className="text-xs text-muted-foreground">Berildi</div>
+                    <div className="font-semibold text-emerald-600">{formatCurrency(watchedMovPaid)}</div>
+                  </div>
+                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
+                    <div className="text-xs text-muted-foreground">Zavod qarzi</div>
+                    <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, movWorkerDebt))}</div>
+                  </div>
+                </div>
+              )}
+            </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setMovementDialogOpen(false)}>Bekor qilish</Button>
               <Button type="submit" disabled={movMutation.isPending}>
@@ -470,12 +497,13 @@ export default function ZaxiraPage() {
               </div>
               <div className="space-y-2">
                 <Label>To&apos;lov turi *</Label>
-                <Select defaultValue="CASH" onValueChange={(v: string) => saleForm.setValue('paymentType', v as 'CASH' | 'CARD' | 'DEBT')}>
+                <Select defaultValue="CASH" onValueChange={(v: string) => saleForm.setValue('paymentType', v as 'CASH' | 'CARD' | 'DEBT' | 'BANK_TRANSFER')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="CASH">Naqd</SelectItem>
                     <SelectItem value="CARD">Karta</SelectItem>
                     <SelectItem value="DEBT">Nasiya</SelectItem>
+                    <SelectItem value="BANK_TRANSFER">Perechisleniya</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -503,7 +531,7 @@ export default function ZaxiraPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Xaridor ismi</Label>
+                <Label>{saleForm.watch('paymentType') === 'BANK_TRANSFER' ? 'Firma nomi' : 'Xaridor ismi'}</Label>
                 <Input {...saleForm.register('customerName')} placeholder="Ahmadjon Toshmatov" />
               </div>
               <div className="space-y-2">

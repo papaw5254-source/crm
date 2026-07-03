@@ -7,6 +7,10 @@ export interface CreateReserveMovementDto {
   quantity: number
   reason?: string
   date: string
+  customerName?: string
+  customerPhone?: string
+  workerRatePerBrick?: number
+  workerPaidAmount?: number
 }
 
 export const reserveService = {

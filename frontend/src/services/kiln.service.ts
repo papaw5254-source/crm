@@ -9,6 +9,8 @@ export interface CreateKilnOperationDto {
   responsibleWorker?: string
   date: string
   description?: string
+  workerRatePerBrick?: number
+  workerPaidAmount?: number
 }
 
 export const kilnService = {

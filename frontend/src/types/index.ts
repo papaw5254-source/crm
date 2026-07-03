@@ -166,6 +166,10 @@ export interface KilnOperation {
   responsibleWorker?: string
   date: string
   description?: string
+  workerRatePerBrick?: number
+  totalWorkerCost?: number
+  workerPaidAmount?: number
+  workerDebt?: number
   createdBy?: User
   createdAt: string
   updatedAt: string
@@ -182,6 +186,12 @@ export interface ReserveMovement {
   previousQuantity: number
   newQuantity: number
   reason?: string
+  customerName?: string
+  customerPhone?: string
+  workerRatePerBrick?: number
+  totalWorkerCost?: number
+  workerPaidAmount?: number
+  workerDebt?: number
   date: string
   createdBy?: User
   createdAt: string
@@ -197,7 +207,7 @@ export type PrepaymentStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
 
 export interface Prepayment {
   id: string
-  customerName: string
+  customerName?: string
   customerPhone?: string
   brickType: BrickType
   quantity: number
@@ -207,6 +217,7 @@ export interface Prepayment {
   remainingAmount: number
   remainingQuantity: number
   status: PrepaymentStatus
+  paymentType?: PaymentType
   notes?: string
   deliveries?: PrepaymentDelivery[]
   createdBy?: User

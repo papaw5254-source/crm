@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { BrickType } from '../../../common/enums/brick-type.enum';
 import { PrepaymentStatus } from '../../../common/enums/prepayment-status.enum';
+import { PaymentType } from '../../../common/enums/payment-type.enum';
 import { User } from '../../users/entities/user.entity';
 import { PrepaymentDelivery } from './prepayment-delivery.entity';
 
@@ -17,7 +18,7 @@ export class Prepayment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'customer_name' })
+  @Column({ name: 'customer_name', nullable: true })
   customerName: string;
 
   @Column({ name: 'customer_phone', nullable: true })
@@ -49,6 +50,9 @@ export class Prepayment {
 
   @Column({ name: 'status', type: 'enum', enum: PrepaymentStatus, default: PrepaymentStatus.ACTIVE })
   status: PrepaymentStatus;
+
+  @Column({ name: 'payment_type', type: 'enum', enum: PaymentType, nullable: true })
+  paymentType: PaymentType;
 
   @Column({ type: 'date' })
   date: string;

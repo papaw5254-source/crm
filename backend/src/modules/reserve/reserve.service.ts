@@ -9,7 +9,9 @@ import { BrickType } from '../../common/enums/brick-type.enum';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { ReserveMovementType } from '../../common/enums/reserve-movement-type.enum';
 import { StockMovementType } from '../../common/enums/stock-movement-type.enum';
+import { WorkerPaymentCategory } from '../../common/enums/worker-payment-category.enum';
 import { StockService } from '../stock/stock.service';
+import { WorkerPayment } from '../worker-payments/entities/worker-payment.entity';
 import { CreateReserveMovementDto } from './dto/create-reserve-movement.dto';
 import { ReserveMovement } from './entities/reserve-movement.entity';
 
@@ -18,6 +20,8 @@ export class ReserveService {
   constructor(
     @InjectRepository(ReserveMovement)
     private readonly reserveMovementRepository: Repository<ReserveMovement>,
+    @InjectRepository(WorkerPayment)
+    private readonly workerPaymentRepository: Repository<WorkerPayment>,
     private readonly stockService: StockService,
   ) {}
 
@@ -88,7 +92,36 @@ export class ReserveService {
       newQuantity: newBalance,
       createdById: userId,
     });
-    return this.reserveMovementRepository.save(movement);
+    const saved = await this.reserveMovementRepository.save(movement);
+
+    if (dto.workerRatePerBrick && dto.workerRatePerBrick > 0) {
+      const totalWorkerCost = dto.quantity * dto.workerRatePerBrick;
+      const paid = dto.workerPaidAmount || 0;
+      const workerDebt = totalWorkerCost - paid;
+      const category = dto.brickType === BrickType.RAW_BRICK
+        ? WorkerPaymentCategory.RESERVE_RAW_LOADING
+        : WorkerPaymentCategory.RESERVE_BAKED_LOADING;
+
+      await this.workerPaymentRepository.save(
+        this.workerPaymentRepository.create({
+          workerName: 'Ishchilar (zaxira)',
+          category,
+          amount: totalWorkerCost,
+          paidAmount: paid,
+          remainingDebt: workerDebt,
+          date: dto.date,
+          description: `${dto.quantity} dona (${dto.workerRatePerBrick} so'm/dona)`,
+          createdById: userId,
+        }),
+      );
+
+      saved.totalWorkerCost = totalWorkerCost;
+      saved.workerPaidAmount = paid;
+      saved.workerDebt = workerDebt;
+      await this.reserveMovementRepository.save(saved);
+    }
+
+    return saved;
   }
 
   async findAll(paginationDto: PaginationDto & { brickType?: BrickType; movementType?: ReserveMovementType }) {

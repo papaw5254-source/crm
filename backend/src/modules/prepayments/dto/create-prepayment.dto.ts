@@ -10,6 +10,7 @@ import {
   Min,
 } from 'class-validator';
 import { BrickType } from '../../../common/enums/brick-type.enum';
+import { PaymentType } from '../../../common/enums/payment-type.enum';
 
 export class CreatePrepaymentDto {
   @ApiPropertyOptional({ example: 'Ahmadjon Toshmatov' })
@@ -51,4 +52,9 @@ export class CreatePrepaymentDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ enum: PaymentType })
+  @IsOptional()
+  @IsEnum(PaymentType)
+  paymentType?: PaymentType;
 }

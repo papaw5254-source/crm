@@ -2,12 +2,13 @@ import { api } from './api'
 import type { Prepayment, PrepaymentDelivery, PaginatedResponse, PaginationParams } from '@/types'
 
 export interface CreatePrepaymentDto {
-  customerName: string
+  customerName?: string
   customerPhone?: string
   brickType: string
   quantity: number
   pricePerBrick: number
   paidAmount: number
+  paymentType?: string
   notes?: string
 }
 
