@@ -75,7 +75,7 @@ export default function SalesPage() {
       queryClient.invalidateQueries({ queryKey: ['debtors'] })
       toast.success('Sotuv muvaffaqiyatli qo\'shildi')
       setDialogOpen(false)
-      reset({ date: new Date().toISOString().split('T')[0], paymentType: 'CASH' })
+      reset({ date: new Date().toISOString().split('T')[0], paymentType: 'CASH', brickType: 'BAKED_BRICK' })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -175,7 +175,7 @@ export default function SalesPage() {
         title="Chiqim (Sotuvlar)"
         description="G'isht sotuvlari boshqaruvi"
         actions={
-          <Button onClick={() => { setEditItem(null); reset({ date: new Date().toISOString().split('T')[0], paymentType: 'CASH' }); setDialogOpen(true) }}>
+          <Button onClick={() => { setEditItem(null); reset({ date: new Date().toISOString().split('T')[0], paymentType: 'CASH', brickType: 'BAKED_BRICK' }); setDialogOpen(true) }}>
             <Plus className="h-4 w-4 mr-1" /> Sotuv qo&apos;shish
           </Button>
         }
@@ -225,8 +225,7 @@ export default function SalesPage() {
             <div className="space-y-2">
               <Label>G&apos;isht turi *</Label>
               <Select
-                defaultValue={editItem?.brickType ?? 'BAKED_BRICK'}
-                key={editItem?.id ?? 'new'}
+                value={watch('brickType') || 'BAKED_BRICK'}
                 onValueChange={(v: string) => setValue('brickType', v as BrickType)}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -260,7 +259,7 @@ export default function SalesPage() {
             <div className="space-y-2">
               <Label>To&apos;lov turi *</Label>
               <Select
-                defaultValue="CASH"
+                value={watch('paymentType') || 'CASH'}
                 onValueChange={(v: string) => setValue('paymentType', v as PaymentType)}
               >
                 <SelectTrigger>
