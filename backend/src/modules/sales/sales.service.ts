@@ -170,4 +170,27 @@ export class SalesService {
       .andWhere('sale.date <= :dateTo', { dateTo })
       .getMany();
   }
+
+  async getBankTransferFirms() {
+    const sales = await this.saleRepository.find({
+      where: { paymentType: PaymentType.BANK_TRANSFER },
+      order: { date: 'DESC' },
+      relations: ['createdBy'],
+    });
+
+    const grouped: Record<string, { firmName: string; totalSales: number; totalQuantity: number; totalAmount: number; sales: Sale[] }> = {};
+
+    for (const sale of sales) {
+      const key = sale.customerName || "Noma'lum";
+      if (!grouped[key]) {
+        grouped[key] = { firmName: key, totalSales: 0, totalQuantity: 0, totalAmount: 0, sales: [] };
+      }
+      grouped[key].totalSales++;
+      grouped[key].totalQuantity += sale.quantity;
+      grouped[key].totalAmount += Number(sale.totalAmount);
+      grouped[key].sales.push(sale);
+    }
+
+    return Object.values(grouped).sort((a, b) => b.totalAmount - a.totalAmount);
+  }
 }

@@ -3,4 +3,5 @@ export enum PaymentType {
   CARD = 'CARD',
   DEBT = 'DEBT',
   PREPAYMENT = 'PREPAYMENT',
+  BANK_TRANSFER = 'BANK_TRANSFER',
 }

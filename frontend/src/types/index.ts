@@ -78,7 +78,7 @@ export interface InventoryIncome {
 }
 
 // ─── Sales ───────────────────────────────────────────────────────────────────
-export type PaymentType = 'CASH' | 'CARD' | 'DEBT' | 'PREPAYMENT'
+export type PaymentType = 'CASH' | 'CARD' | 'DEBT' | 'PREPAYMENT' | 'BANK_TRANSFER'
 
 export interface Sale {
   id: string

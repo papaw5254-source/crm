@@ -20,6 +20,7 @@ import {
   Receipt,
   ChevronDown,
   ChevronRight,
+  Landmark,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
@@ -58,6 +59,7 @@ const navGroups: NavGroup[] = [
     label: 'Moliya',
     items: [
       { href: '/debtors', icon: CreditCard, label: 'Qarzdorlar' },
+      { href: '/perechisleniya', icon: Landmark, label: 'Perechisleniya' },
       { href: '/zalog', icon: Wallet, label: 'Zalog / Oldindan' },
       { href: '/kirimlar', icon: DollarSign, label: 'Pul kirimlari' },
       { href: '/expenses', icon: Receipt, label: 'Xarajatlar' },

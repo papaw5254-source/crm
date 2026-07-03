@@ -13,9 +13,22 @@ export interface CreateSaleDto {
   isReserveSale?: boolean
 }
 
+export interface BankTransferFirm {
+  firmName: string
+  totalSales: number
+  totalQuantity: number
+  totalAmount: number
+  sales: Sale[]
+}
+
 export const salesService = {
   async getAll(params?: PaginationParams & { isReserveSale?: boolean }): Promise<PaginatedResponse<Sale>> {
     const res = await api.get('/sales', { params })
+    return res.data.data
+  },
+
+  async getBankTransferFirms(): Promise<BankTransferFirm[]> {
+    const res = await api.get('/sales/bank-transfer/firms')
     return res.data.data
   },
 

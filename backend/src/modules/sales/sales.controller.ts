@@ -39,6 +39,12 @@ export class SalesController {
     return this.salesService.findAll(paginationDto);
   }
 
+  @Get('bank-transfer/firms')
+  @ApiOperation({ summary: 'Get bank transfer firms summary' })
+  getBankTransferFirms() {
+    return this.salesService.getBankTransferFirms();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get sale by id' })
   findOne(@Param('id') id: string) {

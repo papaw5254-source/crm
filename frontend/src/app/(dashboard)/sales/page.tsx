@@ -31,7 +31,7 @@ const schema = z.object({
   brickType: z.enum(['RAW_BRICK', 'BAKED_BRICK']),
   quantity: z.coerce.number().min(1, 'Miqdor 1 dan katta bo\'lishi kerak'),
   pricePerBrick: z.coerce.number().min(0.01, 'Narx 0 dan katta bo\'lishi kerak'),
-  paymentType: z.enum(['CASH', 'CARD', 'DEBT', 'PREPAYMENT']),
+  paymentType: z.enum(['CASH', 'CARD', 'DEBT', 'PREPAYMENT', 'BANK_TRANSFER']),
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
   description: z.string().optional(),
@@ -191,8 +191,8 @@ export default function SalesPage() {
         <CardContent className="p-4 space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Mijoz nomi bo'yicha..." className="sm:max-w-sm" />
-            <div className="flex gap-2">
-              {(['ALL', 'CASH', 'CARD', 'DEBT'] as const).map((type) => (
+            <div className="flex gap-2 flex-wrap">
+              {(['ALL', 'CASH', 'CARD', 'DEBT', 'BANK_TRANSFER'] as const).map((type) => (
                 <Button
                   key={type}
                   variant={paymentTypeFilter === type ? 'default' : 'outline'}
@@ -269,14 +269,15 @@ export default function SalesPage() {
                   <SelectItem value="CASH">Naqd</SelectItem>
                   <SelectItem value="CARD">Karta</SelectItem>
                   <SelectItem value="DEBT">Nasiya</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Perechisleniya</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Mijoz ismi</Label>
-                <Input {...register('customerName')} placeholder="Ahmadjon" />
+                <Label>{watch('paymentType') === 'BANK_TRANSFER' ? 'Firma nomi' : 'Mijoz ismi'}</Label>
+                <Input {...register('customerName')} placeholder={watch('paymentType') === 'BANK_TRANSFER' ? 'OOO Firm nomi' : 'Ahmadjon'} />
               </div>
               <div className="space-y-2">
                 <Label>Telefon</Label>
