@@ -20,6 +20,10 @@ export const reserveService = {
     return res.data.data
   },
 
+  async delete(id: string): Promise<void> {
+    await api.delete(`/reserve/movements/${id}`)
+  },
+
   async getBalance(): Promise<ReserveBalance> {
     const res = await api.get('/reserve/balance')
     return res.data.data

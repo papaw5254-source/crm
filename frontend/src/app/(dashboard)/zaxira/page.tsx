@@ -137,6 +137,17 @@ export default function ZaxiraPage() {
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
+  const deleteMovementMutation = useMutation({
+    mutationFn: (id: string) => reserveService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
+      queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      toast.success("Harakat o'chirildi")
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
   const deleteSaleMutation = useMutation({
     mutationFn: (id: string) => salesService.delete(id),
     onSuccess: () => {
@@ -182,6 +193,20 @@ export default function ZaxiraPage() {
     { key: 'prev', header: 'Avvalgi', cell: (r: ReserveMovement) => <span className="text-sm text-muted-foreground">{formatNumber(r.previousQuantity)}</span> },
     { key: 'new', header: 'Yangi', cell: (r: ReserveMovement) => <span className="font-medium">{formatNumber(r.newQuantity)}</span> },
     { key: 'reason', header: 'Sabab', cell: (r: ReserveMovement) => <span className="text-sm text-muted-foreground">{r.reason || '—'}</span> },
+    {
+      key: 'actions',
+      header: '',
+      cell: (r: ReserveMovement) => (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-destructive hover:text-destructive"
+          onClick={() => { if (confirm("Harakatni o'chirishni tasdiqlaysizmi?")) deleteMovementMutation.mutate(r.id) }}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      ),
+    },
   ]
 
   const saleColumns = [
