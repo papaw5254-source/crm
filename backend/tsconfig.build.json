@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "rootDir": "./src",
-    "outDir": "D:/crm/backend/dist",
+    "outDir": "./dist",
     "ignoreDeprecations": "5.0"
   },
   "exclude": ["node_modules", "dist"]
