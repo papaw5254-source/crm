@@ -30,8 +30,8 @@ export class WorkerPaymentsService {
     return this.workerPaymentRepository.save(payment);
   }
 
-  async findAll(paginationDto: PaginationDto & { category?: WorkerPaymentCategory; month?: string }) {
-    const { page = 1, limit = 20, search, dateFrom, dateTo, category, month, sortBy = 'date', sortOrder = 'DESC' } = paginationDto;
+  async findAll(paginationDto: PaginationDto & { category?: WorkerPaymentCategory; month?: string; debtOnly?: boolean }) {
+    const { page = 1, limit = 20, search, dateFrom, dateTo, category, month, sortBy = 'date', sortOrder = 'DESC', debtOnly } = paginationDto;
     const skip = (page - 1) * limit;
 
     const qb = this.workerPaymentRepository
@@ -46,6 +46,7 @@ export class WorkerPaymentsService {
     if (dateTo) qb.andWhere('wp.date <= :dateTo', { dateTo });
     if (category) qb.andWhere('wp.category = :category', { category });
     if (month) qb.andWhere('wp.month = :month', { month });
+    if (debtOnly) qb.andWhere('wp.remainingDebt > 0');
 
     const [data, total] = await qb.getManyAndCount();
     return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };

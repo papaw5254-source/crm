@@ -57,7 +57,10 @@ export default function IshchilarPage() {
   const isAdmin = user?.role === 'ADMIN'
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<'list' | 'report'>('list')
+  const [tab, setTab] = useState<'list' | 'debts' | 'report'>('list')
+  const [payDialogOpen, setPayDialogOpen] = useState(false)
+  const [payItem, setPayItem] = useState<WorkerPayment | null>(null)
+  const [payAmount, setPayAmount] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<WorkerPayment | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -77,6 +80,27 @@ export default function IshchilarPage() {
     queryKey: ['worker-payments-report', reportMonth, reportYear],
     queryFn: () => workerPaymentsService.getReport({ month: reportMonth, year: reportYear }),
     enabled: tab === 'report',
+  })
+
+  const { data: debts, isLoading: debtsLoading } = useQuery({
+    queryKey: ['worker-payments-debts'],
+    queryFn: () => workerPaymentsService.getAll({ debtOnly: true, limit: 200, sortBy: 'date', sortOrder: 'DESC' }),
+    enabled: tab === 'debts',
+  })
+
+  const payMutation = useMutation({
+    mutationFn: ({ id, extra }: { id: string; extra: number }) =>
+      workerPaymentsService.update(id, { paidAmount: (Number(payItem?.paidAmount) + extra) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-debts'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      toast.success("To'lov amalga oshirildi")
+      setPayDialogOpen(false)
+      setPayItem(null)
+      setPayAmount('')
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -214,9 +238,10 @@ export default function IshchilarPage() {
         <StatsCard title="Jami qarz" value={totalDebt} icon={HardHat} color="red" />
       </div>
 
-      <Tabs value={tab} onValueChange={(v: string) => setTab(v as 'list' | 'report')}>
+      <Tabs value={tab} onValueChange={(v: string) => setTab(v as 'list' | 'debts' | 'report')}>
         <TabsList>
           <TabsTrigger value="list">Ro&apos;yxat</TabsTrigger>
+          <TabsTrigger value="debts">Zavod qarzi</TabsTrigger>
           <TabsTrigger value="report"><BarChart3 className="h-4 w-4 mr-1" />Oylik hisobot</TabsTrigger>
         </TabsList>
 
@@ -231,6 +256,53 @@ export default function IshchilarPage() {
                   <DataTable columns={columns} data={allItems} loading={isLoading} />
                   {data && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
                 </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="debts" className="mt-4 space-y-4">
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              {debtsLoading ? (
+                <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />)}</div>
+              ) : !debts?.data.length ? (
+                <EmptyState icon={HardHat} title="Qarz yo'q" description="Barcha ishchi to'lovlari to'liq amalga oshirilgan" />
+              ) : (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-5 gap-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <span>Sana</span>
+                    <span>Ishchi / Kategoriya</span>
+                    <span className="text-right">Hisoblangan</span>
+                    <span className="text-right">Berildi</span>
+                    <span className="text-right">Qarz</span>
+                  </div>
+                  {debts.data.map((r: WorkerPayment) => (
+                    <div key={r.id} className="grid grid-cols-5 gap-2 items-center p-3 rounded-xl border bg-card hover:bg-muted/30 transition-colors">
+                      <span className="text-sm font-medium">{formatDate(r.date)}</span>
+                      <div>
+                        <p className="text-sm font-medium">{r.workerName}</p>
+                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                          {workerPaymentCategoryLabel(r.category)}
+                        </span>
+                      </div>
+                      <span className="text-right text-sm">{formatCurrency(Number(r.amount))}</span>
+                      <span className="text-right text-sm text-emerald-600 dark:text-emerald-400">{formatCurrency(Number(r.paidAmount))}</span>
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="text-sm font-semibold text-red-600 dark:text-red-400">{formatCurrency(Number(r.remainingDebt))}</span>
+                        <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => { setPayItem(r); setPayAmount(''); setPayDialogOpen(true) }}>
+                          To&apos;lash
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between pt-2 px-3 border-t">
+                    <span className="text-sm font-semibold text-muted-foreground">Jami qarz:</span>
+                    <span className="text-lg font-bold text-red-600 dark:text-red-400">
+                      {formatCurrency(debts.data.reduce((s: number, r: WorkerPayment) => s + Number(r.remainingDebt), 0))}
+                    </span>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -390,6 +462,49 @@ export default function IshchilarPage() {
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
         loading={deleteMutation.isPending}
       />
+
+      {/* Pay debt dialog */}
+      <Dialog open={payDialogOpen} onOpenChange={(o) => { setPayDialogOpen(o); if (!o) { setPayItem(null); setPayAmount('') } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Qarz to&apos;lash</DialogTitle>
+          </DialogHeader>
+          {payItem && (
+            <div className="space-y-4">
+              <div className="p-3 rounded-xl bg-muted/50 space-y-1">
+                <p className="text-sm font-medium">{payItem.workerName}</p>
+                <p className="text-xs text-muted-foreground">{workerPaymentCategoryLabel(payItem.category)} · {formatDate(payItem.date)}</p>
+                <div className="flex justify-between pt-1">
+                  <span className="text-xs text-muted-foreground">Qolgan qarz:</span>
+                  <span className="text-sm font-bold text-red-600 dark:text-red-400">{formatCurrency(Number(payItem.remainingDebt))}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>To&apos;lov miqdori (so&apos;m)</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  max={Number(payItem.remainingDebt)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Maksimum: {formatCurrency(Number(payItem.remainingDebt))}
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayDialogOpen(false)}>Bekor qilish</Button>
+            <Button
+              disabled={!payAmount || Number(payAmount) <= 0 || payMutation.isPending}
+              onClick={() => payItem && payMutation.mutate({ id: payItem.id, extra: Number(payAmount) })}
+            >
+              {payMutation.isPending ? 'Saqlanmoqda...' : "To'lash"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

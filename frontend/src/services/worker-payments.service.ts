@@ -14,7 +14,7 @@ export interface CreateWorkerPaymentDto {
 }
 
 export const workerPaymentsService = {
-  async getAll(params?: PaginationParams & { category?: string; month?: number; year?: number }): Promise<PaginatedResponse<WorkerPayment>> {
+  async getAll(params?: PaginationParams & { category?: string; month?: number; year?: number; debtOnly?: boolean }): Promise<PaginatedResponse<WorkerPayment>> {
     const res = await api.get('/worker-payments', { params })
     return res.data.data
   },

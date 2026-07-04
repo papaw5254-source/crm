@@ -35,8 +35,11 @@ export class WorkerPaymentsController {
 
   @Get()
   @ApiOperation({ summary: 'Barcha ishchi to\'lovlarini olish' })
-  findAll(@Query() paginationDto: PaginationDto) {
-    return this.workerPaymentsService.findAll(paginationDto);
+  findAll(@Query() paginationDto: PaginationDto & { debtOnly?: string }) {
+    return this.workerPaymentsService.findAll({
+      ...paginationDto,
+      debtOnly: paginationDto.debtOnly === 'true',
+    });
   }
 
   @Get('report')

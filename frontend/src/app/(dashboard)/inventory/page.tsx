@@ -2,13 +2,14 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, PackagePlus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, PackagePlus, Pencil, Trash2, HardHat } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { inventoryService } from '@/services/inventory.service'
 import { stockService } from '@/services/stock.service'
+import { workerPaymentsService } from '@/services/worker-payments.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
@@ -21,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
+import Link from 'next/link'
 import { formatDate, formatNumber, formatCurrency, getErrorMessage } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePagination } from '@/hooks/use-pagination'
@@ -57,6 +59,12 @@ export default function InventoryPage() {
     queryKey: ['stock'],
     queryFn: stockService.getStock,
   })
+
+  const { data: wpReport } = useQuery({
+    queryKey: ['worker-payments-report'],
+    queryFn: () => workerPaymentsService.getReport(),
+  })
+  const pressStats = wpReport?.byCategory?.PRESS ?? { amount: 0, paid: 0, debt: 0 }
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -204,22 +212,24 @@ export default function InventoryPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatsCard
-          title="Ombordagi g'isht"
-          value={stock?.quantity ?? 0}
-          icon={PackagePlus}
-          color="blue"
-          format="number"
-          suffix="dona"
-        />
-        <StatsCard
-          title="Jami kirimlar"
-          value={data?.meta.total ?? 0}
-          icon={PackagePlus}
-          color="emerald"
-          format="number"
-          suffix="ta"
-        />
+        <StatsCard title="Ombordagi g'isht" value={stock?.quantity ?? 0} icon={PackagePlus} color="blue" format="number" suffix="dona" />
+        <StatsCard title="Jami kirimlar" value={data?.meta.total ?? 0} icon={PackagePlus} color="emerald" format="number" suffix="ta" />
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <HardHat className="h-4 w-4" /> Ishchi puli (Press)
+          </h3>
+          <Link href="/ishchilar" className="text-sm text-primary hover:underline font-medium">
+            Barchasini ko&apos;rish →
+          </Link>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Link href="/ishchilar"><StatsCard title="Hisoblangan" value={Number(pressStats.amount)} icon={HardHat} color="amber" /></Link>
+          <Link href="/ishchilar"><StatsCard title="To'langan" value={Number(pressStats.paid)} icon={HardHat} color="emerald" /></Link>
+          <Link href="/ishchilar"><StatsCard title="Qarz" value={Number(pressStats.debt)} icon={HardHat} color="red" /></Link>
+        </div>
       </div>
 
       <Card>

@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Flame, Pencil, Trash2, AlertCircle } from 'lucide-react'
+import { Plus, Flame, Pencil, Trash2, AlertCircle, HardHat } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
+import Link from 'next/link'
 import { kilnService } from '@/services/kiln.service'
+import { workerPaymentsService } from '@/services/worker-payments.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
@@ -60,6 +62,12 @@ export default function HumbuzPage() {
         kilnName: kilnFilter !== 'ALL' ? kilnFilter : undefined,
       }),
   })
+
+  const { data: wpReport } = useQuery({
+    queryKey: ['worker-payments-report'],
+    queryFn: () => workerPaymentsService.getReport(),
+  })
+  const humbuzStats = wpReport?.byCategory?.HUMBUZ_KIRDI_CHIQDI ?? { amount: 0, paid: 0, debt: 0 }
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -209,6 +217,22 @@ export default function HumbuzPage() {
         <StatsCard title="Jami operatsiyalar" value={data?.meta.total ?? 0} icon={Flame} color="amber" format="number" suffix="ta" />
         <StatsCard title="Jami xom kirdi" value={totalRawIn} icon={Flame} color="red" format="number" suffix="dona" />
         <StatsCard title="Jami pishgan chiqdi" value={totalBakedOut} icon={Flame} color="emerald" format="number" suffix="dona" />
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <HardHat className="h-4 w-4" /> Ishchi puli (Humbuz)
+          </h3>
+          <Link href="/ishchilar" className="text-sm text-primary hover:underline font-medium">
+            Barchasini ko&apos;rish →
+          </Link>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Link href="/ishchilar"><StatsCard title="Hisoblangan" value={Number(humbuzStats.amount)} icon={HardHat} color="amber" /></Link>
+          <Link href="/ishchilar"><StatsCard title="To'langan" value={Number(humbuzStats.paid)} icon={HardHat} color="emerald" /></Link>
+          <Link href="/ishchilar"><StatsCard title="Qarz" value={Number(humbuzStats.debt)} icon={HardHat} color="red" /></Link>
+        </div>
       </div>
 
       {/* Kiln tabs */}
