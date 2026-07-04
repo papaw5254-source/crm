@@ -49,7 +49,7 @@ jobs:
 
       # ── Deploy ────────────────────────────────────────────────────────────────
       - name: Pull latest source on server
-        run: ssh root@${{ secrets.SERVER_HOST }} "cd /root/crm && git pull"
+        run: ssh root@${{ secrets.SERVER_HOST }} "cd /root/crm && git fetch origin && git reset --hard origin/main"
 
       - name: Copy backend dist to server
         run: rsync -az --delete backend/dist/ root@${{ secrets.SERVER_HOST }}:/root/crm/backend/dist/
