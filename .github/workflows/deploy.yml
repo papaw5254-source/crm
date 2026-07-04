@@ -63,15 +63,17 @@ jobs:
       - name: Restart services
         run: ssh root@${{ secrets.SERVER_HOST }} "pm2 restart backend && pm2 restart frontend && pm2 save"
 
-      - name: Setup nginx reverse proxy
-        run: |
-          ssh root@${{ secrets.SERVER_HOST }} "
-            which nginx || apt-get install -y nginx
-            ln -sf /root/crm/nginx/crm.conf /etc/nginx/sites-available/crm
-            ln -sf /etc/nginx/sites-available/crm /etc/nginx/sites-enabled/crm
-            rm -f /etc/nginx/sites-enabled/default
-            nginx -t && systemctl enable nginx && systemctl reload nginx
-          "
+      - name: Install nginx if missing
+        run: ssh root@${{ secrets.SERVER_HOST }} "which nginx || (apt-get update -y && apt-get install -y nginx)"
+
+      - name: Deploy nginx config
+        run: ssh root@${{ secrets.SERVER_HOST }} "ln -sf /root/crm/nginx/crm.conf /etc/nginx/sites-available/crm && ln -sf /etc/nginx/sites-available/crm /etc/nginx/sites-enabled/crm && rm -f /etc/nginx/sites-enabled/default"
+
+      - name: Open firewall port 80
+        run: ssh root@${{ secrets.SERVER_HOST }} "ufw allow 80/tcp && ufw allow 'Nginx HTTP' || true"
+
+      - name: Start/reload nginx
+        run: ssh root@${{ secrets.SERVER_HOST }} "nginx -t && systemctl enable nginx && systemctl restart nginx"
 
       - name: Check status
-        run: ssh root@${{ secrets.SERVER_HOST }} "pm2 list && systemctl is-active nginx"
+        run: ssh root@${{ secrets.SERVER_HOST }} "pm2 list && systemctl is-active nginx && echo 'Nginx port:' && ss -tlnp | grep ':80'"
