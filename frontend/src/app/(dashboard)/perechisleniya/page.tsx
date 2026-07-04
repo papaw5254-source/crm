@@ -1,8 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Building2 } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Building2, Plus, AlertTriangle } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { toast } from 'sonner'
 import { salesService } from '@/services/sales.service'
 import type { BankTransferFirm } from '@/services/sales.service'
 import { PageHeader } from '@/components/shared/page-header'
@@ -10,50 +14,104 @@ import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { formatDate, formatCurrency, brickTypeLabel, brickTypeColor } from '@/lib/utils'
-import type { Sale } from '@/types'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { formatDate, formatCurrency, formatNumber, brickTypeLabel, brickTypeColor, paymentTypeLabel, paymentTypeColor, getErrorMessage } from '@/lib/utils'
+import type { Sale, BrickType } from '@/types'
+
+const saleSchema = z.object({
+  customerName: z.string().min(1, 'Firma nomi kiritilishi shart'),
+  customerPhone: z.string().optional(),
+  brickType: z.enum(['RAW_BRICK', 'BAKED_BRICK']),
+  quantity: z.coerce.number().min(1, "Miqdor 0 dan katta bo'lishi kerak"),
+  pricePerBrick: z.coerce.number().min(0.01, "Narx 0 dan katta bo'lishi kerak"),
+  paymentType: z.enum(['BANK_TRANSFER', 'DEBT', 'CASH', 'CARD']),
+  date: z.string().min(1, 'Sana kiritilishi shart'),
+  description: z.string().optional(),
+  isReserveSale: z.boolean().optional(),
+})
+type SaleForm = z.infer<typeof saleSchema>
 
 export default function PerechisleniyaPage() {
+  const queryClient = useQueryClient()
   const [selectedFirm, setSelectedFirm] = useState<BankTransferFirm | null>(null)
+  const [addSaleOpen, setAddSaleOpen] = useState(false)
 
-  const { data: firms = [], isLoading } = useQuery({
+  const { data: btFirms = [], isLoading: btLoading } = useQuery({
     queryKey: ['bank-transfer-firms'],
     queryFn: () => salesService.getBankTransferFirms(),
   })
 
-  const totalFirms = firms.length
-  const totalQuantity = firms.reduce((s, f) => s + f.totalQuantity, 0)
-  const totalAmount = firms.reduce((s, f) => s + f.totalAmount, 0)
+  const { data: debtFirms = [], isLoading: debtLoading } = useQuery({
+    queryKey: ['debt-firms'],
+    queryFn: () => salesService.getDebtFirms(),
+  })
 
-  const firmColumns = [
+  const { data: firmNames = [] } = useQuery({
+    queryKey: ['firm-names'],
+    queryFn: () => salesService.getFirmNames(),
+  })
+
+  const form = useForm<SaleForm>({
+    resolver: zodResolver(saleSchema),
+    defaultValues: {
+      brickType: 'BAKED_BRICK',
+      paymentType: 'BANK_TRANSFER',
+      date: new Date().toISOString().split('T')[0],
+    },
+  })
+
+  const watchedQty = form.watch('quantity') || 0
+  const watchedPrice = form.watch('pricePerBrick') || 0
+  const watchedPayType = form.watch('paymentType')
+  const totalSaleAmount = watchedQty * watchedPrice
+
+  const createMutation = useMutation({
+    mutationFn: (d: SaleForm) => salesService.create(d as Parameters<typeof salesService.create>[0]),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bank-transfer-firms'] })
+      queryClient.invalidateQueries({ queryKey: ['debt-firms'] })
+      queryClient.invalidateQueries({ queryKey: ['firm-names'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      toast.success("Sotuv qo'shildi")
+      setAddSaleOpen(false)
+      form.reset({ brickType: 'BAKED_BRICK', paymentType: 'BANK_TRANSFER', date: new Date().toISOString().split('T')[0] })
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const totalBtFirms = btFirms.length
+  const totalBtAmount = btFirms.reduce((s, f) => s + f.totalAmount, 0)
+  const totalDebtFirms = debtFirms.length
+  const totalDebtAmount = debtFirms.reduce((s, f) => s + f.totalAmount, 0)
+
+  const firmColumns = (showDebt = false) => [
     {
       key: 'firmName',
       header: 'Firma nomi',
-      cell: (row: BankTransferFirm) => (
-        <span className="font-semibold">{row.firmName}</span>
-      ),
+      cell: (row: BankTransferFirm) => <span className="font-semibold">{row.firmName}</span>,
     },
     {
       key: 'totalSales',
       header: 'Sotuvlar',
-      cell: (row: BankTransferFirm) => (
-        <span className="text-muted-foreground">{row.totalSales} ta</span>
-      ),
+      cell: (row: BankTransferFirm) => <span className="text-muted-foreground">{row.totalSales} ta</span>,
     },
     {
       key: 'totalQuantity',
       header: "Jami g'isht",
-      cell: (row: BankTransferFirm) => (
-        <span className="font-medium">{row.totalQuantity.toLocaleString()} dona</span>
-      ),
+      cell: (row: BankTransferFirm) => <span className="font-medium">{formatNumber(row.totalQuantity)} dona</span>,
     },
     {
       key: 'totalAmount',
-      header: 'Jami summa',
+      header: showDebt ? 'Nasiya summa' : 'Jami summa',
       cell: (row: BankTransferFirm) => (
-        <span className="font-semibold text-primary">{formatCurrency(row.totalAmount)}</span>
+        <span className={`font-semibold ${showDebt ? 'text-amber-600 dark:text-amber-400' : 'text-primary'}`}>
+          {formatCurrency(row.totalAmount)}
+        </span>
       ),
     },
     {
@@ -68,10 +126,15 @@ export default function PerechisleniyaPage() {
   ]
 
   const saleColumns = [
+    { key: 'date', header: 'Sana', cell: (r: Sale) => <span className="font-medium">{formatDate(r.date)}</span> },
     {
-      key: 'date',
-      header: 'Sana',
-      cell: (r: Sale) => <span className="font-medium">{formatDate(r.date)}</span>,
+      key: 'paymentType',
+      header: "To'lov",
+      cell: (r: Sale) => (
+        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${paymentTypeColor(r.paymentType)}`}>
+          {paymentTypeLabel(r.paymentType)}
+        </span>
+      ),
     },
     {
       key: 'brickType',
@@ -82,75 +145,85 @@ export default function PerechisleniyaPage() {
         </span>
       ),
     },
-    {
-      key: 'quantity',
-      header: 'Miqdor',
-      cell: (r: Sale) => <span>{r.quantity.toLocaleString()} dona</span>,
-    },
-    {
-      key: 'pricePerBrick',
-      header: 'Narx',
-      cell: (r: Sale) => <span>{formatCurrency(Number(r.pricePerBrick))}</span>,
-    },
-    {
-      key: 'totalAmount',
-      header: 'Jami',
-      cell: (r: Sale) => <span className="font-semibold text-primary">{formatCurrency(Number(r.totalAmount))}</span>,
-    },
+    { key: 'quantity', header: 'Miqdor', cell: (r: Sale) => <span>{formatNumber(r.quantity)} dona</span> },
+    { key: 'pricePerBrick', header: 'Narx', cell: (r: Sale) => <span>{formatCurrency(Number(r.pricePerBrick))}</span> },
+    { key: 'totalAmount', header: 'Jami', cell: (r: Sale) => <span className="font-semibold text-primary">{formatCurrency(Number(r.totalAmount))}</span> },
+    { key: 'desc', header: 'Izoh', cell: (r: Sale) => <span className="text-xs text-muted-foreground">{r.description || '—'}</span> },
   ]
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Perechisleniya"
-        description="Bank o'tkazmasi orqali sotuvlar va qarzdor firmalar"
+        description="Bank o'tkazmasi va nasiya orqali sotuvlar"
+        actions={
+          <Button onClick={() => setAddSaleOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Sotuv qo&apos;shish
+          </Button>
+        }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatsCard
-          title="Jami firmalar"
-          value={totalFirms}
-          icon={Building2}
-          color="purple"
-          format="number"
-          suffix="ta"
-        />
-        <StatsCard
-          title="Jami g'isht"
-          value={totalQuantity}
-          icon={Building2}
-          color="blue"
-          format="number"
-          suffix="dona"
-        />
-        <StatsCard
-          title="Jami summa"
-          value={totalAmount}
-          icon={Building2}
-          color="emerald"
-        />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <StatsCard title="Bank firmalar" value={totalBtFirms} icon={Building2} color="purple" format="number" suffix="ta" />
+        <StatsCard title="Bank summa" value={totalBtAmount} icon={Building2} color="blue" />
+        <StatsCard title="Nasiya firmalar" value={totalDebtFirms} icon={Building2} color="amber" format="number" suffix="ta" />
+        <StatsCard title="Nasiya summa" value={totalDebtAmount} icon={Building2} color="red" />
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          {firms.length === 0 && !isLoading ? (
-            <EmptyState
-              icon={Building2}
-              title="Perechisleniya sotuvlar yo'q"
-              description="Sotuvlar bo'limida 'Perechisleniya' to'lov turi bilan sotuv qo'shing"
-            />
-          ) : (
-            <DataTable
-              columns={firmColumns}
-              data={firms}
-              loading={isLoading}
-            />
-          )}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="bank">
+        <TabsList>
+          <TabsTrigger value="bank">
+            <Building2 className="h-4 w-4 mr-1.5" /> Bank o&apos;tkazmasi
+          </TabsTrigger>
+          <TabsTrigger value="debt">
+            <AlertTriangle className="h-4 w-4 mr-1.5" /> Nasiya (Qarz)
+          </TabsTrigger>
+        </TabsList>
 
+        <TabsContent value="bank" className="mt-4">
+          <Card>
+            <CardContent className="p-4">
+              {btFirms.length === 0 && !btLoading ? (
+                <EmptyState
+                  icon={Building2}
+                  title="Bank o'tkazmasi sotuvlar yo'q"
+                  description="Perechisleniya to'lov turi bilan sotuv qo'shing"
+                  action={<Button onClick={() => setAddSaleOpen(true)}><Plus className="h-4 w-4 mr-1" />Sotuv qo&apos;shish</Button>}
+                />
+              ) : (
+                <DataTable columns={firmColumns(false)} data={btFirms} loading={btLoading} />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="debt" className="mt-4">
+          <Card>
+            <CardContent className="p-4">
+              {debtFirms.length === 0 && !debtLoading ? (
+                <EmptyState
+                  icon={AlertTriangle}
+                  title="Nasiya firmalar yo'q"
+                  description="Nasiya to'lov turi bilan sotuv qo'shing"
+                  action={<Button onClick={() => setAddSaleOpen(true)}><Plus className="h-4 w-4 mr-1" />Sotuv qo&apos;shish</Button>}
+                />
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 px-4 py-2 text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    Nasiya to&apos;lovlar uchun qarz to&apos;lash Qarzdorlar bo&apos;limida amalga oshiriladi
+                  </div>
+                  <DataTable columns={firmColumns(true)} data={debtFirms} loading={debtLoading} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Firm detail dialog */}
       <Dialog open={!!selectedFirm} onOpenChange={(o) => !o && setSelectedFirm(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>{selectedFirm?.firmName} — sotuvlar tarixi</DialogTitle>
           </DialogHeader>
@@ -163,20 +236,133 @@ export default function PerechisleniyaPage() {
                 </div>
                 <div className="rounded-lg bg-muted p-3 text-center">
                   <div className="text-xs text-muted-foreground">Jami g&apos;isht</div>
-                  <div className="font-bold text-lg">{selectedFirm.totalQuantity.toLocaleString()} dona</div>
+                  <div className="font-bold text-lg">{formatNumber(selectedFirm.totalQuantity)} dona</div>
                 </div>
                 <div className="rounded-lg bg-primary/10 p-3 text-center">
                   <div className="text-xs text-muted-foreground">Jami summa</div>
                   <div className="font-bold text-lg text-primary">{formatCurrency(selectedFirm.totalAmount)}</div>
                 </div>
               </div>
-              <DataTable
-                columns={saleColumns}
-                data={selectedFirm.sales}
-                loading={false}
-              />
+              <div className="max-h-96 overflow-y-auto">
+                <DataTable columns={saleColumns} data={selectedFirm.sales} loading={false} />
+              </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add sale dialog */}
+      <Dialog open={addSaleOpen} onOpenChange={setAddSaleOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Firma sotuvini qo&apos;shish</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={form.handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Firma nomi *</Label>
+                <Input
+                  {...form.register('customerName')}
+                  list="firm-names-list"
+                  placeholder="Zamin zavod..."
+                  autoComplete="off"
+                />
+                <datalist id="firm-names-list">
+                  {firmNames.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+                {form.formState.errors.customerName && (
+                  <p className="text-destructive text-xs">{form.formState.errors.customerName.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Telefon</Label>
+                <Input {...form.register('customerPhone')} placeholder="+998..." />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>To&apos;lov turi *</Label>
+                <Select defaultValue="BANK_TRANSFER" onValueChange={(v) => form.setValue('paymentType', v as SaleForm['paymentType'])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BANK_TRANSFER">Perechisleniya</SelectItem>
+                    <SelectItem value="DEBT">Nasiya</SelectItem>
+                    <SelectItem value="CASH">Naqd</SelectItem>
+                    <SelectItem value="CARD">Karta</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>G&apos;isht turi *</Label>
+                <Select defaultValue="BAKED_BRICK" onValueChange={(v) => form.setValue('brickType', v as BrickType)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BAKED_BRICK">Pishgan g&apos;isht</SelectItem>
+                    <SelectItem value="RAW_BRICK">Xom g&apos;isht</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Manba</Label>
+              <Select defaultValue="false" onValueChange={(v) => form.setValue('isReserveSale', v === 'true')}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="false">Asosiy ombordan</SelectItem>
+                  <SelectItem value="true">Zaxiradan</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Miqdor (dona) *</Label>
+                <Input {...form.register('quantity')} type="number" placeholder="10000" />
+                {form.formState.errors.quantity && (
+                  <p className="text-destructive text-xs">{form.formState.errors.quantity.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Narx (1 dona, so&apos;m) *</Label>
+                <Input {...form.register('pricePerBrick')} type="number" step="0.01" placeholder="450" />
+                {form.formState.errors.pricePerBrick && (
+                  <p className="text-destructive text-xs">{form.formState.errors.pricePerBrick.message}</p>
+                )}
+              </div>
+            </div>
+
+            {totalSaleAmount > 0 && (
+              <div className={`rounded-lg px-4 py-2 text-sm ${watchedPayType === 'DEBT' ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20'}`}>
+                <span className="text-muted-foreground">Jami summa: </span>
+                <span className={`font-bold ${watchedPayType === 'DEBT' ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                  {formatCurrency(totalSaleAmount)}
+                </span>
+                {watchedPayType === 'DEBT' && <span className="ml-2 text-xs text-amber-600">(Nasiya — Qarzdorlarga qo&apos;shiladi)</span>}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Sana *</Label>
+                <Input {...form.register('date')} type="date" />
+              </div>
+              <div className="space-y-2">
+                <Label>Izoh</Label>
+                <Input {...form.register('description')} placeholder="Qo'shimcha ma'lumot..." />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAddSaleOpen(false)}>Bekor qilish</Button>
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

@@ -32,6 +32,16 @@ export const salesService = {
     return res.data.data
   },
 
+  async getDebtFirms(): Promise<BankTransferFirm[]> {
+    const res = await api.get('/sales/debt/firms')
+    return res.data.data
+  },
+
+  async getFirmNames(): Promise<string[]> {
+    const res = await api.get('/sales/firm-names')
+    return res.data.data
+  },
+
   async getOne(id: string): Promise<Sale> {
     const res = await api.get(`/sales/${id}`)
     return res.data.data

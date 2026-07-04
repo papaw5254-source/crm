@@ -174,6 +174,15 @@ export default function ZalogPage() {
       ),
     },
     {
+      key: 'paymentType',
+      header: "To'lov",
+      cell: (r: Prepayment) => r.paymentType ? (
+        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${paymentTypeColor(r.paymentType)}`}>
+          {paymentTypeLabel(r.paymentType)}
+        </span>
+      ) : <span className="text-xs text-muted-foreground">—</span>,
+    },
+    {
       key: 'amount',
       header: 'Pul',
       cell: (r: Prepayment) => (

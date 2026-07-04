@@ -45,6 +45,18 @@ export class SalesController {
     return this.salesService.getBankTransferFirms();
   }
 
+  @Get('debt/firms')
+  @ApiOperation({ summary: 'Get debt (nasiya) firms summary' })
+  getDebtFirms() {
+    return this.salesService.getDebtFirms();
+  }
+
+  @Get('firm-names')
+  @ApiOperation({ summary: 'Get unique firm names for autocomplete' })
+  getFirmNames() {
+    return this.salesService.getFirmNames();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get sale by id' })
   findOne(@Param('id') id: string) {
