@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Building2, Plus, AlertTriangle } from 'lucide-react'
+import { Building2, Plus, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
 import { EmptyState } from '@/components/shared/empty-state'
+import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,10 +22,11 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { formatDate, formatCurrency, formatNumber, brickTypeLabel, brickTypeColor, paymentTypeLabel, paymentTypeColor, getErrorMessage } from '@/lib/utils'
+import { useAuth } from '@/providers/auth-provider'
 import type { Sale, BrickType } from '@/types'
 
 const saleSchema = z.object({
-  customerName: z.string().min(1, 'Firma nomi kiritilishi shart'),
+  customerName: z.string().optional(),
   customerPhone: z.string().optional(),
   brickType: z.enum(['RAW_BRICK', 'BAKED_BRICK']),
   quantity: z.coerce.number().min(1, "Miqdor 0 dan katta bo'lishi kerak"),
@@ -36,10 +38,20 @@ const saleSchema = z.object({
 })
 type SaleForm = z.infer<typeof saleSchema>
 
+const defaultFormValues: Partial<SaleForm> = {
+  brickType: 'BAKED_BRICK',
+  paymentType: 'BANK_TRANSFER',
+  date: new Date().toISOString().split('T')[0],
+}
+
 export default function PerechisleniyaPage() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
   const queryClient = useQueryClient()
   const [selectedFirm, setSelectedFirm] = useState<BankTransferFirm | null>(null)
   const [addSaleOpen, setAddSaleOpen] = useState(false)
+  const [editSale, setEditSale] = useState<Sale | null>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data: btFirms = [], isLoading: btLoading } = useQuery({
     queryKey: ['bank-transfer-firms'],
@@ -58,36 +70,90 @@ export default function PerechisleniyaPage() {
 
   const form = useForm<SaleForm>({
     resolver: zodResolver(saleSchema),
-    defaultValues: {
-      brickType: 'BAKED_BRICK',
-      paymentType: 'BANK_TRANSFER',
-      date: new Date().toISOString().split('T')[0],
-    },
+    defaultValues: defaultFormValues,
   })
 
   const watchedQty = form.watch('quantity') || 0
   const watchedPrice = form.watch('pricePerBrick') || 0
   const watchedPayType = form.watch('paymentType')
+  const watchedBrickType = form.watch('brickType')
+  const watchedIsReserve = form.watch('isReserveSale')
   const totalSaleAmount = watchedQty * watchedPrice
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['bank-transfer-firms'] })
+    queryClient.invalidateQueries({ queryKey: ['debt-firms'] })
+    queryClient.invalidateQueries({ queryKey: ['firm-names'] })
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    queryClient.invalidateQueries({ queryKey: ['stock'] })
+  }
 
   const createMutation = useMutation({
     mutationFn: (d: SaleForm) => salesService.create(d as Parameters<typeof salesService.create>[0]),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bank-transfer-firms'] })
-      queryClient.invalidateQueries({ queryKey: ['debt-firms'] })
-      queryClient.invalidateQueries({ queryKey: ['firm-names'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      invalidate()
       toast.success("Sotuv qo'shildi")
       setAddSaleOpen(false)
-      form.reset({ brickType: 'BAKED_BRICK', paymentType: 'BANK_TRANSFER', date: new Date().toISOString().split('T')[0] })
+      form.reset(defaultFormValues)
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
+  const updateMutation = useMutation({
+    mutationFn: (d: SaleForm) => salesService.update(editSale!.id, d as Parameters<typeof salesService.create>[0]),
+    onSuccess: () => {
+      invalidate()
+      toast.success('Sotuv yangilandi')
+      setAddSaleOpen(false)
+      setEditSale(null)
+      setSelectedFirm(null)
+      form.reset(defaultFormValues)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => salesService.delete(id),
+    onSuccess: () => {
+      invalidate()
+      toast.success("Sotuv o'chirildi")
+      setDeleteId(null)
+      setSelectedFirm(null)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const openAdd = () => {
+    setEditSale(null)
+    form.reset(defaultFormValues)
+    setAddSaleOpen(true)
+  }
+
+  const openEdit = (sale: Sale) => {
+    setEditSale(sale)
+    form.reset({
+      customerName: sale.customerName || '',
+      customerPhone: sale.customerPhone || '',
+      brickType: (sale.brickType ?? 'BAKED_BRICK') as BrickType,
+      quantity: sale.quantity,
+      pricePerBrick: Number(sale.pricePerBrick),
+      paymentType: sale.paymentType as SaleForm['paymentType'],
+      date: sale.date,
+      description: sale.description || '',
+      isReserveSale: false,
+    })
+    setAddSaleOpen(true)
+  }
+
+  const onSubmit = (d: SaleForm) => {
+    if (editSale) updateMutation.mutate(d)
+    else createMutation.mutate(d)
+  }
+
   const totalBtFirms = btFirms.length
-  const totalBtAmount = btFirms.reduce((s, f) => s + f.totalAmount, 0)
+  const totalBtAmount = btFirms.reduce((s: number, f: BankTransferFirm) => s + f.totalAmount, 0)
   const totalDebtFirms = debtFirms.length
-  const totalDebtAmount = debtFirms.reduce((s, f) => s + f.totalAmount, 0)
+  const totalDebtAmount = debtFirms.reduce((s: number, f: BankTransferFirm) => s + f.totalAmount, 0)
 
   const firmColumns = (showDebt = false) => [
     {
@@ -149,6 +215,22 @@ export default function PerechisleniyaPage() {
     { key: 'pricePerBrick', header: 'Narx', cell: (r: Sale) => <span>{formatCurrency(Number(r.pricePerBrick))}</span> },
     { key: 'totalAmount', header: 'Jami', cell: (r: Sale) => <span className="font-semibold text-primary">{formatCurrency(Number(r.totalAmount))}</span> },
     { key: 'desc', header: 'Izoh', cell: (r: Sale) => <span className="text-xs text-muted-foreground">{r.description || '—'}</span> },
+    {
+      key: 'actions',
+      header: '',
+      cell: (r: Sale) => (
+        <div className="flex gap-1 justify-end">
+          <Button variant="ghost" size="icon-sm" onClick={() => openEdit(r)}>
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          {isAdmin && (
+            <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteId(r.id)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      ),
+    },
   ]
 
   return (
@@ -157,7 +239,7 @@ export default function PerechisleniyaPage() {
         title="Perechisleniya"
         description="Bank o'tkazmasi va nasiya orqali sotuvlar"
         actions={
-          <Button onClick={() => setAddSaleOpen(true)}>
+          <Button onClick={openAdd}>
             <Plus className="h-4 w-4 mr-1" /> Sotuv qo&apos;shish
           </Button>
         }
@@ -188,7 +270,7 @@ export default function PerechisleniyaPage() {
                   icon={Building2}
                   title="Bank o'tkazmasi sotuvlar yo'q"
                   description="Perechisleniya to'lov turi bilan sotuv qo'shing"
-                  action={<Button onClick={() => setAddSaleOpen(true)}><Plus className="h-4 w-4 mr-1" />Sotuv qo&apos;shish</Button>}
+                  action={<Button onClick={openAdd}><Plus className="h-4 w-4 mr-1" />Sotuv qo&apos;shish</Button>}
                 />
               ) : (
                 <DataTable columns={firmColumns(false)} data={btFirms} loading={btLoading} />
@@ -205,7 +287,7 @@ export default function PerechisleniyaPage() {
                   icon={AlertTriangle}
                   title="Nasiya firmalar yo'q"
                   description="Nasiya to'lov turi bilan sotuv qo'shing"
-                  action={<Button onClick={() => setAddSaleOpen(true)}><Plus className="h-4 w-4 mr-1" />Sotuv qo&apos;shish</Button>}
+                  action={<Button onClick={openAdd}><Plus className="h-4 w-4 mr-1" />Sotuv qo&apos;shish</Button>}
                 />
               ) : (
                 <div className="space-y-3">
@@ -222,8 +304,8 @@ export default function PerechisleniyaPage() {
       </Tabs>
 
       {/* Firm detail dialog */}
-      <Dialog open={!!selectedFirm} onOpenChange={(o) => !o && setSelectedFirm(null)}>
-        <DialogContent className="max-w-3xl">
+      <Dialog open={!!selectedFirm} onOpenChange={(o: boolean) => !o && setSelectedFirm(null)}>
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>{selectedFirm?.firmName} — sotuvlar tarixi</DialogTitle>
           </DialogHeader>
@@ -251,16 +333,16 @@ export default function PerechisleniyaPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Add sale dialog */}
-      <Dialog open={addSaleOpen} onOpenChange={setAddSaleOpen}>
+      {/* Add / Edit sale dialog */}
+      <Dialog open={addSaleOpen} onOpenChange={(o: boolean) => { if (!o) { setAddSaleOpen(false); setEditSale(null) } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Firma sotuvini qo&apos;shish</DialogTitle>
+            <DialogTitle>{editSale ? 'Sotuvni tahrirlash' : "Firma sotuvini qo'shish"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={form.handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Firma nomi *</Label>
+                <Label>Firma nomi</Label>
                 <Input
                   {...form.register('customerName')}
                   list="firm-names-list"
@@ -268,13 +350,10 @@ export default function PerechisleniyaPage() {
                   autoComplete="off"
                 />
                 <datalist id="firm-names-list">
-                  {firmNames.map((name) => (
+                  {firmNames.map((name: string) => (
                     <option key={name} value={name} />
                   ))}
                 </datalist>
-                {form.formState.errors.customerName && (
-                  <p className="text-destructive text-xs">{form.formState.errors.customerName.message}</p>
-                )}
               </div>
               <div className="space-y-2">
                 <Label>Telefon</Label>
@@ -285,7 +364,7 @@ export default function PerechisleniyaPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>To&apos;lov turi *</Label>
-                <Select defaultValue="BANK_TRANSFER" onValueChange={(v) => form.setValue('paymentType', v as SaleForm['paymentType'])}>
+                <Select value={watchedPayType || 'BANK_TRANSFER'} onValueChange={(v: string) => form.setValue('paymentType', v as SaleForm['paymentType'])}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="BANK_TRANSFER">Perechisleniya</SelectItem>
@@ -297,7 +376,7 @@ export default function PerechisleniyaPage() {
               </div>
               <div className="space-y-2">
                 <Label>G&apos;isht turi *</Label>
-                <Select defaultValue="BAKED_BRICK" onValueChange={(v) => form.setValue('brickType', v as BrickType)}>
+                <Select value={watchedBrickType || 'BAKED_BRICK'} onValueChange={(v: string) => form.setValue('brickType', v as BrickType)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="BAKED_BRICK">Pishgan g&apos;isht</SelectItem>
@@ -307,16 +386,18 @@ export default function PerechisleniyaPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Manba</Label>
-              <Select defaultValue="false" onValueChange={(v) => form.setValue('isReserveSale', v === 'true')}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="false">Asosiy ombordan</SelectItem>
-                  <SelectItem value="true">Zaxiradan</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {!editSale && (
+              <div className="space-y-2">
+                <Label>Manba</Label>
+                <Select value={watchedIsReserve ? 'true' : 'false'} onValueChange={(v: string) => form.setValue('isReserveSale', v === 'true')}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="false">Asosiy ombordan</SelectItem>
+                    <SelectItem value="true">Zaxiradan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -357,14 +438,23 @@ export default function PerechisleniyaPage() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setAddSaleOpen(false)}>Bekor qilish</Button>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+              <Button type="button" variant="outline" onClick={() => { setAddSaleOpen(false); setEditSale(null) }}>Bekor qilish</Button>
+              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                {createMutation.isPending || updateMutation.isPending ? 'Saqlanmoqda...' : editSale ? 'Saqlash' : "Qo'shish"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        title="Sotuvni o'chirishni tasdiqlang"
+        description="Ombor miqdori tiklanadi. Bu amalni qaytarib bo'lmaydi."
+        onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
+        loading={deleteMutation.isPending}
+      />
     </div>
   )
 }
