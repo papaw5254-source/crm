@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { HardHat, Pencil, Trash2 } from 'lucide-react'
+import { HardHat, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { workerPaymentsService } from '@/services/worker-payments.service'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { formatCurrency, formatDate, getErrorMessage, workerPaymentCategoryLabel } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
@@ -27,6 +28,12 @@ function currentMonth() {
   return { month: now.getMonth() + 1, year: now.getFullYear() }
 }
 
+function previousMonthEndDate() {
+  const now = new Date()
+  const date = new Date(now.getFullYear(), now.getMonth(), 0)
+  return date.toISOString().split('T')[0]
+}
+
 export function WorkerPaymentsPanel({ title, categories, limit = 6 }: WorkerPaymentsPanelProps) {
   const { month, year } = currentMonth()
   const { user } = useAuth()
@@ -38,6 +45,16 @@ export function WorkerPaymentsPanel({ title, categories, limit = 6 }: WorkerPaym
   const [editPaid, setEditPaid] = useState('')
   const [editDate, setEditDate] = useState('')
   const [editDescription, setEditDescription] = useState('')
+  const [debtOpen, setDebtOpen] = useState(false)
+  const [debtCategory, setDebtCategory] = useState(categories[0] ?? 'PRESS')
+  const [debtWorkerName, setDebtWorkerName] = useState('Zavod ishchilari')
+  const [debtAmount, setDebtAmount] = useState('')
+  const [debtDate, setDebtDate] = useState(previousMonthEndDate())
+  const [debtDescription, setDebtDescription] = useState("O'tgan oydan qolgan ishchi qarzi")
+
+  useEffect(() => {
+    setDebtCategory(categories[0] ?? 'PRESS')
+  }, [categories.join('|')])
 
   const { data: report } = useQuery({
     queryKey: ['worker-payments-report', title, month, year],
@@ -64,6 +81,28 @@ export function WorkerPaymentsPanel({ title, categories, limit = 6 }: WorkerPaym
     queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard'] })
   }
+
+  const createDebtMutation = useMutation({
+    mutationFn: () =>
+      workerPaymentsService.create({
+        workerName: debtWorkerName.trim() || 'Zavod ishchilari',
+        category: debtCategory,
+        debtFromPreviousMonth: Number(debtAmount || 0),
+        amount: 0,
+        paidAmount: 0,
+        date: debtDate,
+        month: debtDate.slice(0, 7),
+        description: debtDescription.trim() || undefined,
+      }),
+    onSuccess: () => {
+      toast.success("Eski ishchi qarzi qo'shildi")
+      setDebtOpen(false)
+      setDebtAmount('')
+      setDebtDate(previousMonthEndDate())
+      refresh()
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -119,9 +158,15 @@ export function WorkerPaymentsPanel({ title, categories, limit = 6 }: WorkerPaym
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
           <HardHat className="h-4 w-4" /> {title}
         </h3>
-        <span className="text-sm text-muted-foreground">
-          {String(month).padStart(2, '0')}.{year}
-        </span>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => setDebtOpen(true)}>
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Eski qarz qo&apos;shish
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {String(month).padStart(2, '0')}.{year}
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -201,6 +246,57 @@ export function WorkerPaymentsPanel({ title, categories, limit = 6 }: WorkerPaym
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setEditItem(null)}>Bekor qilish</Button>
             <Button onClick={() => updateMutation.mutate()} loading={updateMutation.isPending}>Saqlash</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={debtOpen} onOpenChange={setDebtOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eski ishchi qarzini qo&apos;shish</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Bo&apos;lim</Label>
+              <Select value={debtCategory} onValueChange={setDebtCategory}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {workerPaymentCategoryLabel(category)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Ishchi nomi</Label>
+              <Input value={debtWorkerName} onChange={(e) => setDebtWorkerName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Qarz summasi</Label>
+              <Input value={debtAmount} onChange={(e) => setDebtAmount(e.target.value)} type="number" placeholder="1000000" />
+            </div>
+            <div className="space-y-2">
+              <Label>Qaysi sanadan qoldi</Label>
+              <Input value={debtDate} onChange={(e) => setDebtDate(e.target.value)} type="date" />
+            </div>
+            <div className="space-y-2 col-span-2">
+              <Label>Izoh</Label>
+              <Input value={debtDescription} onChange={(e) => setDebtDescription(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDebtOpen(false)}>Bekor qilish</Button>
+            <Button
+              onClick={() => createDebtMutation.mutate()}
+              loading={createDebtMutation.isPending}
+              disabled={Number(debtAmount || 0) <= 0}
+            >
+              Qo&apos;shish
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -7,8 +7,8 @@ export interface CreateWorkerPaymentDto {
   debtFromPreviousMonth?: number
   amount: number
   paidAmount: number
-  month: number
-  year: number
+  month?: string | number
+  year?: number
   date: string
   description?: string
 }

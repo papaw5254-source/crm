@@ -70,6 +70,8 @@ export default function InventoryPage() {
       queryClient.invalidateQueries({ queryKey: ['inventory'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
       toast.success("Kirim muvaffaqiyatli qo'shildi")
       setDialogOpen(false)
       reset({ date: new Date().toISOString().split('T')[0] })
@@ -82,6 +84,8 @@ export default function InventoryPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
       toast.success('Kirim yangilandi')
       setEditItem(null)
       setDialogOpen(false)
@@ -95,6 +99,8 @@ export default function InventoryPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
       toast.success("Kirim o'chirildi")
       setDeleteId(null)
     },
