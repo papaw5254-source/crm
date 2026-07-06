@@ -1,8 +1,21 @@
 import { api } from './api'
-import type { InventoryIncome, PaginatedResponse, PaginationParams } from '@/types'
+import type { BrickType, InventoryIncome, PaginatedResponse, PaginationParams } from '@/types'
+
+type InventoryParams = PaginationParams & {
+  brickType?: BrickType
+}
+
+type InventoryPayload = {
+  quantity: number
+  description?: string
+  date: string
+  workerRatePerBrick?: number
+  workerPaidAmount?: number
+  brickType?: BrickType
+}
 
 export const inventoryService = {
-  async getAll(params?: PaginationParams): Promise<PaginatedResponse<InventoryIncome>> {
+  async getAll(params?: InventoryParams): Promise<PaginatedResponse<InventoryIncome>> {
     const res = await api.get('/inventory/income', { params })
     return res.data.data
   },
@@ -12,8 +25,8 @@ export const inventoryService = {
     return res.data.data
   },
 
-  async create(data: { quantity: number; description?: string; date: string; workerRatePerBrick?: number; workerPaidAmount?: number }): Promise<InventoryIncome> {
-    const res = await api.post('/inventory/income', data)
+  async create(data: InventoryPayload): Promise<InventoryIncome> {
+    const res = await api.post('/inventory/income', { ...data, brickType: data.brickType ?? 'RAW_BRICK' })
     return res.data.data
   },
 

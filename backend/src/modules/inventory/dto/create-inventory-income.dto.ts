@@ -3,10 +3,10 @@ import { IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from
 import { BrickType } from '../../../common/enums/brick-type.enum';
 
 export class CreateInventoryIncomeDto {
-  @ApiPropertyOptional({ enum: BrickType, default: BrickType.BAKED_BRICK })
+  @ApiPropertyOptional({ enum: BrickType, default: BrickType.RAW_BRICK })
   @IsOptional()
   @IsEnum(BrickType)
-  brickType?: BrickType = BrickType.BAKED_BRICK;
+  brickType?: BrickType = BrickType.RAW_BRICK;
 
   @ApiProperty({ example: 5000 })
   @IsInt()

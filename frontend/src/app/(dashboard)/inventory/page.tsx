@@ -8,7 +8,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { inventoryService } from '@/services/inventory.service'
-import { stockService } from '@/services/stock.service'
 import { workerPaymentsService } from '@/services/worker-payments.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
@@ -51,13 +50,8 @@ export default function InventoryPage() {
   const debouncedSearch = useDebounce(search)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['inventory', page, limit, debouncedSearch],
-    queryFn: () => inventoryService.getAll({ page, limit, search: debouncedSearch }),
-  })
-
-  const { data: stock } = useQuery({
-    queryKey: ['stock'],
-    queryFn: stockService.getStock,
+    queryKey: ['inventory', 'RAW_BRICK', page, limit, debouncedSearch],
+    queryFn: () => inventoryService.getAll({ page, limit, search: debouncedSearch, brickType: 'RAW_BRICK' }),
   })
 
   const { data: wpReport } = useQuery({
@@ -78,7 +72,7 @@ export default function InventoryPage() {
   const workerDebt = totalWorkerCost - watchedPaid
 
   const createMutation = useMutation({
-    mutationFn: (data: FormData) => inventoryService.create(data),
+    mutationFn: (data: FormData) => inventoryService.create({ ...data, brickType: 'RAW_BRICK' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
@@ -201,8 +195,8 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Kirim (Ishlab chiqarish)"
-        description="Ombordagi g'isht kirimi boshqaruvi"
+        title="Xom g'isht kirim"
+        description="Pressdan chiqqan xom g'isht kirimlari"
         actions={
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4 mr-1" />
@@ -212,8 +206,7 @@ export default function InventoryPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatsCard title="Ombordagi g'isht" value={stock?.quantity ?? 0} icon={PackagePlus} color="blue" format="number" suffix="dona" />
-        <StatsCard title="Jami kirimlar" value={data?.meta.total ?? 0} icon={PackagePlus} color="emerald" format="number" suffix="ta" />
+        <StatsCard title="Xom g'isht kirimlari" value={data?.meta.total ?? 0} icon={PackagePlus} color="emerald" format="number" suffix="ta" />
       </div>
 
       <div className="space-y-3">

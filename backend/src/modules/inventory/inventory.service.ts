@@ -22,7 +22,7 @@ export class InventoryService {
   ) {}
 
   async create(createDto: CreateInventoryIncomeDto, userId: string): Promise<InventoryIncome> {
-    const brickType = createDto.brickType || BrickType.BAKED_BRICK;
+    const brickType = createDto.brickType || BrickType.RAW_BRICK;
 
     let totalWorkerCost: number | null = null;
     let workerDebt: number | null = null;
