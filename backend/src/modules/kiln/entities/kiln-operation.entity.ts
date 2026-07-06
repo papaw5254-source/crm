@@ -49,6 +49,30 @@ export class KilnOperation {
   @Column({ name: 'worker_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
   workerDebt: number;
 
+  @Column({ name: 'raw_worker_rate_per_brick', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  rawWorkerRatePerBrick: number;
+
+  @Column({ name: 'raw_worker_total_cost', type: 'decimal', precision: 14, scale: 2, nullable: true })
+  rawWorkerTotalCost: number;
+
+  @Column({ name: 'raw_worker_paid_amount', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  rawWorkerPaidAmount: number;
+
+  @Column({ name: 'raw_worker_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  rawWorkerDebt: number;
+
+  @Column({ name: 'baked_worker_rate_per_brick', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  bakedWorkerRatePerBrick: number;
+
+  @Column({ name: 'baked_worker_total_cost', type: 'decimal', precision: 14, scale: 2, nullable: true })
+  bakedWorkerTotalCost: number;
+
+  @Column({ name: 'baked_worker_paid_amount', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  bakedWorkerPaidAmount: number;
+
+  @Column({ name: 'baked_worker_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  bakedWorkerDebt: number;
+
   @ManyToOne(() => User, { nullable: true, eager: false })
   createdBy: User;
 

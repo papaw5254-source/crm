@@ -118,8 +118,14 @@ export default function SalesPage() {
   }
 
   const onSubmit = (data: FormData) => {
-    if (editItem) updateMutation.mutate(data)
-    else createMutation.mutate(data)
+    const payload = {
+      ...data,
+      customerName: data.customerName?.trim() || undefined,
+      customerPhone: data.customerPhone?.trim() || undefined,
+      description: data.description?.trim() || undefined,
+    }
+    if (editItem) updateMutation.mutate(payload)
+    else createMutation.mutate(payload)
   }
 
   const filteredData = paymentTypeFilter === 'ALL'

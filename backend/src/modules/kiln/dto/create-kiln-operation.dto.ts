@@ -59,4 +59,28 @@ export class CreateKilnOperationDto {
   @IsNumber()
   @Min(0)
   workerPaidAmount?: number;
+
+  @ApiPropertyOptional({ example: 20, description: 'Humbuzga kirgan xom gisht uchun 1 dona ishchi narxi' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  rawWorkerRatePerBrick?: number;
+
+  @ApiPropertyOptional({ example: 100000, description: 'Kirgan xom gisht ishchisiga berilgan pul' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  rawWorkerPaidAmount?: number;
+
+  @ApiPropertyOptional({ example: 30, description: 'Humbuzdan chiqqan pishgan gisht uchun 1 dona ishchi narxi' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  bakedWorkerRatePerBrick?: number;
+
+  @ApiPropertyOptional({ example: 150000, description: 'Chiqqan pishgan gisht ishchisiga berilgan pul' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  bakedWorkerPaidAmount?: number;
 }

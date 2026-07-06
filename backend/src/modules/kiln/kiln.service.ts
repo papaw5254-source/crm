@@ -39,26 +39,58 @@ export class KilnService {
       const operation = manager.create(KilnOperation, { ...dto, rawBricksEntered: rawEntered, bakedBricksOutput: bakedOutput, createdById: userId });
       const saved = await manager.save(KilnOperation, operation);
 
-      if (dto.workerRatePerBrick && dto.workerRatePerBrick > 0) {
-        const totalBricks = (rawEntered || 0) + (bakedOutput || 0);
-        const totalWorkerCost = totalBricks * dto.workerRatePerBrick;
-        const paid = dto.workerPaidAmount || 0;
-        const workerDebt = totalWorkerCost - paid;
+      const legacyRate = dto.workerRatePerBrick || 0;
+      const legacyPaid = dto.workerPaidAmount || 0;
+      const rawRate = dto.rawWorkerRatePerBrick ?? legacyRate;
+      const bakedRate = dto.bakedWorkerRatePerBrick ?? legacyRate;
+      const rawPaid = dto.rawWorkerPaidAmount ?? (dto.rawWorkerRatePerBrick === undefined ? legacyPaid : 0);
+      const bakedPaid = dto.bakedWorkerPaidAmount ?? 0;
 
+      const rawWorkerCost = rawEntered > 0 && rawRate > 0 ? rawEntered * rawRate : 0;
+      const bakedWorkerCost = bakedOutput > 0 && bakedRate > 0 ? bakedOutput * bakedRate : 0;
+      const rawWorkerDebt = Math.max(0, rawWorkerCost - rawPaid);
+      const bakedWorkerDebt = Math.max(0, bakedWorkerCost - bakedPaid);
+
+      if (rawWorkerCost > 0) {
         await manager.save(WorkerPayment, manager.create(WorkerPayment, {
-          workerName: 'Ishchilar (humbuz)',
+          workerName: 'Ishchilar (humbuz kirdi)',
           category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
-          amount: totalWorkerCost,
-          paidAmount: paid,
-          remainingDebt: workerDebt,
+          amount: rawWorkerCost,
+          paidAmount: rawPaid,
+          remainingDebt: rawWorkerDebt,
+          month: dto.date.slice(0, 7),
           date: dto.date,
-          description: `${totalBricks} dona (${dto.workerRatePerBrick} so'm/dona) - ${dto.kilnName}`,
+          description: `Humbuzga kirdi: ${rawEntered} dona xom g'isht (${rawRate} so'm/dona) - ${dto.kilnName}`,
           createdById: userId,
         }));
+      }
 
-        saved.totalWorkerCost = totalWorkerCost;
-        saved.workerPaidAmount = paid;
-        saved.workerDebt = workerDebt;
+      if (bakedWorkerCost > 0) {
+        await manager.save(WorkerPayment, manager.create(WorkerPayment, {
+          workerName: 'Ishchilar (humbuz chiqdi)',
+          category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
+          amount: bakedWorkerCost,
+          paidAmount: bakedPaid,
+          remainingDebt: bakedWorkerDebt,
+          month: dto.date.slice(0, 7),
+          date: dto.date,
+          description: `Humbuzdan chiqdi: ${bakedOutput} dona pishgan g'isht (${bakedRate} so'm/dona) - ${dto.kilnName}`,
+          createdById: userId,
+        }));
+      }
+
+      if (rawWorkerCost > 0 || bakedWorkerCost > 0) {
+        saved.rawWorkerRatePerBrick = rawRate || null;
+        saved.rawWorkerTotalCost = rawWorkerCost;
+        saved.rawWorkerPaidAmount = rawPaid;
+        saved.rawWorkerDebt = rawWorkerDebt;
+        saved.bakedWorkerRatePerBrick = bakedRate || null;
+        saved.bakedWorkerTotalCost = bakedWorkerCost;
+        saved.bakedWorkerPaidAmount = bakedPaid;
+        saved.bakedWorkerDebt = bakedWorkerDebt;
+        saved.totalWorkerCost = rawWorkerCost + bakedWorkerCost;
+        saved.workerPaidAmount = rawPaid + bakedPaid;
+        saved.workerDebt = rawWorkerDebt + bakedWorkerDebt;
         await manager.save(KilnOperation, saved);
       }
 

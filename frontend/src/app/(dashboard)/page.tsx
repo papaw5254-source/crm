@@ -40,6 +40,7 @@ const [Area, Bar, XAxis, YAxis, Tooltip] = [AreaC, BarC, XAxisC, YAxisC, Tooltip
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const firstName = user?.fullName?.split(' ')[0] || 'foydalanuvchi'
   const { data: dashboard, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: reportsService.getDashboard,
@@ -67,7 +68,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Xush kelibsiz, ${user?.fullName?.split(' ')[0]}!`}
+        title={`Xush kelibsiz, ${firstName}!`}
         description="G'isht zavodi CRM tizimi"
       />
 

@@ -15,6 +15,7 @@ export class WorkerPaymentsService {
   ) {}
 
   async create(dto: CreateWorkerPaymentDto, userId: string): Promise<WorkerPayment> {
+    const month = typeof dto.month === 'string' && dto.month.includes('-') ? dto.month : dto.date.slice(0, 7);
     const debt = Number(dto.debtFromPreviousMonth || 0);
     const amount = Number(dto.amount);
     const paid = Number(dto.paidAmount || 0);
@@ -22,6 +23,7 @@ export class WorkerPaymentsService {
 
     const payment = this.workerPaymentRepository.create({
       ...dto,
+      month,
       debtFromPreviousMonth: debt,
       paidAmount: paid,
       remainingDebt: remainingDebt < 0 ? 0 : remainingDebt,
@@ -75,29 +77,59 @@ export class WorkerPaymentsService {
 
   async getReport(month?: number, year?: number, dateFrom?: string, dateTo?: string) {
     const qb = this.workerPaymentRepository.createQueryBuilder('wp');
-    if (month) qb.andWhere('wp.month = :month', { month });
-    if (year) qb.andWhere('wp.year = :year', { year });
+    let carryDebtBefore: string | null = null;
+    if (month && year) {
+      const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+      qb.andWhere('(wp.month = :monthKey OR (wp.month IS NULL AND wp.date >= :monthStart AND wp.date <= :monthEnd))', {
+        monthKey,
+        monthStart: `${monthKey}-01`,
+        monthEnd: `${monthKey}-31`,
+      });
+      carryDebtBefore = `${monthKey}-01`;
+    } else if (month) {
+      qb.andWhere('wp.month LIKE :monthSuffix', { monthSuffix: `%-${String(month).padStart(2, '0')}` });
+    } else if (year) {
+      qb.andWhere('wp.date >= :yearStart AND wp.date <= :yearEnd', {
+        yearStart: `${year}-01-01`,
+        yearEnd: `${year}-12-31`,
+      });
+    }
     if (dateFrom) qb.andWhere('wp.date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('wp.date <= :dateTo', { dateTo });
 
     const payments = await qb.getMany();
+    const carriedPayments = carryDebtBefore
+      ? await this.workerPaymentRepository
+          .createQueryBuilder('wp')
+          .where('wp.date < :carryDebtBefore', { carryDebtBefore })
+          .andWhere('wp.remainingDebt > 0')
+          .getMany()
+      : [];
 
     const totalAmount = payments.reduce((s, x) => s + Number(x.amount), 0);
     const totalPaid = payments.reduce((s, x) => s + Number(x.paidAmount), 0);
-    const totalDebt = payments.reduce((s, x) => s + Number(x.remainingDebt), 0);
+    const totalCurrentDebt = payments.reduce((s, x) => s + Number(x.remainingDebt), 0);
+    const totalCarriedDebt = carriedPayments.reduce((s, x) => s + Number(x.remainingDebt), 0);
+    const totalDebt = totalCurrentDebt + totalCarriedDebt;
 
-    const workerNames = new Set(payments.map((p) => p.workerName));
+    const workerNames = new Set([...payments, ...carriedPayments].map((p) => p.workerName));
     const totalWorkers = workerNames.size;
 
-    const byCategory: Record<string, { count: number; amount: number; paid: number; debt: number }> = {};
+    const byCategory: Record<string, { count: number; amount: number; paid: number; debt: number; carriedDebt: number }> = {};
     for (const p of payments) {
-      if (!byCategory[p.category]) byCategory[p.category] = { count: 0, amount: 0, paid: 0, debt: 0 };
+      if (!byCategory[p.category]) byCategory[p.category] = { count: 0, amount: 0, paid: 0, debt: 0, carriedDebt: 0 };
       byCategory[p.category].count += 1;
       byCategory[p.category].amount += Number(p.amount);
       byCategory[p.category].paid += Number(p.paidAmount);
       byCategory[p.category].debt += Number(p.remainingDebt);
     }
+    for (const p of carriedPayments) {
+      if (!byCategory[p.category]) byCategory[p.category] = { count: 0, amount: 0, paid: 0, debt: 0, carriedDebt: 0 };
+      const debt = Number(p.remainingDebt);
+      byCategory[p.category].debt += debt;
+      byCategory[p.category].carriedDebt += debt;
+    }
 
-    return { totalWorkers, totalAmount, totalPaid, totalDebt, byCategory };
+    return { totalWorkers, totalAmount, totalPaid, totalDebt, totalCarriedDebt, byCategory };
   }
 }

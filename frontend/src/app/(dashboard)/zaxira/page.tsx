@@ -2,18 +2,17 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Warehouse, ArrowUp, ArrowDown, ShoppingCart, Trash2, HardHat } from 'lucide-react'
+import { Plus, Warehouse, ArrowUp, ArrowDown, ShoppingCart, Trash2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import Link from 'next/link'
 import { reserveService } from '@/services/reserve.service'
-import { workerPaymentsService } from '@/services/worker-payments.service'
 import { salesService } from '@/services/sales.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
+import { WorkerPaymentsPanel } from '@/components/shared/worker-payments-panel'
 import { Pagination } from '@/components/shared/pagination'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Button } from '@/components/ui/button'
@@ -88,18 +87,6 @@ export default function ZaxiraPage() {
     queryFn: () => salesService.getAll({ page: salePage, limit: saleLimit, isReserveSale: true }),
   })
 
-  const { data: wpReport } = useQuery({
-    queryKey: ['worker-payments-report'],
-    queryFn: () => workerPaymentsService.getReport(),
-  })
-  const rawStats = wpReport?.byCategory?.RESERVE_RAW_LOADING ?? { amount: 0, paid: 0, debt: 0 }
-  const bakedStats = wpReport?.byCategory?.RESERVE_BAKED_LOADING ?? { amount: 0, paid: 0, debt: 0 }
-  const reserveWpStats = {
-    amount: Number(rawStats.amount) + Number(bakedStats.amount),
-    paid: Number(rawStats.paid) + Number(bakedStats.paid),
-    debt: Number(rawStats.debt) + Number(bakedStats.debt),
-  }
-
   // ─── Movement form ─────────────────────────────────────────────────────────
   const movForm = useForm<MovementForm>({
     resolver: zodResolver(movementSchema),
@@ -136,7 +123,13 @@ export default function ZaxiraPage() {
 
   const saleMutation = useMutation({
     mutationFn: (d: SaleForm) =>
-      salesService.create({ ...d, isReserveSale: true }),
+      salesService.create({
+        ...d,
+        customerName: d.customerName?.trim() || undefined,
+        customerPhone: d.customerPhone?.trim() || undefined,
+        description: d.description?.trim() || undefined,
+        isReserveSale: true,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reserve-sales'] })
       queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
@@ -309,21 +302,10 @@ export default function ZaxiraPage() {
         </Card>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <HardHat className="h-4 w-4" /> Ishchi puli (Zaxira)
-          </h3>
-          <Link href="/ishchilar" className="text-sm text-primary hover:underline font-medium">
-            Barchasini ko&apos;rish →
-          </Link>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <Link href="/ishchilar"><StatsCard title="Hisoblangan" value={reserveWpStats.amount} icon={HardHat} color="amber" /></Link>
-          <Link href="/ishchilar"><StatsCard title="To'langan" value={reserveWpStats.paid} icon={HardHat} color="emerald" /></Link>
-          <Link href="/ishchilar"><StatsCard title="Qarz" value={reserveWpStats.debt} icon={HardHat} color="red" /></Link>
-        </div>
-      </div>
+      <WorkerPaymentsPanel
+        title="Ishchi puli (Zaxira)"
+        categories={['RESERVE_RAW_LOADING', 'RESERVE_BAKED_LOADING']}
+      />
 
       {/* Main Tabs */}
       <Tabs defaultValue="harakatlar">

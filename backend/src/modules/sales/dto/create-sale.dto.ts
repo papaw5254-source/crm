@@ -9,6 +9,7 @@ import {
   IsString,
   Matches,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { BrickType } from '../../../common/enums/brick-type.enum';
 import { PaymentType } from '../../../common/enums/payment-type.enum';
@@ -41,6 +42,7 @@ export class CreateSaleDto {
   @ApiPropertyOptional({ example: '+998901234567' })
   @IsOptional()
   @IsString()
+  @ValidateIf((o) => o.customerPhone !== undefined && o.customerPhone !== '')
   @Matches(/^\+?[0-9]{9,15}$/, { message: 'Phone number is not valid' })
   customerPhone?: string;
 

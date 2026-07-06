@@ -109,6 +109,7 @@ export class ReserveService {
           amount: totalWorkerCost,
           paidAmount: paid,
           remainingDebt: workerDebt,
+          month: dto.date.slice(0, 7),
           date: dto.date,
           description: `${dto.quantity} dona (${dto.workerRatePerBrick} so'm/dona)`,
           createdById: userId,

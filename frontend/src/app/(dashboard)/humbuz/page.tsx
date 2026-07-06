@@ -2,17 +2,16 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Flame, Pencil, Trash2, AlertCircle, HardHat } from 'lucide-react'
+import { Plus, Flame, Pencil, Trash2, AlertCircle } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import Link from 'next/link'
 import { kilnService } from '@/services/kiln.service'
-import { workerPaymentsService } from '@/services/worker-payments.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
+import { WorkerPaymentsPanel } from '@/components/shared/worker-payments-panel'
 import { Pagination } from '@/components/shared/pagination'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -38,6 +37,10 @@ const schema = z.object({
   description: z.string().optional(),
   workerRatePerBrick: z.coerce.number().min(0).optional(),
   workerPaidAmount: z.coerce.number().min(0).optional(),
+  rawWorkerRatePerBrick: z.coerce.number().min(0).optional(),
+  rawWorkerPaidAmount: z.coerce.number().min(0).optional(),
+  bakedWorkerRatePerBrick: z.coerce.number().min(0).optional(),
+  bakedWorkerPaidAmount: z.coerce.number().min(0).optional(),
 })
 type FormData = z.infer<typeof schema>
 
@@ -63,23 +66,24 @@ export default function HumbuzPage() {
       }),
   })
 
-  const { data: wpReport } = useQuery({
-    queryKey: ['worker-payments-report'],
-    queryFn: () => workerPaymentsService.getReport(),
-  })
-  const humbuzStats = wpReport?.byCategory?.HUMBUZ_KIRDI_CHIQDI ?? { amount: 0, paid: 0, debt: 0 }
-
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { date: new Date().toISOString().split('T')[0], kilnName: 'HUMBUZ_1' },
   })
 
   const rawBricksEntered = watch('rawBricksEntered') ?? 0
-  const watchedRate = watch('workerRatePerBrick') || 0
-  const watchedPaid = watch('workerPaidAmount') || 0
-  const totalBricksForWorker = (watch('rawBricksEntered') || 0) + (watch('bakedBricksOutput') || 0)
-  const totalWorkerCost = totalBricksForWorker * watchedRate
-  const workerDebt = totalWorkerCost - watchedPaid
+  const bakedBricksOutput = watch('bakedBricksOutput') ?? 0
+  const rawWorkerRate = watch('rawWorkerRatePerBrick') || 0
+  const rawWorkerPaid = watch('rawWorkerPaidAmount') || 0
+  const bakedWorkerRate = watch('bakedWorkerRatePerBrick') || 0
+  const bakedWorkerPaid = watch('bakedWorkerPaidAmount') || 0
+  const rawWorkerCost = rawBricksEntered * rawWorkerRate
+  const bakedWorkerCost = bakedBricksOutput * bakedWorkerRate
+  const rawWorkerDebt = rawWorkerCost - rawWorkerPaid
+  const bakedWorkerDebt = bakedWorkerCost - bakedWorkerPaid
+  const totalWorkerCost = rawWorkerCost + bakedWorkerCost
+  const totalWorkerPaid = rawWorkerPaid + bakedWorkerPaid
+  const workerDebt = rawWorkerDebt + bakedWorkerDebt
 
   const createMutation = useMutation({
     mutationFn: (d: FormData) => kilnService.create(d),
@@ -125,6 +129,10 @@ export default function HumbuzPage() {
     setValue('responsibleWorker', item.responsibleWorker || '')
     setValue('date', item.date)
     setValue('description', item.description || '')
+    setValue('rawWorkerRatePerBrick', Number(item.rawWorkerRatePerBrick ?? item.workerRatePerBrick ?? 0))
+    setValue('rawWorkerPaidAmount', Number(item.rawWorkerPaidAmount ?? item.workerPaidAmount ?? 0))
+    setValue('bakedWorkerRatePerBrick', Number(item.bakedWorkerRatePerBrick ?? item.workerRatePerBrick ?? 0))
+    setValue('bakedWorkerPaidAmount', Number(item.bakedWorkerPaidAmount ?? 0))
     setDialogOpen(true)
   }
 
@@ -177,9 +185,20 @@ export default function HumbuzPage() {
       cell: (r: KilnOperation) => r.totalWorkerCost ? (
         <div className="text-sm">
           <div className="font-medium">{formatCurrency(Number(r.totalWorkerCost))}</div>
-          <div className="text-xs text-muted-foreground">
-            <span className="text-emerald-600">Berildi: {formatCurrency(Number(r.workerPaidAmount ?? 0))}</span>
-            {Number(r.workerDebt) > 0 && <span className="text-red-500 ml-1">Qarz: {formatCurrency(Number(r.workerDebt))}</span>}
+          <div className="space-y-0.5 text-xs text-muted-foreground">
+            {Number(r.rawWorkerTotalCost ?? 0) > 0 && (
+              <p>
+                Kirdi: {formatCurrency(Number(r.rawWorkerTotalCost))}
+                <span className="text-emerald-600 ml-1">Berildi: {formatCurrency(Number(r.rawWorkerPaidAmount ?? 0))}</span>
+              </p>
+            )}
+            {Number(r.bakedWorkerTotalCost ?? 0) > 0 && (
+              <p>
+                Chiqdi: {formatCurrency(Number(r.bakedWorkerTotalCost))}
+                <span className="text-emerald-600 ml-1">Berildi: {formatCurrency(Number(r.bakedWorkerPaidAmount ?? 0))}</span>
+              </p>
+            )}
+            {Number(r.workerDebt) > 0 && <p className="text-red-500">Qarz: {formatCurrency(Number(r.workerDebt))}</p>}
           </div>
         </div>
       ) : <span className="text-muted-foreground text-xs">—</span>,
@@ -219,21 +238,7 @@ export default function HumbuzPage() {
         <StatsCard title="Jami pishgan chiqdi" value={totalBakedOut} icon={Flame} color="emerald" format="number" suffix="dona" />
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <HardHat className="h-4 w-4" /> Ishchi puli (Humbuz)
-          </h3>
-          <Link href="/ishchilar" className="text-sm text-primary hover:underline font-medium">
-            Barchasini ko&apos;rish →
-          </Link>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <Link href="/ishchilar"><StatsCard title="Hisoblangan" value={Number(humbuzStats.amount)} icon={HardHat} color="amber" /></Link>
-          <Link href="/ishchilar"><StatsCard title="To'langan" value={Number(humbuzStats.paid)} icon={HardHat} color="emerald" /></Link>
-          <Link href="/ishchilar"><StatsCard title="Qarz" value={Number(humbuzStats.debt)} icon={HardHat} color="red" /></Link>
-        </div>
-      </div>
+      <WorkerPaymentsPanel title="Ishchi puli (Humbuz)" categories={['HUMBUZ_KIRDI_CHIQDI']} />
 
       {/* Kiln tabs */}
       <Tabs value={kilnFilter} onValueChange={(v: string) => { setKilnFilter(v as KilnName | 'ALL'); setPage(1) }}>
@@ -324,29 +329,82 @@ export default function HumbuzPage() {
             </div>
 
             <div className="rounded-lg border border-dashed p-3 space-y-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (ixtiyoriy)</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>1 dona uchun narx (so&apos;m)</Label>
-                  <Input {...register('workerRatePerBrick')} type="number" placeholder="25" />
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Ishchi puli (alohida hisob)
+              </p>
+
+              <div className="rounded-md bg-muted/40 p-3 space-y-3">
+                <p className="text-sm font-medium">Kirgan xom g'isht uchun</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>1 dona narxi (so&apos;m)</Label>
+                    <Input {...register('rawWorkerRatePerBrick')} type="number" placeholder="20" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Berildi (so&apos;m)</Label>
+                    <Input {...register('rawWorkerPaidAmount')} type="number" placeholder="0" />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Bugun berildi (so&apos;m)</Label>
-                  <Input {...register('workerPaidAmount')} type="number" placeholder="0" />
-                </div>
+                {rawWorkerCost > 0 && (
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div className="rounded-md bg-background px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Dona</div>
+                      <div className="font-semibold">{formatNumber(rawBricksEntered)}</div>
+                    </div>
+                    <div className="rounded-md bg-background px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Hisoblandi</div>
+                      <div className="font-semibold">{formatCurrency(rawWorkerCost)}</div>
+                    </div>
+                    <div className="rounded-md bg-background px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Qarz</div>
+                      <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, rawWorkerDebt))}</div>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              <div className="rounded-md bg-muted/40 p-3 space-y-3">
+                <p className="text-sm font-medium">Chiqqan pishgan g'isht uchun</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>1 dona narxi (so&apos;m)</Label>
+                    <Input {...register('bakedWorkerRatePerBrick')} type="number" placeholder="30" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Berildi (so&apos;m)</Label>
+                    <Input {...register('bakedWorkerPaidAmount')} type="number" placeholder="0" />
+                  </div>
+                </div>
+                {bakedWorkerCost > 0 && (
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div className="rounded-md bg-background px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Dona</div>
+                      <div className="font-semibold">{formatNumber(bakedBricksOutput)}</div>
+                    </div>
+                    <div className="rounded-md bg-background px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Hisoblandi</div>
+                      <div className="font-semibold">{formatCurrency(bakedWorkerCost)}</div>
+                    </div>
+                    <div className="rounded-md bg-background px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Qarz</div>
+                      <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, bakedWorkerDebt))}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {totalWorkerCost > 0 && (
                 <div className="grid grid-cols-3 gap-2 text-sm">
                   <div className="rounded-md bg-muted px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Jami ishchi puli</div>
+                    <div className="text-xs text-muted-foreground">Jami hisoblandi</div>
                     <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
                   </div>
                   <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Berildi</div>
-                    <div className="font-semibold text-emerald-600">{formatCurrency(watchedPaid)}</div>
+                    <div className="text-xs text-muted-foreground">Jami berildi</div>
+                    <div className="font-semibold text-emerald-600">{formatCurrency(totalWorkerPaid)}</div>
                   </div>
                   <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Zavod qarzi</div>
+                    <div className="text-xs text-muted-foreground">Jami qarz</div>
                     <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, workerDebt))}</div>
                   </div>
                 </div>

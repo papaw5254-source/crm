@@ -93,6 +93,21 @@ export class ReportsService {
     const mWorkerPay = monthlyWorkerPay.reduce((s, x) => s + Number(x.paidAmount), 0);
     const monthlyProfit = mCash + mDebtPay + mMoneyIn - mExp - mWorkerPay;
 
+    const [yearlySales, yearlyDebtPay, yearlyExpenses, yearlyMoneyIn, yearlyWorkerPay] = await Promise.all([
+      this.saleRepo.createQueryBuilder('s').where('s.date >= :ys AND s.date <= :ye', { ys: yearStart, ye: yearEnd }).getMany(),
+      this.debtPaymentRepo.createQueryBuilder('dp').where('dp.date >= :ys AND dp.date <= :ye', { ys: yearStart, ye: yearEnd }).getMany(),
+      this.expenseRepo.createQueryBuilder('e').where('e.date >= :ys AND e.date <= :ye', { ys: yearStart, ye: yearEnd }).getMany(),
+      this.moneyIncomeRepo.createQueryBuilder('mi').where('mi.date >= :ys AND mi.date <= :ye', { ys: yearStart, ye: yearEnd }).getMany(),
+      this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date >= :ys AND wp.date <= :ye', { ys: yearStart, ye: yearEnd }).getMany(),
+    ]);
+
+    const yCash = yearlySales.filter(x => x.paymentType !== PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0);
+    const yDebtPay = yearlyDebtPay.reduce((s, x) => s + Number(x.amount), 0);
+    const yExp = yearlyExpenses.reduce((s, x) => s + Number(x.amount), 0);
+    const yMoneyIn = yearlyMoneyIn.reduce((s, x) => s + Number(x.amount), 0);
+    const yWorkerPay = yearlyWorkerPay.reduce((s, x) => s + Number(x.paidAmount), 0);
+    const yearlyProfit = yCash + yDebtPay + yMoneyIn - yExp - yWorkerPay;
+
     const totalDebts = await this.debtorRepo.createQueryBuilder('d').select('SUM(d.remainingDebt)', 'v').getRawOne();
     const workerDebts = await this.workerPaymentRepo.createQueryBuilder('wp').select('SUM(wp.remainingDebt)', 'v').getRawOne();
 
@@ -112,6 +127,7 @@ export class ReportsService {
       todayExpenses: todayExpensesTotal,
       todayProfit,
       monthlyProfit,
+      yearlyProfit,
       totalDebts: parseFloat(totalDebts?.v) || 0,
       totalWorkerDebts: parseFloat(workerDebts?.v) || 0,
       recentSales,
@@ -327,6 +343,11 @@ export class ReportsService {
     ]);
 
     return {
+      totalDebtors: parseInt(customerStats?.total) || 0,
+      totalDebt: parseFloat(customerStats?.debt) || 0,
+      totalPaid: parseFloat(customerStats?.paid) || 0,
+      totalCustomerRemainingDebt: parseFloat(customerStats?.remaining) || 0,
+      unpaidDebtors,
       customerDebts: {
         totalDebtors: parseInt(customerStats?.total) || 0,
         totalDebt: parseFloat(customerStats?.debt) || 0,
@@ -335,6 +356,8 @@ export class ReportsService {
         unpaidDebtors,
       },
       workerDebts: {
+        totalWorkers: workerDebts.length,
+        totalDebt: parseFloat(workerStats?.remaining) || 0,
         totalRemainingDebt: parseFloat(workerStats?.remaining) || 0,
         debtors: workerDebts,
       },
@@ -414,7 +437,9 @@ export class ReportsService {
 
     return {
       dateFrom, dateTo,
-      inflows: { cashSales, cardSales, debtPayments: debtPaymentsTotal, prepayments: prepaymentPaid, founderIncome, bankIncome, otherIncome, total: totalInflow },
+      totalInflows: totalInflow,
+      totalOutflows: totalOutflow,
+      inflows: { cashSales, cardSales, debtPayments: debtPaymentsTotal, prepayments: prepaymentPaid, moneyIncomes: founderIncome + bankIncome + otherIncome, founderIncome, bankIncome, otherIncome, total: totalInflow },
       outflows: { expenses: totalExpenses, workerPayments: workerPaid, total: totalOutflow },
       debtSales,
       netCashflow,

@@ -16,7 +16,6 @@ import {
   Warehouse,
   Wallet,
   DollarSign,
-  HardHat,
   Receipt,
   ChevronDown,
   ChevronRight,
@@ -68,7 +67,6 @@ const navGroups: NavGroup[] = [
   {
     label: 'Hisobot',
     items: [
-      { href: '/ishchilar', icon: HardHat, label: 'Ishchilar' },
       { href: '/reports', icon: BarChart3, label: 'Hisobotlar' },
     ],
   },

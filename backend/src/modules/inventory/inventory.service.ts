@@ -39,6 +39,7 @@ export class InventoryService {
           amount: totalWorkerCost,
           paidAmount: paid,
           remainingDebt: workerDebt,
+          month: createDto.date.slice(0, 7),
           date: createDto.date,
           description: `${createDto.quantity} dona xom g'isht (${createDto.workerRatePerBrick} so'm/dona)`,
           createdById: userId,

@@ -170,6 +170,14 @@ export interface KilnOperation {
   totalWorkerCost?: number
   workerPaidAmount?: number
   workerDebt?: number
+  rawWorkerRatePerBrick?: number
+  rawWorkerTotalCost?: number
+  rawWorkerPaidAmount?: number
+  rawWorkerDebt?: number
+  bakedWorkerRatePerBrick?: number
+  bakedWorkerTotalCost?: number
+  bakedWorkerPaidAmount?: number
+  bakedWorkerDebt?: number
   createdBy?: User
   createdAt: string
   updatedAt: string
@@ -284,7 +292,8 @@ export interface WorkerPaymentReport {
   totalAmount: number
   totalPaid: number
   totalDebt: number
-  byCategory: Record<string, { count: number; amount: number; paid: number; debt: number }>
+  totalCarriedDebt?: number
+  byCategory: Record<string, { count: number; amount: number; paid: number; debt: number; carriedDebt?: number }>
 }
 
 // ─── Reports ─────────────────────────────────────────────────────────────────
