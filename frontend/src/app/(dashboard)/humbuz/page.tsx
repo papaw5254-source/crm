@@ -272,12 +272,12 @@ export default function HumbuzPage() {
 
       {/* Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-[500px] max-h-[88vh] overflow-hidden p-0">
+          <DialogHeader className="px-4 pt-4 pb-2">
             <DialogTitle>{editItem ? 'Operatsiyani tahrirlash' : "Operatsiya qo'shish"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit((d) => editItem ? updateMutation.mutate(d) : createMutation.mutate(d))} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit((d) => editItem ? updateMutation.mutate(d) : createMutation.mutate(d))} className="max-h-[calc(88vh-68px)] overflow-y-auto px-4 pb-0 space-y-3 text-sm">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Humbuz *</Label>
                 <Select defaultValue="HUMBUZ_1" onValueChange={(v: string) => setValue('kilnName', v as KilnName)}>
@@ -295,7 +295,7 @@ export default function HumbuzPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Xom g&apos;isht kirdi (dona)</Label>
                 <Input {...register('rawBricksEntered')} type="number" placeholder="0" />
@@ -328,90 +328,72 @@ export default function HumbuzPage() {
               <Input {...register('description')} placeholder="Qo'shimcha ma'lumot..." />
             </div>
 
-            <div className="rounded-lg border border-dashed p-3 space-y-3">
+            <div className="rounded-lg border border-dashed p-3 space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Ishchi puli (alohida hisob)
               </p>
 
-              <div className="rounded-md bg-muted/40 p-3 space-y-3">
-                <p className="text-sm font-medium">Kirgan xom g'isht uchun</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>1 dona narxi (so&apos;m)</Label>
-                    <Input {...register('rawWorkerRatePerBrick')} type="number" placeholder="20" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="rounded-md bg-muted/40 p-3 space-y-2">
+                  <p className="text-sm font-medium">Kirgan xom g'isht</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>1 dona narxi</Label>
+                      <Input {...register('rawWorkerRatePerBrick')} type="number" placeholder="20" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Berildi</Label>
+                      <Input {...register('rawWorkerPaidAmount')} type="number" placeholder="0" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Berildi (so&apos;m)</Label>
-                    <Input {...register('rawWorkerPaidAmount')} type="number" placeholder="0" />
-                  </div>
+                  {rawWorkerCost > 0 && (
+                    <div className="rounded-md bg-background px-3 py-2 text-xs">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Hisoblandi</span><b>{formatCurrency(rawWorkerCost)}</b></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Qarz</span><b className="text-red-500">{formatCurrency(Math.max(0, rawWorkerDebt))}</b></div>
+                    </div>
+                  )}
                 </div>
-                {rawWorkerCost > 0 && (
-                  <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div className="rounded-md bg-background px-3 py-2 text-center">
-                      <div className="text-xs text-muted-foreground">Dona</div>
-                      <div className="font-semibold">{formatNumber(rawBricksEntered)}</div>
-                    </div>
-                    <div className="rounded-md bg-background px-3 py-2 text-center">
-                      <div className="text-xs text-muted-foreground">Hisoblandi</div>
-                      <div className="font-semibold">{formatCurrency(rawWorkerCost)}</div>
-                    </div>
-                    <div className="rounded-md bg-background px-3 py-2 text-center">
-                      <div className="text-xs text-muted-foreground">Qarz</div>
-                      <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, rawWorkerDebt))}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              <div className="rounded-md bg-muted/40 p-3 space-y-3">
-                <p className="text-sm font-medium">Chiqqan pishgan g'isht uchun</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>1 dona narxi (so&apos;m)</Label>
-                    <Input {...register('bakedWorkerRatePerBrick')} type="number" placeholder="30" />
+                <div className="rounded-md bg-muted/40 p-3 space-y-2">
+                  <p className="text-sm font-medium">Chiqqan pishgan g'isht</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>1 dona narxi</Label>
+                      <Input {...register('bakedWorkerRatePerBrick')} type="number" placeholder="30" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Berildi</Label>
+                      <Input {...register('bakedWorkerPaidAmount')} type="number" placeholder="0" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Berildi (so&apos;m)</Label>
-                    <Input {...register('bakedWorkerPaidAmount')} type="number" placeholder="0" />
-                  </div>
+                  {bakedWorkerCost > 0 && (
+                    <div className="rounded-md bg-background px-3 py-2 text-xs">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Hisoblandi</span><b>{formatCurrency(bakedWorkerCost)}</b></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Qarz</span><b className="text-red-500">{formatCurrency(Math.max(0, bakedWorkerDebt))}</b></div>
+                    </div>
+                  )}
                 </div>
-                {bakedWorkerCost > 0 && (
-                  <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div className="rounded-md bg-background px-3 py-2 text-center">
-                      <div className="text-xs text-muted-foreground">Dona</div>
-                      <div className="font-semibold">{formatNumber(bakedBricksOutput)}</div>
-                    </div>
-                    <div className="rounded-md bg-background px-3 py-2 text-center">
-                      <div className="text-xs text-muted-foreground">Hisoblandi</div>
-                      <div className="font-semibold">{formatCurrency(bakedWorkerCost)}</div>
-                    </div>
-                    <div className="rounded-md bg-background px-3 py-2 text-center">
-                      <div className="text-xs text-muted-foreground">Qarz</div>
-                      <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, bakedWorkerDebt))}</div>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {totalWorkerCost > 0 && (
-                <div className="grid grid-cols-3 gap-2 text-sm">
+                <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="rounded-md bg-muted px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Jami hisoblandi</div>
+                    <div className="text-muted-foreground">Hisoblandi</div>
                     <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
                   </div>
                   <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Jami berildi</div>
+                    <div className="text-muted-foreground">Berildi</div>
                     <div className="font-semibold text-emerald-600">{formatCurrency(totalWorkerPaid)}</div>
                   </div>
                   <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Jami qarz</div>
+                    <div className="text-muted-foreground">Qarz</div>
                     <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, workerDebt))}</div>
                   </div>
                 </div>
               )}
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="sticky bottom-0 -mx-4 mt-2 border-t bg-background px-4 py-2.5">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Bekor qilish</Button>
               <Button type="submit" disabled={isSubmitting || createMutation.isPending || updateMutation.isPending}>
                 {isSubmitting || createMutation.isPending || updateMutation.isPending ? 'Saqlanmoqda...' : editItem ? 'Saqlash' : "Qo'shish"}

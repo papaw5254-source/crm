@@ -11,6 +11,8 @@ export interface CreateSaleDto {
   description?: string
   date: string
   isReserveSale?: boolean
+  workerRatePerBrick?: number
+  workerPaidAmount?: number
 }
 
 export interface BankTransferFirm {

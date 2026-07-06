@@ -67,6 +67,7 @@ export class WorkerPaymentsService {
     const amount = Number(wp.amount);
     const paid = Number(wp.paidAmount || 0);
     wp.remainingDebt = Math.max(0, debt + amount - paid);
+    if (dto.date) wp.month = dto.date.slice(0, 7);
     return this.workerPaymentRepository.save(wp);
   }
 

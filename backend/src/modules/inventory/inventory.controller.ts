@@ -15,6 +15,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Role } from '../../common/enums/role.enum';
+import { BrickType } from '../../common/enums/brick-type.enum';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CreateInventoryIncomeDto } from './dto/create-inventory-income.dto';
 import { UpdateInventoryIncomeDto } from './dto/update-inventory-income.dto';
@@ -38,7 +39,7 @@ export class InventoryController {
 
   @Get('income')
   @ApiOperation({ summary: 'Get all inventory incomes' })
-  findAll(@Query() paginationDto: PaginationDto) {
+  findAll(@Query() paginationDto: PaginationDto & { brickType?: BrickType }) {
     return this.inventoryService.findAll(paginationDto);
   }
 

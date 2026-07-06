@@ -139,12 +139,13 @@ export class ReportsService {
   async getDailyReport(query: DailyReportDto) {
     const date = query.date || new Date().toISOString().split('T')[0];
 
-    const [sales, incomes, expenses, debtPayments, kilnOps, moneyIncomes, workerPayments, prepayments] = await Promise.all([
+    const [sales, incomes, expenses, debtPayments, kilnOps, reserveMovements, moneyIncomes, workerPayments, prepayments] = await Promise.all([
       this.saleRepo.createQueryBuilder('s').where('s.date = :date', { date }).getMany(),
       this.inventoryRepo.createQueryBuilder('i').where('i.date = :date', { date }).getMany(),
       this.expenseRepo.createQueryBuilder('e').where('e.date = :date', { date }).getMany(),
       this.debtPaymentRepo.createQueryBuilder('dp').where('dp.date = :date', { date }).getMany(),
       this.kilnRepo.createQueryBuilder('k').where('k.date = :date', { date }).getMany(),
+      this.reserveRepo.createQueryBuilder('r').where('r.date = :date', { date }).getMany(),
       this.moneyIncomeRepo.createQueryBuilder('mi').where('mi.date = :date', { date }).getMany(),
       this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date = :date', { date }).getMany(),
       this.prepaymentRepo.createQueryBuilder('p').where('p.date = :date', { date }).getMany(),
@@ -154,6 +155,11 @@ export class ReportsService {
     const bakedSales = sales.filter(s => s.brickType === BrickType.BAKED_BRICK);
     const rawIncomes = incomes.filter(i => i.brickType === BrickType.RAW_BRICK);
     const bakedIncomes = incomes.filter(i => i.brickType === BrickType.BAKED_BRICK);
+    const rawReserveMoves = reserveMovements.filter(r => r.brickType === BrickType.RAW_BRICK);
+    const bakedReserveMoves = reserveMovements.filter(r => r.brickType === BrickType.BAKED_BRICK);
+    const reserveSales = sales.filter(s => s.isReserveSale);
+    const rawReserveSales = reserveSales.filter(s => s.brickType === BrickType.RAW_BRICK);
+    const bakedReserveSales = reserveSales.filter(s => s.brickType === BrickType.BAKED_BRICK);
 
     const totalSalesAmount = sales.reduce((s, x) => s + Number(x.totalAmount), 0);
     const cashSales = sales.filter(x => x.paymentType === PaymentType.CASH || x.paymentType === PaymentType.CARD).reduce((s, x) => s + Number(x.totalAmount), 0);
@@ -164,25 +170,44 @@ export class ReportsService {
     const prepaymentPaid = prepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const moneyIncomesTotal = moneyIncomes.reduce((s, x) => s + Number(x.amount), 0);
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
+    const workerAccrued = workerPayments.reduce((s, x) => s + Number(x.amount), 0);
     const workerPaid = workerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
+
+    const expensesByCategory: Record<string, number> = {};
+    expenses.forEach((e) => {
+      expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + Number(e.amount);
+    });
 
     const receivedCash = cashSales + debtPaymentsTotal + prepaymentPaid + moneyIncomesTotal;
     const netProfit = receivedCash - totalExpenses - workerPaid;
     const paperProfit = totalSalesAmount - totalExpenses - workerPaid;
 
-    const [bakedStock, rawStock] = await Promise.all([
+    const [bakedStock, rawStock, reserveRaw, reserveBaked] = await Promise.all([
       this.getStockBalance(BrickType.BAKED_BRICK),
       this.getStockBalance(BrickType.RAW_BRICK),
+      this.getReserveBalance(BrickType.RAW_BRICK),
+      this.getReserveBalance(BrickType.BAKED_BRICK),
     ]);
 
     return {
       date,
       rawBrickProduced: rawIncomes.reduce((s, x) => s + x.quantity, 0),
       bakedBrickProduced: kilnOps.reduce((s, x) => s + x.bakedBricksOutput, 0),
+      rawBrickToKiln: kilnOps.reduce((s, x) => s + x.rawBricksEntered, 0),
+      rawBrickToKilnFromReserve: kilnOps.filter(x => x.rawBrickSource === 'RESERVE').reduce((s, x) => s + x.rawBricksEntered, 0),
+      rawBrickToKilnFromField: kilnOps.filter(x => x.rawBrickSource === 'FIELD').reduce((s, x) => s + x.rawBricksEntered, 0),
       rawBrickSold: rawSales.reduce((s, x) => s + x.quantity, 0),
       bakedBrickSold: bakedSales.reduce((s, x) => s + x.quantity, 0),
+      reserveRawAdded: rawReserveMoves.filter(x => x.movementType === ReserveMovementType.ADD).reduce((s, x) => s + x.quantity, 0),
+      reserveBakedAdded: bakedReserveMoves.filter(x => x.movementType === ReserveMovementType.ADD).reduce((s, x) => s + x.quantity, 0),
+      reserveRawSold: rawReserveSales.reduce((s, x) => s + x.quantity, 0),
+      reserveBakedSold: bakedReserveSales.reduce((s, x) => s + x.quantity, 0),
+      reserveRawToKiln: rawReserveMoves.filter(x => x.movementType === ReserveMovementType.TO_KILN).reduce((s, x) => s + x.quantity, 0),
+      reserveRawRemoved: rawReserveMoves.filter(x => x.movementType === ReserveMovementType.REMOVE).reduce((s, x) => s + x.quantity, 0),
+      reserveBakedRemoved: bakedReserveMoves.filter(x => x.movementType === ReserveMovementType.REMOVE).reduce((s, x) => s + x.quantity, 0),
       totalAddedBricks: incomes.reduce((s, x) => s + x.quantity, 0),
       totalSoldBricks: sales.reduce((s, x) => s + x.quantity, 0),
+      reserveSoldBricks: reserveSales.reduce((s, x) => s + x.quantity, 0),
       totalSalesAmount,
       cashSales,
       cardSales,
@@ -192,12 +217,16 @@ export class ReportsService {
       prepaymentPaid,
       moneyIncomes: moneyIncomesTotal,
       totalExpenses,
+      expensesByCategory,
+      workerAccrued,
       workerPayments: workerPaid,
       receivedCash,
       netProfit,
       paperProfit,
       bakedBrickStock: bakedStock,
       rawBrickStock: rawStock,
+      reserveRawBrick: reserveRaw,
+      reserveBakedBrick: reserveBaked,
       stockAtEndOfDay: bakedStock,
     };
   }

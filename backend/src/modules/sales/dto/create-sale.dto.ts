@@ -59,4 +59,16 @@ export class CreateSaleDto {
   @IsOptional()
   @IsBoolean()
   isReserveSale?: boolean;
+
+  @ApiPropertyOptional({ example: 20, description: 'Sotuv/yuklash uchun 1 dona ishchi narxi' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  workerRatePerBrick?: number;
+
+  @ApiPropertyOptional({ example: 100000, description: 'Sotuv ishchisiga berilgan pul' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  workerPaidAmount?: number;
 }

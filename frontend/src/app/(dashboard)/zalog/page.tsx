@@ -93,7 +93,13 @@ export default function ZalogPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (d: CreateFormData) => prepaymentsService.create(d),
+    mutationFn: (d: CreateFormData) =>
+      prepaymentsService.create({
+        ...d,
+        customerName: d.customerName?.trim() || undefined,
+        customerPhone: d.customerPhone?.trim() || undefined,
+        description: d.description?.trim() || undefined,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prepayments'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
@@ -121,6 +127,9 @@ export default function ZalogPage() {
     mutationFn: (id: string) => prepaymentsService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prepayments'] })
+      queryClient.invalidateQueries({ queryKey: ['prepayment-deliveries'] })
+      queryClient.invalidateQueries({ queryKey: ['stock'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success("Zalog o'chirildi")
       setDeleteId(null)
     },

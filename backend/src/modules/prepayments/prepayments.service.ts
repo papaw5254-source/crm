@@ -84,8 +84,15 @@ export class PrepaymentsService {
   async remove(id: string): Promise<void> {
     const p = await this.findOne(id);
     if (p.deliveredQuantity > 0) {
-      throw new BadRequestException('Cannot delete prepayment with deliveries');
+      await this.stockService.increaseStock(
+        p.deliveredQuantity,
+        StockMovementType.SALE_CANCEL,
+        `Zalog o'chirildi, yetkazilgan g'isht qaytarildi (id: ${id})`,
+        p.createdById,
+        p.brickType,
+      );
     }
+    await this.deliveryRepository.delete({ prepaymentId: id });
     await this.prepaymentRepository.remove(p);
   }
 

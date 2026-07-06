@@ -141,19 +141,70 @@ export default function ReportsPage() {
                 <StatsCard title="Sof foyda" value={Number(daily?.netProfit ?? 0)} icon={BarChart3} color={Number(daily?.netProfit ?? 0) >= 0 ? 'emerald' : 'red'} />
               </div>
 
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Package className="h-4 w-4" /> G'isht harakati
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 divide-y divide-border">
+                    <StatRow label="Xom g'isht kirdi" value={formatNumber(daily?.rawBrickProduced ?? 0) + ' dona'} highlight="green" />
+                    <StatRow label="Humbuzga xom kirdi" value={formatNumber(daily?.rawBrickToKiln ?? 0) + ' dona'} />
+                    <StatRow label="Daladan humbuzga" value={formatNumber(daily?.rawBrickToKilnFromField ?? 0) + ' dona'} />
+                    <StatRow label="Zaxiradan humbuzga" value={formatNumber(daily?.rawBrickToKilnFromReserve ?? 0) + ' dona'} />
+                    <StatRow label="Pishgan g'isht chiqdi" value={formatNumber(daily?.bakedBrickProduced ?? 0) + ' dona'} highlight="green" />
+                    <StatRow label="Xom sotildi" value={formatNumber(daily?.rawBrickSold ?? 0) + ' dona'} highlight="red" />
+                    <StatRow label="Pishgan sotildi" value={formatNumber(daily?.bakedBrickSold ?? 0) + ' dona'} highlight="red" />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Warehouse className="h-4 w-4" /> Zaxira holati
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 divide-y divide-border">
+                    <StatRow label="Zaxiraga xom qo'shildi" value={formatNumber(daily?.reserveRawAdded ?? 0) + ' dona'} highlight="green" />
+                    <StatRow label="Zaxiraga pishgan qo'shildi" value={formatNumber(daily?.reserveBakedAdded ?? 0) + ' dona'} highlight="green" />
+                    <StatRow label="Zaxiradan xom sotildi" value={formatNumber(daily?.reserveRawSold ?? 0) + ' dona'} />
+                    <StatRow label="Zaxiradan pishgan sotildi" value={formatNumber(daily?.reserveBakedSold ?? 0) + ' dona'} />
+                    <StatRow label="Zaxiradan humbuzga" value={formatNumber(daily?.reserveRawToKiln ?? 0) + ' dona'} />
+                    <StatRow label="Hozir zaxira xom" value={formatNumber(daily?.reserveRawBrick ?? 0) + ' dona'} />
+                    <StatRow label="Hozir zaxira pishgan" value={formatNumber(daily?.reserveBakedBrick ?? 0) + ' dona'} />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Banknote className="h-4 w-4" /> Pul va rasxod
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 divide-y divide-border">
+                    <StatRow label="Naqd sotuv" value={formatCurrency(Number(daily?.cashSales ?? 0))} highlight="green" />
+                    <StatRow label="Karta sotuv" value={formatCurrency(Number(daily?.cardSales ?? 0))} highlight="green" />
+                    <StatRow label="Nasiya sotuv" value={formatCurrency(Number(daily?.debtSalesAmount ?? 0))} highlight="red" />
+                    <StatRow label="Qarz to'lovlari" value={formatCurrency(Number(daily?.debtPayments ?? 0))} highlight="green" />
+                    <StatRow label="Pul kirimlari" value={formatCurrency(Number(daily?.moneyIncomes ?? 0))} highlight="green" />
+                    <StatRow label="Rasxodlar" value={formatCurrency(Number(daily?.totalExpenses ?? 0))} highlight="red" />
+                    <StatRow label="Ishchi hisoblandi" value={formatCurrency(Number(daily?.workerAccrued ?? 0))} />
+                    <StatRow label="Ishchiga berildi" value={formatCurrency(Number(daily?.workerPayments ?? 0))} highlight="red" />
+                    <StatRow label="Qog'ozdagi foyda" value={formatCurrency(Number(daily?.paperProfit ?? 0))} />
+                  </CardContent>
+                </Card>
+              </div>
+
               <Card>
-                <CardContent className="p-4 divide-y divide-border">
-                  <StatRow label="Xom g'isht ishlab chiqarildi" value={formatNumber(daily?.rawBrickProduced ?? 0) + ' dona'} />
-                  <StatRow label="Pishgan g'isht ishlab chiqarildi" value={formatNumber(daily?.bakedBrickProduced ?? 0) + ' dona'} />
-                  <StatRow label="Xom g'isht sotildi" value={formatNumber(daily?.rawBrickSold ?? 0) + ' dona'} />
-                  <StatRow label="Pishgan g'isht sotildi" value={formatNumber(daily?.bakedBrickSold ?? 0) + ' dona'} />
-                  <StatRow label="Naqd sotuvlar" value={formatCurrency(Number(daily?.cashSales ?? 0))} highlight="green" />
-                  <StatRow label="Karta sotuvlar" value={formatCurrency(Number(daily?.cardSales ?? 0))} />
-                  <StatRow label="Nasiya sotuvlar" value={formatCurrency(Number(daily?.debtSalesAmount ?? 0))} highlight="red" />
-                  <StatRow label="Qarz to'lovlari" value={formatCurrency(Number(daily?.debtPayments ?? 0))} highlight="green" />
-                  <StatRow label="Pul kirimlari" value={formatCurrency(Number(daily?.moneyIncomes ?? 0))} highlight="green" />
-                  <StatRow label="Ishchi to'lovlari" value={formatCurrency(Number(daily?.workerPayments ?? 0))} highlight="red" />
-                  <StatRow label="Qog'oziy foyda" value={formatCurrency(Number(daily?.paperProfit ?? 0))} />
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Ombor yakuni</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4">
+                  <StatsCard title="Ombor xom" value={daily?.rawBrickStock ?? 0} icon={Package} color="amber" format="number" suffix="dona" />
+                  <StatsCard title="Ombor pishgan" value={daily?.bakedBrickStock ?? 0} icon={Package} color="red" format="number" suffix="dona" />
+                  <StatsCard title="Zaxira xom" value={daily?.reserveRawBrick ?? 0} icon={Warehouse} color="slate" format="number" suffix="dona" />
+                  <StatsCard title="Zaxira pishgan" value={daily?.reserveBakedBrick ?? 0} icon={Warehouse} color="blue" format="number" suffix="dona" />
                 </CardContent>
               </Card>
             </>

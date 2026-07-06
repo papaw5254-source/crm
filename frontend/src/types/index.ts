@@ -91,6 +91,10 @@ export interface Sale {
   customerPhone?: string
   description?: string
   date: string
+  workerRatePerBrick?: number
+  totalWorkerCost?: number
+  workerPaidAmount?: number
+  workerDebt?: number
   createdById?: string
   createdBy?: User
   createdAt: string
@@ -321,8 +325,19 @@ export interface DailyReport {
   date: string
   rawBrickProduced: number
   bakedBrickProduced: number
+  rawBrickToKiln: number
+  rawBrickToKilnFromReserve: number
+  rawBrickToKilnFromField: number
   rawBrickSold: number
   bakedBrickSold: number
+  reserveRawAdded: number
+  reserveBakedAdded: number
+  reserveRawSold: number
+  reserveBakedSold: number
+  reserveRawToKiln: number
+  reserveRawRemoved: number
+  reserveBakedRemoved: number
+  reserveSoldBricks: number
   totalSoldBricks: number
   totalAddedBricks: number
   totalSalesAmount: number
@@ -332,11 +347,17 @@ export interface DailyReport {
   debtPayments: number
   prepaymentPaid: number
   moneyIncomes: number
+  expensesByCategory: Record<string, number>
+  workerAccrued: number
   workerPayments: number
   receivedCash: number
   totalExpenses: number
   netProfit: number
   paperProfit: number
+  bakedBrickStock: number
+  rawBrickStock: number
+  reserveRawBrick: number
+  reserveBakedBrick: number
   stockAtEndOfDay: number
 }
 

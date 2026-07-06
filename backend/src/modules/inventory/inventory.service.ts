@@ -113,6 +113,13 @@ export class InventoryService {
     const brickType = income.brickType || BrickType.BAKED_BRICK;
 
     Object.assign(income, updateDto);
+    if (updateDto.quantity !== undefined || updateDto.workerRatePerBrick !== undefined || updateDto.workerPaidAmount !== undefined) {
+      const rate = Number(updateDto.workerRatePerBrick ?? income.workerRatePerBrick ?? 0);
+      const paid = Number(updateDto.workerPaidAmount ?? income.workerPaidAmount ?? 0);
+      income.totalWorkerCost = rate > 0 ? income.quantity * rate : null;
+      income.workerPaidAmount = paid;
+      income.workerDebt = income.totalWorkerCost !== null ? Math.max(0, Number(income.totalWorkerCost) - paid) : null;
+    }
     const saved = await this.inventoryIncomeRepository.save(income);
 
     if (updateDto.quantity !== undefined && updateDto.quantity !== oldQuantity) {

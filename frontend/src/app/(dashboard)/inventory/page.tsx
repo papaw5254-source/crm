@@ -106,6 +106,8 @@ export default function InventoryPage() {
     setValue('quantity', item.quantity)
     setValue('description', item.description || '')
     setValue('date', item.date)
+    setValue('workerRatePerBrick', Number(item.workerRatePerBrick ?? 0))
+    setValue('workerPaidAmount', Number(item.workerPaidAmount ?? 0))
     setDialogOpen(true)
   }
 

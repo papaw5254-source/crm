@@ -30,7 +30,7 @@ export const inventoryService = {
     return res.data.data
   },
 
-  async update(id: string, data: Partial<{ quantity: number; description: string; date: string }>): Promise<InventoryIncome> {
+  async update(id: string, data: Partial<InventoryPayload>): Promise<InventoryIncome> {
     const res = await api.patch(`/inventory/income/${id}`, data)
     return res.data.data
   },

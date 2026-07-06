@@ -11,6 +11,7 @@ import { salesService } from '@/services/sales.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
+import { WorkerPaymentsPanel } from '@/components/shared/worker-payments-panel'
 import { SearchInput } from '@/components/shared/search-input'
 import { Pagination } from '@/components/shared/pagination'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
@@ -36,6 +37,8 @@ const schema = z.object({
   customerPhone: z.string().optional(),
   description: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
+  workerRatePerBrick: z.coerce.number().min(0).optional(),
+  workerPaidAmount: z.coerce.number().min(0).optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -65,6 +68,10 @@ export default function SalesPage() {
   const qty = watch('quantity')
   const price = watch('pricePerBrick')
   const total = (qty || 0) * (price || 0)
+  const workerRate = watch('workerRatePerBrick') || 0
+  const workerPaid = watch('workerPaidAmount') || 0
+  const totalWorkerCost = (qty || 0) * workerRate
+  const workerDebt = totalWorkerCost - workerPaid
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => salesService.create(data),
@@ -114,6 +121,8 @@ export default function SalesPage() {
     setValue('customerPhone', item.customerPhone || '')
     setValue('description', item.description || '')
     setValue('date', item.date)
+    setValue('workerRatePerBrick', Number(item.workerRatePerBrick ?? 0))
+    setValue('workerPaidAmount', Number(item.workerPaidAmount ?? 0))
     setDialogOpen(true)
   }
 
@@ -150,6 +159,19 @@ export default function SalesPage() {
     { key: 'qty', header: 'Miqdor', cell: (r: Sale) => <span className="font-medium">{r.quantity.toLocaleString()} dona</span> },
     { key: 'price', header: 'Narx', cell: (r: Sale) => <span>{formatCurrency(Number(r.pricePerBrick))}</span> },
     { key: 'total', header: 'Jami', cell: (r: Sale) => <span className="font-semibold text-primary">{formatCurrency(Number(r.totalAmount))}</span> },
+    {
+      key: 'workerCost',
+      header: 'Ishchi puli',
+      cell: (r: Sale) => r.totalWorkerCost ? (
+        <div className="text-sm">
+          <div className="font-medium">{formatCurrency(Number(r.totalWorkerCost))}</div>
+          <div className="text-xs text-muted-foreground">
+            <span className="text-emerald-600">Berildi: {formatCurrency(Number(r.workerPaidAmount ?? 0))}</span>
+            {Number(r.workerDebt) > 0 && <span className="text-red-500 ml-1">Qarz: {formatCurrency(Number(r.workerDebt))}</span>}
+          </div>
+        </div>
+      ) : <span className="text-muted-foreground text-xs">—</span>,
+    },
     {
       key: 'type',
       header: "To'lov turi",
@@ -192,6 +214,8 @@ export default function SalesPage() {
         <StatsCard title="Jami summa" value={totalAmount} icon={ShoppingCart} color="blue" />
         <StatsCard title="Jami miqdor" value={totalQty} icon={ShoppingCart} color="purple" format="number" suffix="dona" />
       </div>
+
+      <WorkerPaymentsPanel title="Ishchi puli (Sotuv)" categories={['ROAD_PAYMENT']} />
 
       <Card>
         <CardContent className="p-4 space-y-4">
@@ -261,6 +285,36 @@ export default function SalesPage() {
                 <span className="font-bold text-primary">{formatCurrency(total)}</span>
               </div>
             )}
+
+            <div className="rounded-lg border border-dashed p-3 space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (sotuv/yuklash)</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>1 dona uchun narx (so&apos;m)</Label>
+                  <Input {...register('workerRatePerBrick')} type="number" placeholder="20" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Berildi (so&apos;m)</Label>
+                  <Input {...register('workerPaidAmount')} type="number" placeholder="0" />
+                </div>
+              </div>
+              {totalWorkerCost > 0 && (
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div className="rounded-md bg-muted px-3 py-2 text-center">
+                    <div className="text-xs text-muted-foreground">Hisoblandi</div>
+                    <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
+                  </div>
+                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
+                    <div className="text-xs text-muted-foreground">Berildi</div>
+                    <div className="font-semibold text-emerald-600">{formatCurrency(workerPaid)}</div>
+                  </div>
+                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
+                    <div className="text-xs text-muted-foreground">Qarz</div>
+                    <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, workerDebt))}</div>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="space-y-2">
               <Label>To&apos;lov turi *</Label>

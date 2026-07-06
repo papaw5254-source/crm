@@ -8,13 +8,15 @@ export interface CreatePrepaymentDto {
   quantity: number
   pricePerBrick: number
   paidAmount: number
+  date: string
   paymentType?: string
-  notes?: string
+  description?: string
 }
 
 export interface DeliverPrepaymentDto {
   quantity: number
-  notes?: string
+  date: string
+  description?: string
 }
 
 export const prepaymentsService = {

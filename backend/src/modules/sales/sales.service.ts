@@ -6,9 +6,11 @@ import { BrickType } from '../../common/enums/brick-type.enum';
 import { PaymentType } from '../../common/enums/payment-type.enum';
 import { ReserveMovementType } from '../../common/enums/reserve-movement-type.enum';
 import { StockMovementType } from '../../common/enums/stock-movement-type.enum';
+import { WorkerPaymentCategory } from '../../common/enums/worker-payment-category.enum';
 import { DebtorsService } from '../debtors/debtors.service';
 import { ReserveService } from '../reserve/reserve.service';
 import { StockService } from '../stock/stock.service';
+import { WorkerPayment } from '../worker-payments/entities/worker-payment.entity';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 import { Sale } from './entities/sale.entity';
@@ -18,6 +20,8 @@ export class SalesService {
   constructor(
     @InjectRepository(Sale)
     private readonly saleRepository: Repository<Sale>,
+    @InjectRepository(WorkerPayment)
+    private readonly workerPaymentRepository: Repository<WorkerPayment>,
     private readonly stockService: StockService,
     private readonly reserveService: ReserveService,
     @Inject(forwardRef(() => DebtorsService))
@@ -27,6 +31,10 @@ export class SalesService {
   async create(createDto: CreateSaleDto, userId: string): Promise<Sale> {
     const brickType = createDto.brickType || BrickType.BAKED_BRICK;
     const totalAmount = Number((createDto.quantity * createDto.pricePerBrick).toFixed(2));
+    const workerRate = Number(createDto.workerRatePerBrick || 0);
+    const totalWorkerCost = workerRate > 0 ? createDto.quantity * workerRate : 0;
+    const workerPaidAmount = Number(createDto.workerPaidAmount || 0);
+    const workerDebt = Math.max(0, totalWorkerCost - workerPaidAmount);
 
     if (createDto.isReserveSale) {
       await this.reserveService.createMovement(
@@ -53,9 +61,28 @@ export class SalesService {
       ...createDto,
       brickType,
       totalAmount,
+      totalWorkerCost,
+      workerPaidAmount,
+      workerDebt,
       createdById: userId,
     });
     const saved = await this.saleRepository.save(sale);
+
+    if (totalWorkerCost > 0) {
+      await this.workerPaymentRepository.save(
+        this.workerPaymentRepository.create({
+          workerName: 'Ishchilar (sotuv)',
+          category: WorkerPaymentCategory.ROAD_PAYMENT,
+          amount: totalWorkerCost,
+          paidAmount: workerPaidAmount,
+          remainingDebt: workerDebt,
+          month: createDto.date.slice(0, 7),
+          date: createDto.date,
+          description: `Sotuv: ${createDto.quantity} dona (${workerRate} so'm/dona)`,
+          createdById: userId,
+        }),
+      );
+    }
 
     if (createDto.paymentType === PaymentType.DEBT) {
       await this.debtorsService.createOrUpdateDebt({
@@ -123,6 +150,19 @@ export class SalesService {
       const qty = updateDto.quantity ?? sale.quantity;
       const price = updateDto.pricePerBrick ?? sale.pricePerBrick;
       sale.totalAmount = Number((qty * price).toFixed(2));
+    }
+
+    if (
+      updateDto.quantity !== undefined ||
+      updateDto.workerRatePerBrick !== undefined ||
+      updateDto.workerPaidAmount !== undefined
+    ) {
+      const qty = updateDto.quantity ?? sale.quantity;
+      const workerRate = Number(updateDto.workerRatePerBrick ?? sale.workerRatePerBrick ?? 0);
+      const workerPaid = Number(updateDto.workerPaidAmount ?? sale.workerPaidAmount ?? 0);
+      sale.totalWorkerCost = workerRate > 0 ? qty * workerRate : 0;
+      sale.workerPaidAmount = workerPaid;
+      sale.workerDebt = Math.max(0, Number(sale.totalWorkerCost) - workerPaid);
     }
 
     if (updateDto.quantity !== undefined && updateDto.quantity !== oldQuantity) {
