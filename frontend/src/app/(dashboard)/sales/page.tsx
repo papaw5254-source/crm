@@ -247,11 +247,11 @@ export default function SalesPage() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-[500px] max-h-[88vh] overflow-hidden p-0">
+          <DialogHeader className="px-4 pt-4 pb-2">
             <DialogTitle>{editItem ? 'Sotuvni tahrirlash' : "Sotuv qo'shish"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="max-h-[calc(88vh-68px)] overflow-y-auto px-4 pb-0 space-y-3 text-sm">
             <div className="space-y-2">
               <Label>G&apos;isht turi *</Label>
               <Select
@@ -266,7 +266,7 @@ export default function SalesPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Miqdor (dona) *</Label>
                 <Input {...register('quantity')} type="number" placeholder="1000" />
@@ -280,15 +280,15 @@ export default function SalesPage() {
             </div>
 
             {total > 0 && (
-              <div className="rounded-xl bg-primary/10 p-3 text-sm">
+              <div className="rounded-lg bg-primary/10 p-2.5 text-sm">
                 <span className="text-muted-foreground">Jami summa: </span>
                 <span className="font-bold text-primary">{formatCurrency(total)}</span>
               </div>
             )}
 
-            <div className="rounded-lg border border-dashed p-3 space-y-3">
+            <div className="rounded-lg border border-dashed p-3 space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (sotuv/yuklash)</p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>1 dona uchun narx (so&apos;m)</Label>
                   <Input {...register('workerRatePerBrick')} type="number" placeholder="20" />
@@ -299,16 +299,16 @@ export default function SalesPage() {
                 </div>
               </div>
               {totalWorkerCost > 0 && (
-                <div className="grid grid-cols-3 gap-2 text-sm">
-                  <div className="rounded-md bg-muted px-3 py-2 text-center">
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="rounded-md bg-muted px-2 py-2 text-center">
                     <div className="text-xs text-muted-foreground">Hisoblandi</div>
                     <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
                   </div>
-                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
+                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-2 py-2 text-center">
                     <div className="text-xs text-muted-foreground">Berildi</div>
                     <div className="font-semibold text-emerald-600">{formatCurrency(workerPaid)}</div>
                   </div>
-                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
+                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-2 py-2 text-center">
                     <div className="text-xs text-muted-foreground">Qarz</div>
                     <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, workerDebt))}</div>
                   </div>
@@ -334,7 +334,7 @@ export default function SalesPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>{watch('paymentType') === 'BANK_TRANSFER' ? 'Firma nomi' : 'Mijoz ismi'}</Label>
                 <Input {...register('customerName')} placeholder={watch('paymentType') === 'BANK_TRANSFER' ? 'OOO Firm nomi' : 'Ahmadjon'} />
@@ -355,10 +355,10 @@ export default function SalesPage() {
               <Input {...register('description')} placeholder="Qo'shimcha ma'lumot..." />
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="sticky bottom-0 -mx-4 mt-2 border-t bg-background px-4 py-2.5">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Bekor qilish</Button>
-              <Button type="submit" loading={isSubmitting || createMutation.isPending || updateMutation.isPending}>
-                {editItem ? 'Saqlash' : "Qo'shish"}
+              <Button type="submit" disabled={isSubmitting || createMutation.isPending || updateMutation.isPending}>
+                {isSubmitting || createMutation.isPending || updateMutation.isPending ? 'Saqlanmoqda...' : editItem ? 'Saqlash' : "Qo'shish"}
               </Button>
             </DialogFooter>
           </form>

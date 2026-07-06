@@ -83,7 +83,7 @@ export default function HumbuzPage() {
   const bakedWorkerDebt = bakedWorkerCost - bakedWorkerPaid
   const totalWorkerCost = rawWorkerCost + bakedWorkerCost
   const totalWorkerPaid = rawWorkerPaid + bakedWorkerPaid
-  const workerDebt = rawWorkerDebt + bakedWorkerDebt
+  const workerDebt = Math.max(0, rawWorkerDebt) + Math.max(0, bakedWorkerDebt)
 
   const createMutation = useMutation({
     mutationFn: (d: FormData) => kilnService.create(d),
@@ -339,8 +339,25 @@ export default function HumbuzPage() {
 
             <div className="rounded-lg border border-dashed p-3 space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Ishchi puli (alohida hisob)
+                Ishchi puli (kirdi + chiqdi umumiy)
               </p>
+
+              {totalWorkerCost > 0 && (
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="rounded-md bg-muted px-3 py-2 text-center">
+                    <div className="text-muted-foreground">Jami hisoblandi</div>
+                    <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
+                  </div>
+                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
+                    <div className="text-muted-foreground">Jami berildi</div>
+                    <div className="font-semibold text-emerald-600">{formatCurrency(totalWorkerPaid)}</div>
+                  </div>
+                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
+                    <div className="text-muted-foreground">Jami qarz</div>
+                    <div className="font-semibold text-red-500">{formatCurrency(workerDebt)}</div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="rounded-md bg-muted/40 p-3 space-y-2">
@@ -384,22 +401,6 @@ export default function HumbuzPage() {
                 </div>
               </div>
 
-              {totalWorkerCost > 0 && (
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="rounded-md bg-muted px-3 py-2 text-center">
-                    <div className="text-muted-foreground">Hisoblandi</div>
-                    <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
-                  </div>
-                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
-                    <div className="text-muted-foreground">Berildi</div>
-                    <div className="font-semibold text-emerald-600">{formatCurrency(totalWorkerPaid)}</div>
-                  </div>
-                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
-                    <div className="text-muted-foreground">Qarz</div>
-                    <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, workerDebt))}</div>
-                  </div>
-                </div>
-              )}
             </div>
 
             <DialogFooter className="sticky bottom-0 -mx-4 mt-2 border-t bg-background px-4 py-2.5">
