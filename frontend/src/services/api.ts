@@ -22,6 +22,14 @@ function processQueue(error: AxiosError | null, token: string | null = null) {
   failedQueue = []
 }
 
+function unwrapData<T>(payload: unknown): T {
+  let value = payload
+  while (value && typeof value === 'object' && 'data' in value) {
+    value = (value as { data: unknown }).data
+  }
+  return value as T
+}
+
 // Request interceptor — attach access token
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
@@ -63,7 +71,7 @@ api.interceptors.response.use(
         if (!refreshToken) throw new Error('No refresh token')
 
         const response = await axios.post(`${API_URL}/auth/refresh`, { refreshToken })
-        const tokenData = response.data?.data ?? response.data
+        const tokenData = unwrapData<{ accessToken: string; refreshToken: string }>(response.data)
         const { accessToken, refreshToken: newRefreshToken } = tokenData
 
         localStorage.setItem('accessToken', accessToken)
