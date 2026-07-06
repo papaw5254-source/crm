@@ -111,6 +111,22 @@ export class StockService implements OnModuleInit {
     return stock;
   }
 
+  async decreaseStockBestEffort(
+    quantity: number,
+    type: StockMovementType,
+    reason: string,
+    userId: string,
+    brickType: BrickType = BrickType.BAKED_BRICK,
+  ): Promise<Stock> {
+    const stock = await this.getStock(brickType);
+    const previousQuantity = stock.quantity;
+    const decreaseBy = Math.min(quantity, previousQuantity);
+    stock.quantity = previousQuantity - decreaseBy;
+    await this.stockRepository.save(stock);
+    await this.logMovement(type, decreaseBy, previousQuantity, stock.quantity, reason, userId, brickType);
+    return stock;
+  }
+
   async adjustStock(
     adjustStockDto: AdjustStockDto,
     userId: string,

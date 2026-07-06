@@ -90,12 +90,18 @@ export class InventoryService {
     if (dateFrom) qb.andWhere('income.date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('income.date <= :dateTo', { dateTo });
 
+    const totalQuantityRow = await qb
+      .clone()
+      .select('COALESCE(SUM(income.quantity), 0)', 'totalQuantity')
+      .getRawOne<{ totalQuantity: string }>();
+    const totalQuantity = Number(totalQuantityRow?.totalQuantity || 0);
+
     qb.orderBy(`income.${sortBy}`, sortOrder as 'ASC' | 'DESC')
       .skip(skip)
       .take(limit);
 
     const [data, total] = await qb.getManyAndCount();
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit), totalQuantity } };
   }
 
   async findOne(id: string): Promise<InventoryIncome> {
@@ -137,7 +143,7 @@ export class InventoryService {
   async remove(id: string, userId: string): Promise<void> {
     const income = await this.findOne(id);
     const brickType = income.brickType || BrickType.BAKED_BRICK;
-    await this.stockService.decreaseStock(
+    await this.stockService.decreaseStockBestEffort(
       income.quantity,
       StockMovementType.INCOME_CANCEL,
       `Inventory income deleted (id: ${id})`,
