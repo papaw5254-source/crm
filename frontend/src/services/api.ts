@@ -63,7 +63,8 @@ api.interceptors.response.use(
         if (!refreshToken) throw new Error('No refresh token')
 
         const response = await axios.post(`${API_URL}/auth/refresh`, { refreshToken })
-        const { accessToken, refreshToken: newRefreshToken } = response.data.data
+        const tokenData = response.data?.data ?? response.data
+        const { accessToken, refreshToken: newRefreshToken } = tokenData
 
         localStorage.setItem('accessToken', accessToken)
         localStorage.setItem('refreshToken', newRefreshToken)
