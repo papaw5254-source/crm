@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { kilnService } from '@/services/kiln.service'
+import { stockService } from '@/services/stock.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
@@ -64,6 +65,11 @@ export default function HumbuzPage() {
         limit,
         kilnName: kilnFilter !== 'ALL' ? kilnFilter : undefined,
       }),
+  })
+
+  const { data: stocks = [] } = useQuery({
+    queryKey: ['stock'],
+    queryFn: () => stockService.getStock(),
   })
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -154,6 +160,8 @@ export default function HumbuzPage() {
   const allOps = data?.data ?? []
   const totalRawIn = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.rawBricksEntered), 0)
   const totalBakedOut = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.bakedBricksOutput), 0)
+  const rawStock = stocks.find((stock) => stock.brickType === 'RAW_BRICK')?.quantity ?? 0
+  const bakedStock = stocks.find((stock) => stock.brickType === 'BAKED_BRICK')?.quantity ?? 0
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: KilnOperation) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -245,6 +253,33 @@ export default function HumbuzPage() {
         <StatsCard title="Jami operatsiyalar" value={data?.meta.total ?? 0} icon={Flame} color="amber" format="number" suffix="ta" />
         <StatsCard title="Jami xom kirdi" value={totalRawIn} icon={Flame} color="red" format="number" suffix="dona" />
         <StatsCard title="Jami pishgan chiqdi" value={totalBakedOut} icon={Flame} color="emerald" format="number" suffix="dona" />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Xom g&apos;isht</p>
+              <p className="text-xs text-muted-foreground">Humbuzga kirdi: {formatNumber(totalRawIn)} dona</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-muted-foreground">Omborda bor</p>
+              <p className="text-xl font-bold">{formatNumber(rawStock)} dona</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Pishgan g&apos;isht</p>
+              <p className="text-xs text-muted-foreground">Humbuzdan chiqdi: {formatNumber(totalBakedOut)} dona</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-muted-foreground">Omborda bor</p>
+              <p className="text-xl font-bold">{formatNumber(bakedStock)} dona</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <WorkerPaymentsPanel title="Ishchi puli (Humbuz)" categories={['HUMBUZ_KIRDI_CHIQDI']} />
