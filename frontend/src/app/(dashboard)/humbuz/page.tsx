@@ -52,6 +52,13 @@ const normalizeRawBrickSource = (source: unknown) => {
   return 'FIELD'
 }
 
+const safeRawBrickSourceLabel = (source: unknown) => {
+  if (source === 'RESERVE' || source === 'FIELD') {
+    return rawBrickSourceLabel(source)
+  }
+  return rawBrickSourceLabel('FIELD')
+}
+
 export default function HumbuzPage() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
@@ -238,7 +245,7 @@ export default function HumbuzPage() {
         <div>
           <span className="font-medium">{r.rawBricksEntered > 0 ? formatNumber(r.rawBricksEntered) + ' dona' : '—'}</span>
           {r.rawBrickSource && (
-            <p className="text-xs text-muted-foreground">{rawBrickSourceLabel(r.rawBrickSource)}</p>
+              <p className="text-xs text-muted-foreground">{safeRawBrickSourceLabel(r.rawBrickSource)}</p>
           )}
         </div>
       ),
