@@ -167,7 +167,6 @@ export class WorkerPaymentsService {
         byCategory[p.category].carriedDebt += debt;
       }
 
-      byCategory[p.category].debt = Math.max(0, byCategory[p.category].debt);
 
     for (const category of Object.keys(byCategory)) {
       byCategory[category].debt = Math.max(0, byCategory[category].debt);
