@@ -73,6 +73,9 @@ export default function InventoryPage() {
       queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
       queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
       toast.success("Kirim muvaffaqiyatli qo'shildi")
+      setSearch('')
+      setPage(1)
+      queryClient.refetchQueries({ queryKey: ['inventory'] })
       setDialogOpen(false)
       reset({ date: new Date().toISOString().split('T')[0] })
     },
@@ -86,6 +89,7 @@ export default function InventoryPage() {
       queryClient.invalidateQueries({ queryKey: ['stock'] })
       queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
       queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
+      queryClient.refetchQueries({ queryKey: ['inventory'] })
       toast.success('Kirim yangilandi')
       setEditItem(null)
       setDialogOpen(false)
@@ -101,6 +105,7 @@ export default function InventoryPage() {
       queryClient.invalidateQueries({ queryKey: ['stock'] })
       queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
       queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
+      queryClient.refetchQueries({ queryKey: ['inventory'] })
       toast.success("Kirim o'chirildi")
       setDeleteId(null)
     },
