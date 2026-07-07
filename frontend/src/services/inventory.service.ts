@@ -17,6 +17,7 @@ type InventoryPayload = {
 function unwrap<T>(value: any): T {
   let current = value
   for (let i = 0; i < 4; i += 1) {
+    if (current?.meta && Array.isArray(current?.data)) break
     if (current?.data !== undefined) current = current.data
     else break
   }
