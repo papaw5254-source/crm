@@ -216,7 +216,6 @@ export default function SalesPage() {
         <StatsCard title="Jami miqdor" value={totalQty} icon={ShoppingCart} color="purple" format="number" suffix="dona" />
       </div>
 
-      <WorkerPaymentsPanel title="Ishchi puli (Sotuv)" categories={['ROAD_PAYMENT']} />
 
       <Card>
         <CardContent className="p-4 space-y-4">
