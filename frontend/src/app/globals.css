@@ -75,3 +75,8 @@
 div:has(> [data-sales-worker-payment='true']) {
   display: none;
 }
+
+th:has(> [data-sales-worker-column='true']),
+td:has(> [data-sales-worker-cell='true']) {
+  display: none;
+}

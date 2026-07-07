@@ -11,7 +11,6 @@ import { salesService } from '@/services/sales.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
-import { WorkerPaymentsPanel } from '@/components/shared/worker-payments-panel'
 import { SearchInput } from '@/components/shared/search-input'
 import { Pagination } from '@/components/shared/pagination'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
@@ -37,8 +36,6 @@ const schema = z.object({
   customerPhone: z.string().optional(),
   description: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
-  workerRatePerBrick: z.coerce.number().min(0).optional(),
-  workerPaidAmount: z.coerce.number().min(0).optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -68,10 +65,6 @@ export default function SalesPage() {
   const qty = watch('quantity')
   const price = watch('pricePerBrick')
   const total = (qty || 0) * (price || 0)
-  const workerRate = watch('workerRatePerBrick') || 0
-  const workerPaid = watch('workerPaidAmount') || 0
-  const totalWorkerCost = (qty || 0) * workerRate
-  const workerDebt = totalWorkerCost - workerPaid
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => salesService.create(data),
@@ -122,8 +115,6 @@ export default function SalesPage() {
     setValue('customerPhone', item.customerPhone || '')
     setValue('description', item.description || '')
     setValue('date', item.date)
-    setValue('workerRatePerBrick', Number(item.workerRatePerBrick ?? 0))
-    setValue('workerPaidAmount', Number(item.workerPaidAmount ?? 0))
     setDialogOpen(true)
   }
 
@@ -162,7 +153,7 @@ export default function SalesPage() {
     { key: 'total', header: 'Jami', cell: (r: Sale) => <span className="font-semibold text-primary">{formatCurrency(Number(r.totalAmount))}</span> },
     {
       key: 'workerCost',
-      header: 'Ishchi puli',
+      header: <span data-sales-worker-column="true">Ishchi puli</span>,
       cell: (r: Sale) => r.totalWorkerCost ? (
         <div className="text-sm">
           <div className="font-medium">{formatCurrency(Number(r.totalWorkerCost))}</div>
