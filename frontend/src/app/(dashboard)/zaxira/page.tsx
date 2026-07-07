@@ -128,6 +128,8 @@ export default function ZaxiraPage() {
   const movWorkerDebt = totalMovWorkerCost - watchedMovPaid
   const rawReserveBalance = Number(balance?.rawBrick ?? balance?.RAW_BRICK ?? 0)
   const bakedReserveBalance = Number(balance?.bakedBrick ?? balance?.BAKED_BRICK ?? 0)
+  const movementRows = Array.isArray(movements?.data) ? movements.data : []
+  const movementTotal = Number(movements?.meta?.total ?? movementRows.length ?? 0)
 
   const saleMutation = useMutation({
     mutationFn: (d: SaleForm) =>
@@ -329,10 +331,12 @@ export default function ZaxiraPage() {
         {/* ── Harakatlar tab ─────────────────────────────────────────────────── */}
         <TabsContent value="harakatlar" className="mt-4 space-y-4">
           <div className="flex items-center justify-between">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
-              <StatsCard title="Jami harakatlar" value={movements?.meta.total ?? 0} icon={Warehouse} color="blue" format="number" suffix="ta" />
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 flex-1">
+                <StatsCard title="Jami harakatlar" value={movementTotal} icon={Warehouse} color="blue" format="number" suffix="ta" />
                 <StatsCard title="Jami zaxira" value={rawReserveBalance + bakedReserveBalance} icon={Warehouse} color="emerald" format="number" suffix="dona" />
-            </div>
+                <StatsCard title="Xom g'isht" value={rawReserveBalance} icon={Warehouse} color="amber" format="number" suffix="dona" />
+                <StatsCard title="Pishgan g'isht" value={bakedReserveBalance} icon={Warehouse} color="red" format="number" suffix="dona" />
+              </div>
             <Button
               className="ml-4 shrink-0"
               onClick={() => {
