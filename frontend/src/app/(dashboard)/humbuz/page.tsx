@@ -92,11 +92,14 @@ export default function HumbuzPage() {
     mutationFn: (d: FormData) => kilnService.create(d),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kiln-operations'] })
+      queryClient.refetchQueries({ queryKey: ['kiln-operations'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['reserve'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
       queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.refetchQueries({ queryKey: ['worker-payments-report'] })
       queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
+      queryClient.refetchQueries({ queryKey: ['worker-payments-panel'] })
       toast.success("Humbuz operatsiyasi qo'shildi")
       setDialogOpen(false)
       reset({ date: new Date().toISOString().split('T')[0], kilnName: 'HUMBUZ_1' })
@@ -108,9 +111,12 @@ export default function HumbuzPage() {
     mutationFn: (d: FormData) => kilnService.update(editItem!.id, d),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kiln-operations'] })
+      queryClient.refetchQueries({ queryKey: ['kiln-operations'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
       queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.refetchQueries({ queryKey: ['worker-payments-report'] })
       queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
+      queryClient.refetchQueries({ queryKey: ['worker-payments-panel'] })
       toast.success('Humbuz operatsiyasi yangilandi')
       setEditItem(null)
       setDialogOpen(false)
