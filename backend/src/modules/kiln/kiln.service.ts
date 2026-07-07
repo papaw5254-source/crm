@@ -94,12 +94,12 @@ export class KilnService {
         await manager.save(KilnOperation, saved);
       }
 
-      if (rawEntered > 0) {
-        if (dto.rawBrickSource === RawBrickSource.FIELD) {
-          const rawStock = await manager.findOne(Stock, { where: { brickType: BrickType.RAW_BRICK } });
-          if (!rawStock || rawStock.quantity < rawEntered) {
-            throw new BadRequestException(`Insufficient RAW_BRICK stock. Available: ${rawStock?.quantity || 0}`);
-          }
+        if (rawEntered > 0) {
+          if (dto.rawBrickSource === RawBrickSource.RESERVE) {
+            const rawStock = await manager.findOne(Stock, { where: { brickType: BrickType.RAW_BRICK } });
+            if (!rawStock || rawStock.quantity < rawEntered) {
+              throw new BadRequestException(`Insufficient RAW_BRICK stock. Available: ${rawStock?.quantity || 0}`);
+            }
           const prev = rawStock.quantity;
           rawStock.quantity -= rawEntered;
           await manager.save(Stock, rawStock);
