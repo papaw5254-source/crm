@@ -9,19 +9,6 @@ export const api = axios.create({
   },
 })
 
-function normalizeApiResponse(data: unknown) {
-  if (
-    data &&
-    typeof data === 'object' &&
-    'data' in data &&
-    ('success' in data || 'timestamp' in data)
-  ) {
-    return data
-  }
-
-  return { data }
-}
-
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('accessToken')
@@ -34,10 +21,7 @@ api.interceptors.request.use((config) => {
 })
 
 api.interceptors.response.use(
-  (response) => {
-    response.data = normalizeApiResponse(response.data)
-    return response
-  },
+  (response) => response,
   (error) => {
     if (error?.response?.status === 401 && typeof window !== 'undefined') {
       localStorage.removeItem('accessToken')
