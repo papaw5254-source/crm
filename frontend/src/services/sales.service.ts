@@ -140,15 +140,16 @@ function normalizeSalePayload(data: CreateSaleDto | UpdateSaleDto) {
   delete payload.workerPayment
   delete payload.workerPaymentAmount
   delete payload.workerPrice
-  delete payload.workerPaidAmount
-  delete payload.workerDebtAmount
-  delete payload.workerPaymentNote
-  delete payload.workerPaymentId
+    delete payload.workerDebtAmount
+    delete payload.workerPaymentNote
+    delete payload.workerPaymentId
 
   if (data.quantity !== undefined) payload.quantity = Number(data.quantity)
   if (data.pricePerUnit !== undefined) payload.pricePerUnit = Number(data.pricePerUnit)
-  if (data.totalAmount !== undefined) payload.totalAmount = Number(data.totalAmount)
-  if (data.paidAmount !== undefined) payload.paidAmount = Number(data.paidAmount)
+    if (data.totalAmount !== undefined) payload.totalAmount = Number(data.totalAmount)
+    if (data.paidAmount !== undefined) payload.paidAmount = Number(data.paidAmount)
+    if (data.workerRatePerBrick !== undefined) payload.workerRatePerBrick = Number(data.workerRatePerBrick)
+    if (data.workerPaidAmount !== undefined) payload.workerPaidAmount = Number(data.workerPaidAmount)
   if (data.debtAmount !== undefined) payload.debtAmount = Number(data.debtAmount)
 
   if (payload.totalAmount === undefined && payload.quantity !== undefined && payload.pricePerUnit !== undefined) {

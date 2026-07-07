@@ -48,6 +48,8 @@ const saleSchema = z.object({
   customerPhone: z.string().optional(),
   description: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
+  workerRatePerBrick: z.coerce.number().min(0).optional(),
+  workerPaidAmount: z.coerce.number().min(0).optional(),
 })
 type SaleForm = z.infer<typeof saleSchema>
 
@@ -94,7 +96,7 @@ export default function ZaxiraPage() {
   })
 
   const movMutation = useMutation({
-    mutationFn: (d: MovementForm) => reserveService.create(d),
+    mutationFn: (d: MovementForm) => reserveService.create({ ...d, movementType: 'ADD' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
       queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
@@ -114,6 +116,10 @@ export default function ZaxiraPage() {
   const watchedSaleQty = saleForm.watch('quantity') || 0
   const watchedSalePrice = saleForm.watch('pricePerBrick') || 0
   const totalAmount = watchedSaleQty * watchedSalePrice
+  const watchedSaleWorkerRate = saleForm.watch('workerRatePerBrick') || 0
+  const watchedSaleWorkerPaid = saleForm.watch('workerPaidAmount') || 0
+  const totalSaleWorkerCost = watchedSaleQty * watchedSaleWorkerRate
+  const saleWorkerDebt = totalSaleWorkerCost - watchedSaleWorkerPaid
 
   const watchedMovRate = movForm.watch('workerRatePerBrick') || 0
   const watchedMovPaid = movForm.watch('workerPaidAmount') || 0
@@ -131,9 +137,11 @@ export default function ZaxiraPage() {
         isReserveSale: true,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reserve-sales'] })
-      queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
-      queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
+        queryClient.invalidateQueries({ queryKey: ['reserve-sales'] })
+        queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
+        queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
+        queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+        queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('Sotuv qo\'shildi')
       setSaleDialogOpen(false)
@@ -156,9 +164,11 @@ export default function ZaxiraPage() {
   const deleteSaleMutation = useMutation({
     mutationFn: (id: string) => salesService.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reserve-sales'] })
-      queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
-      queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
+        queryClient.invalidateQueries({ queryKey: ['reserve-sales'] })
+        queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
+        queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
+        queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+        queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
       toast.success('Sotuv o\'chirildi')
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
@@ -304,7 +314,7 @@ export default function ZaxiraPage() {
 
       <WorkerPaymentsPanel
         title="Ishchi puli (Zaxira)"
-        categories={['RESERVE_RAW_LOADING', 'RESERVE_BAKED_LOADING']}
+          categories={['RESERVE_RAW_LOADING', 'RESERVE_BAKED_LOADING', 'ROAD_PAYMENT']}
       />
 
       {/* Main Tabs */}
@@ -423,8 +433,8 @@ export default function ZaxiraPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Harakat turi *</Label>
+                <div className="hidden">
+                  <Label>Harakat turi *</Label>
                 <Select defaultValue="ADD" onValueChange={(v: string) => movForm.setValue('movementType', v as ReserveMovementType)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -534,14 +544,44 @@ export default function ZaxiraPage() {
               </div>
             </div>
 
-            {totalAmount > 0 && (
-              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 text-sm">
-                <span className="text-muted-foreground">Jami summa: </span>
-                <span className="font-bold text-emerald-700 dark:text-emerald-400">{formatNumber(totalAmount)} so&apos;m</span>
-              </div>
-            )}
+              {totalAmount > 0 && (
+                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 text-sm">
+                  <span className="text-muted-foreground">Jami summa: </span>
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400">{formatNumber(totalAmount)} so&apos;m</span>
+                </div>
+              )}
 
-            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-lg border border-dashed p-3 space-y-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (zaxira sotuv)</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>1 dona uchun narx (so&apos;m)</Label>
+                    <Input {...saleForm.register('workerRatePerBrick')} type="number" placeholder="25" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Bugun berildi (so&apos;m)</Label>
+                    <Input {...saleForm.register('workerPaidAmount')} type="number" placeholder="0" />
+                  </div>
+                </div>
+                {totalSaleWorkerCost > 0 && (
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div className="rounded-md bg-muted px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Jami ishchi puli</div>
+                      <div className="font-semibold">{formatCurrency(totalSaleWorkerCost)}</div>
+                    </div>
+                    <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Berildi</div>
+                      <div className="font-semibold text-emerald-600">{formatCurrency(watchedSaleWorkerPaid)}</div>
+                    </div>
+                    <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Zavod qarzi</div>
+                      <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, saleWorkerDebt))}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{saleForm.watch('paymentType') === 'BANK_TRANSFER' ? 'Firma nomi' : 'Xaridor ismi'}</Label>
                 <Input {...saleForm.register('customerName')} placeholder="Ahmadjon Toshmatov" />
