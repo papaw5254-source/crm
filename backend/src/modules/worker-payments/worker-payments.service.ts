@@ -20,6 +20,7 @@ export class WorkerPaymentsService {
     const amount = Number(dto.amount);
     const paid = Number(dto.paidAmount || 0);
     const remainingDebt = debt + amount - paid;
+    const overpaidAmount = Math.max(0, paid - (debt + amount));
 
     const payment = this.workerPaymentRepository.create({
       ...dto,
@@ -29,7 +30,39 @@ export class WorkerPaymentsService {
       remainingDebt: remainingDebt < 0 ? 0 : remainingDebt,
       createdById: userId,
     });
-    return this.workerPaymentRepository.save(payment);
+    const saved = await this.workerPaymentRepository.save(payment);
+    if (overpaidAmount > 0) {
+      await this.applyPaymentToPreviousDebts(dto.category, dto.date, overpaidAmount, saved.id);
+    }
+    return saved;
+  }
+
+  private async applyPaymentToPreviousDebts(
+    category: WorkerPaymentCategory,
+    date: string,
+    amount: number,
+    excludeId?: string,
+  ): Promise<void> {
+    let remainingPayment = amount;
+    const qb = this.workerPaymentRepository
+      .createQueryBuilder('wp')
+      .where('wp.category = :category', { category })
+      .andWhere('wp.date < :date', { date })
+      .andWhere('wp.remainingDebt > 0')
+      .orderBy('wp.date', 'ASC')
+      .addOrderBy('wp.createdAt', 'ASC');
+
+    if (excludeId) qb.andWhere('wp.id != :excludeId', { excludeId });
+
+    const debts = await qb.getMany();
+    for (const debtItem of debts) {
+      if (remainingPayment <= 0) break;
+      const currentDebt = Number(debtItem.remainingDebt || 0);
+      const paidFromDebt = Math.min(currentDebt, remainingPayment);
+      debtItem.remainingDebt = currentDebt - paidFromDebt;
+      remainingPayment -= paidFromDebt;
+      await this.workerPaymentRepository.save(debtItem);
+    }
   }
 
   async findAll(paginationDto: PaginationDto & { category?: WorkerPaymentCategory; month?: string; debtOnly?: boolean }) {
