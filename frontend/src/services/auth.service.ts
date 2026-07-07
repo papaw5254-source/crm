@@ -7,6 +7,9 @@ type LoginInput = {
   password: string
 }
 
+export type LoginCredentials = LoginInput
+export type AuthResponse = LoginResponse
+
 function unwrapResponse(value: unknown): any {
   let current: any = value
   for (let i = 0; i < 4; i += 1) {
@@ -82,3 +85,5 @@ export const authService = {
     localStorage.removeItem('user')
   },
 }
+
+export default authService
