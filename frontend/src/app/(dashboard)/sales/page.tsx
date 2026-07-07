@@ -287,7 +287,7 @@ export default function SalesPage() {
             )}
 
             <div className="rounded-lg border border-dashed p-3 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (sotuv/yuklash)</p>
+              <p data-sales-worker-payment="true" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (sotuv/yuklash)</p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>1 dona uchun narx (so&apos;m)</Label>

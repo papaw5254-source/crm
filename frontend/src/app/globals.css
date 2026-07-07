@@ -72,3 +72,6 @@
     text-wrap: balance;
   }
 }
+div:has(> [data-sales-worker-payment='true']) {
+  display: none;
+}
