@@ -58,12 +58,11 @@ export default function HumbuzPage() {
   const { page, limit, setPage } = usePagination()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['kiln-operations', page, limit, kilnFilter],
+    queryKey: ['kiln-operations', page, limit],
     queryFn: () =>
       kilnService.getAll({
         page,
         limit,
-        kilnName: kilnFilter !== 'ALL' ? kilnFilter : undefined,
       }),
   })
 
@@ -166,6 +165,12 @@ export default function HumbuzPage() {
           : Array.isArray(data?.results)
             ? data.results
             : []
+  const visibleOps = kilnFilter === 'ALL'
+    ? allOps
+    : allOps.filter((operation: KilnOperation) => {
+      const value = String(operation.kilnName || '')
+      return value === kilnFilter || value === kilnNameLabel(kilnFilter as KilnName)
+    })
   const totalRawIn = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.rawBricksEntered), 0)
   const totalBakedOut = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.bakedBricksOutput), 0)
   const meta = data?.meta ?? data?.data?.meta
@@ -297,7 +302,7 @@ export default function HumbuzPage() {
         <TabsContent value={kilnFilter} className="mt-4">
           <Card>
             <CardContent className="p-4 space-y-4">
-              {allOps.length === 0 && !isLoading ? (
+              {visibleOps.length === 0 && !isLoading ? (
                 <EmptyState
                   icon={Flame}
                   title="Operatsiya yo'q"
@@ -306,7 +311,7 @@ export default function HumbuzPage() {
                 />
               ) : (
                 <>
-                  <DataTable columns={columns} data={allOps} loading={isLoading} />
+                  <DataTable columns={columns} data={visibleOps} loading={isLoading} />
                   {meta && <Pagination page={page} totalPages={meta.totalPages ?? 1} total={meta.total ?? allOps.length} limit={limit} onPageChange={setPage} />}
                 </>
               )}

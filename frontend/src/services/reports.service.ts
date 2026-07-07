@@ -3,12 +3,6 @@ import api from './api'
 type QueryValue = string | number | boolean | undefined | null
 type QueryParams = Record<string, QueryValue>
 
-function unwrap<T = any>(value: any): T {
-  if (value?.data?.data !== undefined) return value.data.data as T
-  if (value?.data !== undefined) return value.data as T
-  return value as T
-}
-
 function cleanParams(params?: QueryParams) {
   if (!params) return undefined
 
@@ -17,115 +11,95 @@ function cleanParams(params?: QueryParams) {
   )
 }
 
+function unwrap(value: any) {
+  let current = value
+
+  for (let i = 0; i < 5; i += 1) {
+    if (current?.data !== undefined) {
+      current = current.data
+      continue
+    }
+    break
+  }
+
+  return current
+}
+
+function safeReport(value: any) {
+  const payload = unwrap(value) ?? {}
+
+  if (Array.isArray(payload)) {
+    return {
+      data: payload,
+      total: payload.length,
+      totals: {},
+      summary: {},
+      items: payload,
+    }
+  }
+
+  const data = Array.isArray(payload?.data)
+    ? payload.data
+    : Array.isArray(payload?.items)
+      ? payload.items
+      : Array.isArray(payload?.results)
+        ? payload.results
+        : []
+
+  return {
+    data,
+    items: data,
+    results: data,
+    total: payload?.total ?? payload?.meta?.total ?? data.length ?? 0,
+    totals: payload?.totals ?? payload?.summary ?? {},
+    summary: payload?.summary ?? payload?.totals ?? {},
+    meta: payload?.meta ?? {
+      total: payload?.total ?? data.length ?? 0,
+      page: 1,
+      limit: data.length,
+      totalPages: data.length ? 1 : 0,
+    },
+    ...payload,
+  }
+}
+
+async function getReport(path: string, params?: QueryParams) {
+  const response = await api.get(path, {
+    params: cleanParams(params),
+  })
+  return safeReport(response.data)
+}
+
 export const reportsService = {
-  async getDashboard() {
-    const response = await api.get('/reports/dashboard')
-    return unwrap(response.data)
-  },
+  getDashboard: () => getReport('/reports/dashboard'),
 
-  async getDaily(date?: string) {
-    const response = await api.get('/reports/daily', {
-      params: cleanParams({ date }),
-    })
-    return unwrap(response.data)
-  },
+  getDaily: (date?: string) => getReport('/reports/daily', { date }),
+  getDailyReport: (params?: QueryParams | string) =>
+    typeof params === 'string' ? getReport('/reports/daily', { date: params }) : getReport('/reports/daily', params),
 
-  async getDailyReport(params?: QueryParams | string) {
-    if (typeof params === 'string') return this.getDaily(params)
-    const response = await api.get('/reports/daily', {
-      params: cleanParams(params),
-    })
-    return unwrap(response.data)
-  },
+  getMonthly: (year?: number | string, month?: number | string) =>
+    getReport('/reports/monthly', { year, month }),
+  getMonthlyReport: (params?: QueryParams) => getReport('/reports/monthly', params),
 
-  async getMonthly(year?: number | string, month?: number | string) {
-    const response = await api.get('/reports/monthly', {
-      params: cleanParams({ year, month }),
-    })
-    return unwrap(response.data)
-  },
+  getYearly: (year?: number | string) => getReport('/reports/yearly', { year }),
+  getYearlyReport: (params?: QueryParams) => getReport('/reports/yearly', params),
 
-  async getMonthlyReport(params?: QueryParams) {
-    const response = await api.get('/reports/monthly', {
-      params: cleanParams(params),
-    })
-    return unwrap(response.data)
-  },
+  getInventory: (params?: QueryParams) => getReport('/reports/inventory', params),
+  getInventoryReport: (params?: QueryParams) => getReport('/reports/inventory', params),
 
-  async getYearly(year?: number | string) {
-    const response = await api.get('/reports/yearly', {
-      params: cleanParams({ year }),
-    })
-    return unwrap(response.data)
-  },
+  getStock: () => getReport('/reports/stock'),
+  getDebts: () => getReport('/reports/debts'),
 
-  async getYearlyReport(params?: QueryParams) {
-    const response = await api.get('/reports/yearly', {
-      params: cleanParams(params),
-    })
-    return unwrap(response.data)
-  },
+  getCashflow: (params?: QueryParams) => getReport('/reports/cashflow', params),
+  getCashflowReport: (params?: QueryParams) => getReport('/reports/cashflow', params),
 
-  async getInventory(params?: QueryParams) {
-    const response = await api.get('/reports/inventory', {
-      params: cleanParams(params),
-    })
-    return unwrap(response.data)
-  },
+  getExcelStyle: (params?: QueryParams) => getReport('/reports/excel-style', params),
 
-  async getInventoryReport(params?: QueryParams) {
-    return this.getInventory(params)
-  },
+  getExpenses: (params?: QueryParams) => getReport('/reports/expenses', params),
+  getExpenseReport: (params?: QueryParams) => getReport('/reports/expenses', params),
 
-  async getStock() {
-    const response = await api.get('/reports/stock')
-    return unwrap(response.data)
-  },
-
-  async getDebts() {
-    const response = await api.get('/reports/debts')
-    return unwrap(response.data)
-  },
-
-  async getCashflow(params?: QueryParams) {
-    const response = await api.get('/reports/cashflow', {
-      params: cleanParams(params),
-    })
-    return unwrap(response.data)
-  },
-
-  async getCashflowReport(params?: QueryParams) {
-    return this.getCashflow(params)
-  },
-
-  async getExcelStyle(params?: QueryParams) {
-    const response = await api.get('/reports/excel-style', {
-      params: cleanParams(params),
-    })
-    return unwrap(response.data)
-  },
-
-  async getExpenses(params?: QueryParams) {
-    const response = await api.get('/reports/expenses', {
-      params: cleanParams(params),
-    })
-    return unwrap(response.data)
-  },
-
-  async getExpenseReport(params?: QueryParams) {
-    return this.getExpenses(params)
-  },
-
-  async getSales(params?: QueryParams) {
-    const response = await api.get('/reports/sales', {
-      params: cleanParams(params),
-    })
-    return unwrap(response.data)
-  },
-
-  async getSalesReport(params?: QueryParams) {
-    return this.getSales(params)
-  },
+  getSales: (params?: QueryParams) => getReport('/reports/sales', params),
+  getSalesReport: (params?: QueryParams) => getReport('/reports/sales', params),
 }
 
 export default reportsService
