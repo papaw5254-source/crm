@@ -95,7 +95,9 @@ export class KilnService {
       }
 
         if (rawEntered > 0) {
-          if (dto.rawBrickSource === RawBrickSource.RESERVE) {
+          if (dto.rawBrickSource === RawBrickSource.FIELD) {
+            // Daladan kelgan xom g'isht ombor qoldig'idan tekshirilmaydi.
+          } else if (dto.rawBrickSource === RawBrickSource.RESERVE) {
             const rawStock = await manager.findOne(Stock, { where: { brickType: BrickType.RAW_BRICK } });
             if (!rawStock || rawStock.quantity < rawEntered) {
               throw new BadRequestException(`Insufficient RAW_BRICK stock. Available: ${rawStock?.quantity || 0}`);
