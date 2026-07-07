@@ -82,14 +82,12 @@ export default function HumbuzPage() {
   const rawWorkerRate = watch('rawWorkerRatePerBrick') || 0
   const rawWorkerPaid = watch('rawWorkerPaidAmount') || 0
   const bakedWorkerRate = watch('bakedWorkerRatePerBrick') || 0
-  const bakedWorkerPaid = watch('bakedWorkerPaidAmount') || 0
+  const bakedWorkerPaid = 0
   const rawWorkerCost = rawBricksEntered * rawWorkerRate
   const bakedWorkerCost = bakedBricksOutput * bakedWorkerRate
-  const rawWorkerDebt = rawWorkerCost - rawWorkerPaid
-  const bakedWorkerDebt = bakedWorkerCost - bakedWorkerPaid
   const totalWorkerCost = rawWorkerCost + bakedWorkerCost
   const totalWorkerPaid = rawWorkerPaid
-  const workerDebt = Math.max(0, rawWorkerDebt) + Math.max(0, bakedWorkerDebt)
+  const workerDebt = Math.max(0, totalWorkerCost - totalWorkerPaid)
 
   const createMutation = useMutation({
     mutationFn: (d: FormData) => kilnService.create(d),
@@ -147,7 +145,7 @@ export default function HumbuzPage() {
     setValue('rawWorkerRatePerBrick', Number(item.rawWorkerRatePerBrick ?? item.workerRatePerBrick ?? 0))
     setValue('rawWorkerPaidAmount', Number(item.rawWorkerPaidAmount ?? item.workerPaidAmount ?? 0))
     setValue('bakedWorkerRatePerBrick', Number(item.bakedWorkerRatePerBrick ?? item.workerRatePerBrick ?? 0))
-    setValue('bakedWorkerPaidAmount', Number(item.bakedWorkerPaidAmount ?? 0))
+    setValue('bakedWorkerPaidAmount', 0)
     setDialogOpen(true)
   }
 
@@ -207,13 +205,12 @@ export default function HumbuzPage() {
             {Number(r.rawWorkerTotalCost ?? 0) > 0 && (
               <p>
                 Kirdi: {formatCurrency(Number(r.rawWorkerTotalCost))}
-                <span className="text-emerald-600 ml-1">Berildi: {formatCurrency(Number(r.rawWorkerPaidAmount ?? 0))}</span>
+                  <span className="text-emerald-600 ml-1">Jami berildi: {formatCurrency(Number(r.rawWorkerPaidAmount ?? 0))}</span>
               </p>
             )}
             {Number(r.bakedWorkerTotalCost ?? 0) > 0 && (
               <p>
                 Chiqdi: {formatCurrency(Number(r.bakedWorkerTotalCost))}
-                <span className="text-emerald-600 ml-1">Berildi: {formatCurrency(Number(r.bakedWorkerPaidAmount ?? 0))}</span>
               </p>
             )}
             {Number(r.workerDebt) > 0 && <p className="text-red-500">Qarz: {formatCurrency(Number(r.workerDebt))}</p>}
@@ -403,7 +400,7 @@ export default function HumbuzPage() {
                   {rawWorkerCost > 0 && (
                     <div className="rounded-md bg-background px-3 py-2 text-xs">
                       <div className="flex justify-between"><span className="text-muted-foreground">Hisoblandi</span><b>{formatCurrency(rawWorkerCost)}</b></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Qarz</span><b className="text-red-500">{formatCurrency(Math.max(0, rawWorkerDebt))}</b></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Qarz</span><b className="text-red-500">{formatCurrency(workerDebt)}</b></div>
                     </div>
                   )}
                 </div>
@@ -419,7 +416,7 @@ export default function HumbuzPage() {
                   {bakedWorkerCost > 0 && (
                     <div className="rounded-md bg-background px-3 py-2 text-xs">
                       <div className="flex justify-between"><span className="text-muted-foreground">Hisoblandi</span><b>{formatCurrency(bakedWorkerCost)}</b></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Qarz</span><b className="text-red-500">{formatCurrency(Math.max(0, bakedWorkerDebt))}</b></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Qarz</span><b className="text-red-500">{formatCurrency(workerDebt)}</b></div>
                     </div>
                   )}
                 </div>
