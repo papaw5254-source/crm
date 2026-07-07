@@ -129,7 +129,7 @@ export default function DashboardPage() {
     { href: '/inventory', label: "Xom g'isht", icon: Boxes },
     { href: '/humbuz', label: 'Xumbuz', icon: Flame },
     { href: '/sales', label: 'Sotuv', icon: ShoppingCart },
-    { href: '/zahiralar', label: 'Zahira', icon: Warehouse },
+    { href: '/zaxira', label: 'Zahira', icon: Warehouse },
   ]
 
   return (
