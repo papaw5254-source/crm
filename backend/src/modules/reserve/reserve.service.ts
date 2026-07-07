@@ -56,18 +56,11 @@ export class ReserveService {
       );
     }
 
-    let newBalance: number;
-    if (dto.movementType === ReserveMovementType.ADD) {
-      // Moving from main stock to reserve
-      await this.stockService.decreaseStock(
-        dto.quantity,
-        StockMovementType.TO_RESERVE,
-        `Zaxiraga ko'chirildi: ${dto.reason || ''}`,
-        userId,
-        dto.brickType,
-      );
-      newBalance = currentBalance + dto.quantity;
-    } else if (dto.movementType === ReserveMovementType.REMOVE) {
+      let newBalance: number;
+      if (dto.movementType === ReserveMovementType.ADD) {
+        // Zaxiraga qo'shish mustaqil kirim: asosiy ombor qoldig'i bilan cheklanmaydi.
+        newBalance = currentBalance + dto.quantity;
+      } else if (dto.movementType === ReserveMovementType.REMOVE) {
       // Moving from reserve back to main stock
       await this.stockService.increaseStock(
         dto.quantity,
