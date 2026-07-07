@@ -155,9 +155,20 @@ export default function HumbuzPage() {
     setDialogOpen(true)
   }
 
-  const allOps = data?.data ?? []
+  const allOps = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data?.data?.data)
+        ? data.data.data
+        : Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data?.results)
+            ? data.results
+            : []
   const totalRawIn = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.rawBricksEntered), 0)
   const totalBakedOut = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.bakedBricksOutput), 0)
+  const meta = data?.meta ?? data?.data?.meta
   const stockList = Array.isArray(stocks) ? stocks : stocks ? [stocks] : []
   const rawStock = stockList.find((stock) => stock.brickType === 'RAW_BRICK')?.quantity ?? 0
   const bakedStock = stockList.find((stock) => stock.brickType === 'BAKED_BRICK')?.quantity ?? 0
@@ -248,7 +259,7 @@ export default function HumbuzPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatsCard title="Jami operatsiyalar" value={data?.meta?.total ?? allOps.length ?? 0} icon={Flame} color="amber" format="number" suffix="ta" />
+        <StatsCard title="Jami operatsiyalar" value={meta?.total ?? allOps.length ?? 0} icon={Flame} color="amber" format="number" suffix="ta" />
         <StatsCard title="Jami xom kirdi" value={totalRawIn} icon={Flame} color="red" format="number" suffix="dona" />
         <StatsCard title="Jami pishgan chiqdi" value={totalBakedOut} icon={Flame} color="emerald" format="number" suffix="dona" />
       </div>
@@ -296,7 +307,7 @@ export default function HumbuzPage() {
               ) : (
                 <>
                   <DataTable columns={columns} data={allOps} loading={isLoading} />
-                  {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages ?? 1} total={data.meta.total ?? allOps.length} limit={limit} onPageChange={setPage} />}
+                  {meta && <Pagination page={page} totalPages={meta.totalPages ?? 1} total={meta.total ?? allOps.length} limit={limit} onPageChange={setPage} />}
                 </>
               )}
             </CardContent>
