@@ -168,8 +168,26 @@ export default function HumbuzPage() {
   const visibleOps = kilnFilter === 'ALL'
     ? allOps
     : allOps.filter((operation: KilnOperation) => {
-      const value = String(operation.kilnName || '')
-      return value === kilnFilter || value === kilnNameLabel(kilnFilter as KilnName)
+      const values = [
+        operation.kilnName,
+        operation.kiln,
+        operation.kilnId,
+        operation.humbuz,
+        operation.humbuzName,
+        operation.humbuzId,
+      ].map((value) => String(value || '').toLowerCase())
+
+      const filterValue = String(kilnFilter).toLowerCase()
+      const labelValue = kilnNameLabel(kilnFilter as KilnName).toLowerCase()
+      const numberValue = filterValue.replace(/\D/g, '')
+
+      return values.some((value) =>
+        value === filterValue ||
+        value === labelValue ||
+        value.includes(filterValue) ||
+        value.includes(labelValue) ||
+        (numberValue && (value === numberValue || value.includes(`${numberValue}-`) || value.includes(`${numberValue} humbuz`))),
+      )
     })
   const totalRawIn = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.rawBricksEntered), 0)
   const totalBakedOut = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.bakedBricksOutput), 0)
