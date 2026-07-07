@@ -64,6 +64,44 @@ function findJwtToken(value: unknown): string | null {
   return null
 }
 
+function findTokenLike(value: unknown): string | null {
+  if (!value) return null
+  if (typeof value === 'string') {
+    if (value.length > 20) return value.replace(/^Bearer\s+/i, '')
+    return null
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findTokenLike(item)
+      if (found) return found
+    }
+    return null
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    const preferredKeys = [
+      'accessToken',
+      'access_token',
+      'access',
+      'token',
+      'jwt',
+      'jwtToken',
+      'bearer',
+      'bearerToken',
+      'authToken',
+    ]
+    for (const key of preferredKeys) {
+      const found = findTokenLike(obj[key])
+      if (found) return found
+    }
+    for (const item of Object.values(obj)) {
+      const found = findTokenLike(item)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 function findUserLike(value: unknown): Partial<User> | null {
   if (!value || typeof value !== 'object') return null
   const obj = value as Record<string, any>
@@ -108,8 +146,8 @@ function normalizeLoginResponse(response: unknown): LoginResponse {
     tokens?.token
   const accessToken =
     typeof rawAccessToken === 'string'
-      ? rawAccessToken
-      : findJwtToken(rawAccessToken) || findJwtToken(payload)
+      ? rawAccessToken.replace(/^Bearer\s+/i, '')
+      : findJwtToken(rawAccessToken) || findJwtToken(payload) || findTokenLike(rawAccessToken) || findTokenLike(payload)
   const refreshToken =
     payload?.refreshToken ||
     payload?.refresh_token ||
@@ -128,6 +166,9 @@ function normalizeLoginResponse(response: unknown): LoginResponse {
     (typeof accessToken === 'string' ? decodeJwtUser(accessToken) : null)
 
   if (!accessToken) {
+    try {
+      localStorage.setItem('lastLoginResponse', JSON.stringify(payload))
+    } catch {}
     throw new Error("Login javobi noto'g'ri formatda qaytdi. Backend /api/auth/login javobini tekshiring.")
   }
 
