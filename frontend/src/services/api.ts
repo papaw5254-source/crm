@@ -13,7 +13,9 @@ api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('accessToken')
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      if (token !== 'undefined' && token !== 'null') {
+        config.headers.Authorization = `Bearer ${token}`
+      }
     }
   }
 
@@ -27,6 +29,9 @@ api.interceptors.response.use(
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
       localStorage.removeItem('user')
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login'
+      }
     }
 
     return Promise.reject(error)

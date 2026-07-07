@@ -137,6 +137,14 @@ function asPaginatedSales(value: any): PaginatedSales {
 function normalizeSalePayload(data: CreateSaleDto | UpdateSaleDto) {
   const payload: Record<string, any> = { ...data }
 
+  delete payload.workerPayment
+  delete payload.workerPaymentAmount
+  delete payload.workerPrice
+  delete payload.workerPaidAmount
+  delete payload.workerDebtAmount
+  delete payload.workerPaymentNote
+  delete payload.workerPaymentId
+
   if (data.quantity !== undefined) payload.quantity = Number(data.quantity)
   if (data.pricePerUnit !== undefined) payload.pricePerUnit = Number(data.pricePerUnit)
   if (data.totalAmount !== undefined) payload.totalAmount = Number(data.totalAmount)
