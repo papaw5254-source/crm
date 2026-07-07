@@ -88,7 +88,7 @@ export default function HumbuzPage() {
   const rawWorkerDebt = rawWorkerCost - rawWorkerPaid
   const bakedWorkerDebt = bakedWorkerCost - bakedWorkerPaid
   const totalWorkerCost = rawWorkerCost + bakedWorkerCost
-  const totalWorkerPaid = rawWorkerPaid + bakedWorkerPaid
+  const totalWorkerPaid = rawWorkerPaid
   const workerDebt = Math.max(0, rawWorkerDebt) + Math.max(0, bakedWorkerDebt)
 
   const createMutation = useMutation({
@@ -263,10 +263,6 @@ export default function HumbuzPage() {
               <p className="text-sm text-muted-foreground">Xom g&apos;isht</p>
               <p className="text-xs text-muted-foreground">Humbuzga kirdi: {formatNumber(totalRawIn)} dona</p>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Omborda bor</p>
-              <p className="text-xl font-bold">{formatNumber(rawStock)} dona</p>
-            </div>
           </CardContent>
         </Card>
         <Card>
@@ -274,10 +270,6 @@ export default function HumbuzPage() {
             <div>
               <p className="text-sm text-muted-foreground">Pishgan g&apos;isht</p>
               <p className="text-xs text-muted-foreground">Humbuzdan chiqdi: {formatNumber(totalBakedOut)} dona</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Omborda bor</p>
-              <p className="text-xl font-bold">{formatNumber(bakedStock)} dona</p>
             </div>
           </CardContent>
         </Card>
@@ -403,10 +395,10 @@ export default function HumbuzPage() {
                       <Label>1 dona narxi</Label>
                       <Input {...register('rawWorkerRatePerBrick')} type="number" placeholder="20" />
                     </div>
-                    <div className="space-y-1.5">
-                      <Label>Berildi</Label>
-                      <Input {...register('rawWorkerPaidAmount')} type="number" placeholder="0" />
-                    </div>
+                      <div className="space-y-1.5">
+                        <Label>Umumiy berildi</Label>
+                        <Input {...register('rawWorkerPaidAmount')} type="number" placeholder="0" />
+                      </div>
                   </div>
                   {rawWorkerCost > 0 && (
                     <div className="rounded-md bg-background px-3 py-2 text-xs">
@@ -422,10 +414,6 @@ export default function HumbuzPage() {
                     <div className="space-y-1.5">
                       <Label>1 dona narxi</Label>
                       <Input {...register('bakedWorkerRatePerBrick')} type="number" placeholder="30" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Berildi</Label>
-                      <Input {...register('bakedWorkerPaidAmount')} type="number" placeholder="0" />
                     </div>
                   </div>
                   {bakedWorkerCost > 0 && (

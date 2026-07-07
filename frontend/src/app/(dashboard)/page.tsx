@@ -116,8 +116,8 @@ export default function DashboardPage() {
       bg: 'bg-emerald-100',
     },
     {
-      label: 'Oylik foyda',
-      value: formatMoney(stats.monthlyProfit),
+      label: 'Bugungi foyda',
+      value: formatMoney(stats.todayProfit),
       suffix: '',
       icon: TrendingUp,
       color: 'text-blue-600',

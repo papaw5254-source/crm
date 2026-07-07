@@ -75,7 +75,7 @@ export class ReportsService {
     const todayWorkerPaid = todayWorkerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
 
     const receivedCash = todayCashSales + todayDebtPaymentsTotal + todayMoneyIncomesTotal;
-    const todayProfit = receivedCash - todayExpensesTotal - todayWorkerPaid;
+    const todayProfit = todayIncome - todayExpensesTotal - todayWorkerPaid;
 
     // Monthly
     const [monthlySales, monthlyDebtPay, monthlyExpenses, monthlyMoneyIn, monthlyWorkerPay] = await Promise.all([
