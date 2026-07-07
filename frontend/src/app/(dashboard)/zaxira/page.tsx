@@ -126,6 +126,8 @@ export default function ZaxiraPage() {
   const watchedMovQty = movForm.watch('quantity') || 0
   const totalMovWorkerCost = watchedMovQty * watchedMovRate
   const movWorkerDebt = totalMovWorkerCost - watchedMovPaid
+  const rawReserveBalance = Number(balance?.rawBrick ?? balance?.RAW_BRICK ?? 0)
+  const bakedReserveBalance = Number(balance?.bakedBrick ?? balance?.BAKED_BRICK ?? 0)
 
   const saleMutation = useMutation({
     mutationFn: (d: SaleForm) =>
@@ -282,7 +284,7 @@ export default function ZaxiraPage() {
               <div className="h-8 w-32 bg-muted animate-pulse rounded" />
             ) : (
               <>
-                <p className="text-3xl font-bold">{formatNumber(balance?.rawBrick ?? 0)}</p>
+                  <p className="text-3xl font-bold">{formatNumber(rawReserveBalance)}</p>
                 <p className="text-sm text-muted-foreground mt-0.5">dona</p>
               </>
             )}
@@ -301,7 +303,7 @@ export default function ZaxiraPage() {
               <div className="h-8 w-32 bg-muted animate-pulse rounded" />
             ) : (
               <>
-                <p className="text-3xl font-bold">{formatNumber(balance?.bakedBrick ?? 0)}</p>
+                  <p className="text-3xl font-bold">{formatNumber(bakedReserveBalance)}</p>
                 <p className="text-sm text-muted-foreground mt-0.5">dona</p>
               </>
             )}
@@ -329,7 +331,7 @@ export default function ZaxiraPage() {
           <div className="flex items-center justify-between">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
               <StatsCard title="Jami harakatlar" value={movements?.meta.total ?? 0} icon={Warehouse} color="blue" format="number" suffix="ta" />
-              <StatsCard title="Jami zaxira" value={(balance?.rawBrick ?? 0) + (balance?.bakedBrick ?? 0)} icon={Warehouse} color="emerald" format="number" suffix="dona" />
+                <StatsCard title="Jami zaxira" value={rawReserveBalance + bakedReserveBalance} icon={Warehouse} color="emerald" format="number" suffix="dona" />
             </div>
             <Button
               className="ml-4 shrink-0"
