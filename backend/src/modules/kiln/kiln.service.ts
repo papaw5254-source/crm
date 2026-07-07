@@ -58,12 +58,14 @@ export class KilnService {
           amount: rawWorkerCost,
           paidAmount: rawPaid,
           remainingDebt: rawWorkerDebt,
-          month: dto.date.slice(0, 7),
-          date: dto.date,
-          description: `Humbuzga kirdi: ${rawEntered} dona xom g'isht (${rawRate} so'm/dona) - ${dto.kilnName}`,
-          createdById: userId,
-        }));
-      }
+            month: dto.date.slice(0, 7),
+            date: dto.date,
+            description: `Humbuzga kirdi: ${rawEntered} dona xom g'isht (${rawRate} so'm/dona) - ${dto.kilnName}`,
+            sourceType: 'KILN_OPERATION',
+            sourceId: saved.id,
+            createdById: userId,
+          }));
+        }
 
       if (bakedWorkerCost > 0) {
         await manager.save(WorkerPayment, manager.create(WorkerPayment, {
@@ -72,12 +74,14 @@ export class KilnService {
           amount: bakedWorkerCost,
           paidAmount: bakedPaid,
           remainingDebt: bakedWorkerDebt,
-          month: dto.date.slice(0, 7),
-          date: dto.date,
-          description: `Humbuzdan chiqdi: ${bakedOutput} dona pishgan g'isht (${bakedRate} so'm/dona) - ${dto.kilnName}`,
-          createdById: userId,
-        }));
-      }
+            month: dto.date.slice(0, 7),
+            date: dto.date,
+            description: `Humbuzdan chiqdi: ${bakedOutput} dona pishgan g'isht (${bakedRate} so'm/dona) - ${dto.kilnName}`,
+            sourceType: 'KILN_OPERATION',
+            sourceId: saved.id,
+            createdById: userId,
+          }));
+        }
 
       if (rawWorkerCost > 0 || bakedWorkerCost > 0) {
         saved.rawWorkerRatePerBrick = rawRate || null;
@@ -198,8 +202,8 @@ export class KilnService {
   async remove(id: string): Promise<void> {
     const op = await this.findOne(id);
     await this.dataSource.getRepository(WorkerPayment).delete({
-      category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
-      date: op.date,
+      sourceType: 'KILN_OPERATION',
+      sourceId: op.id,
     });
     await this.kilnOperationRepository.remove(op);
   }
@@ -216,11 +220,11 @@ export class KilnService {
     const totalWorkerCost = rawWorkerCost + bakedWorkerCost;
     const workerDebt = Math.max(0, totalWorkerCost - rawPaid);
 
-    await this.dataSource.transaction(async (manager) => {
-      await manager.delete(WorkerPayment, {
-        category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
-        date: operation.date,
-      });
+      await this.dataSource.transaction(async (manager) => {
+        await manager.delete(WorkerPayment, {
+          sourceType: 'KILN_OPERATION',
+          sourceId: operation.id,
+        });
 
       if (rawWorkerCost > 0) {
         await manager.save(WorkerPayment, manager.create(WorkerPayment, {
@@ -229,12 +233,14 @@ export class KilnService {
           amount: rawWorkerCost,
           paidAmount: rawPaid,
           remainingDebt: workerDebt,
-          month: operation.date.slice(0, 7),
-          date: operation.date,
-          description: `Humbuzga kirdi: ${rawEntered} dona xom g'isht (${rawRate} so'm/dona) - ${operation.kilnName}`,
-          createdById: userId,
-        }));
-      }
+            month: operation.date.slice(0, 7),
+            date: operation.date,
+            description: `Humbuzga kirdi: ${rawEntered} dona xom g'isht (${rawRate} so'm/dona) - ${operation.kilnName}`,
+            sourceType: 'KILN_OPERATION',
+            sourceId: operation.id,
+            createdById: userId,
+          }));
+        }
 
       if (bakedWorkerCost > 0) {
         await manager.save(WorkerPayment, manager.create(WorkerPayment, {
@@ -243,12 +249,14 @@ export class KilnService {
           amount: bakedWorkerCost,
           paidAmount: 0,
           remainingDebt: 0,
-          month: operation.date.slice(0, 7),
-          date: operation.date,
-          description: `Humbuzdan chiqdi: ${bakedOutput} dona pishgan g'isht (${bakedRate} so'm/dona) - ${operation.kilnName}`,
-          createdById: userId,
-        }));
-      }
+            month: operation.date.slice(0, 7),
+            date: operation.date,
+            description: `Humbuzdan chiqdi: ${bakedOutput} dona pishgan g'isht (${bakedRate} so'm/dona) - ${operation.kilnName}`,
+            sourceType: 'KILN_OPERATION',
+            sourceId: operation.id,
+            createdById: userId,
+          }));
+        }
 
       operation.rawWorkerTotalCost = rawWorkerCost;
       operation.rawWorkerPaidAmount = rawPaid;

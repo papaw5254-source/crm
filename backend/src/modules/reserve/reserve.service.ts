@@ -109,12 +109,14 @@ export class ReserveService {
           amount: totalWorkerCost,
           paidAmount: paid,
           remainingDebt: workerDebt,
-          month: dto.date.slice(0, 7),
-          date: dto.date,
-          description: `${dto.quantity} dona (${dto.workerRatePerBrick} so'm/dona)`,
-          createdById: userId,
-        }),
-      );
+            month: dto.date.slice(0, 7),
+            date: dto.date,
+            description: `${dto.quantity} dona (${dto.workerRatePerBrick} so'm/dona)`,
+            sourceType: 'RESERVE_MOVEMENT',
+            sourceId: saved.id,
+            createdById: userId,
+          }),
+        );
 
       saved.totalWorkerCost = totalWorkerCost;
       saved.workerPaidAmount = paid;
@@ -149,8 +151,9 @@ export class ReserveService {
     const movement = await this.reserveMovementRepository.findOne({ where: { id } });
     if (!movement) throw new NotFoundException('Movement not found');
 
-    const { brickType } = movement;
-    await this.reserveMovementRepository.remove(movement);
+      const { brickType } = movement;
+      await this.workerPaymentRepository.delete({ sourceType: 'RESERVE_MOVEMENT', sourceId: movement.id });
+      await this.reserveMovementRepository.remove(movement);
 
     const allMovements = await this.reserveMovementRepository.find({
       where: { brickType },

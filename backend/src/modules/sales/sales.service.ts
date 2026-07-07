@@ -68,21 +68,23 @@ export class SalesService {
     });
     const saved = await this.saleRepository.save(sale);
 
-    if (totalWorkerCost > 0) {
-      await this.workerPaymentRepository.save(
-        this.workerPaymentRepository.create({
-          workerName: 'Ishchilar (sotuv)',
-          category: WorkerPaymentCategory.ROAD_PAYMENT,
-          amount: totalWorkerCost,
-          paidAmount: workerPaidAmount,
-          remainingDebt: workerDebt,
-          month: createDto.date.slice(0, 7),
-          date: createDto.date,
-          description: `Sotuv: ${createDto.quantity} dona (${workerRate} so'm/dona)`,
-          createdById: userId,
-        }),
-      );
-    }
+      if (totalWorkerCost > 0) {
+        await this.workerPaymentRepository.save(
+          this.workerPaymentRepository.create({
+            workerName: 'Ishchilar (sotuv)',
+            category: WorkerPaymentCategory.ROAD_PAYMENT,
+            amount: totalWorkerCost,
+            paidAmount: workerPaidAmount,
+            remainingDebt: workerDebt,
+            month: createDto.date.slice(0, 7),
+            date: createDto.date,
+            description: `Sotuv: ${createDto.quantity} dona (${workerRate} so'm/dona)`,
+            sourceType: 'SALE',
+            sourceId: saved.id,
+            createdById: userId,
+          }),
+        );
+      }
 
     if (createDto.paymentType === PaymentType.DEBT) {
       await this.debtorsService.createOrUpdateDebt({
@@ -174,8 +176,10 @@ export class SalesService {
       }
     }
 
-    return this.saleRepository.save(sale);
-  }
+      const saved = await this.saleRepository.save(sale);
+      await this.syncWorkerPayment(saved, userId);
+      return saved;
+    }
 
   async remove(id: string, userId: string): Promise<void> {
     const sale = await this.findOne(id);
@@ -199,8 +203,41 @@ export class SalesService {
         userId,
         brickType,
       );
-    }
+      }
+    await this.workerPaymentRepository.delete({ sourceType: 'SALE', sourceId: sale.id });
     await this.saleRepository.remove(sale);
+  }
+
+  private async syncWorkerPayment(sale: Sale, userId: string): Promise<void> {
+    await this.workerPaymentRepository.delete({ sourceType: 'SALE', sourceId: sale.id });
+
+    const workerRate = Number(sale.workerRatePerBrick || 0);
+    const totalWorkerCost = workerRate > 0 ? sale.quantity * workerRate : 0;
+    const workerPaidAmount = Number(sale.workerPaidAmount || 0);
+    const workerDebt = Math.max(0, totalWorkerCost - workerPaidAmount);
+
+    sale.totalWorkerCost = totalWorkerCost;
+    sale.workerPaidAmount = workerPaidAmount;
+    sale.workerDebt = workerDebt;
+    await this.saleRepository.save(sale);
+
+    if (totalWorkerCost <= 0) return;
+
+    await this.workerPaymentRepository.save(
+      this.workerPaymentRepository.create({
+        workerName: 'Ishchilar (sotuv)',
+        category: WorkerPaymentCategory.ROAD_PAYMENT,
+        amount: totalWorkerCost,
+        paidAmount: workerPaidAmount,
+        remainingDebt: workerDebt,
+        month: sale.date.slice(0, 7),
+        date: sale.date,
+        description: `Sotuv: ${sale.quantity} dona (${workerRate} so'm/dona)`,
+        sourceType: 'SALE',
+        sourceId: sale.id,
+        createdById: userId,
+      }),
+    );
   }
 
   async getSalesByDateRange(dateFrom: string, dateTo: string): Promise<Sale[]> {
