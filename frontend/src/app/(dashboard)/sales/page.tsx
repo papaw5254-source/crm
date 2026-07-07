@@ -187,7 +187,7 @@ export default function SalesPage() {
         </div>
       ),
     },
-  ]
+  ].filter((column) => column.key !== 'workerCost')
 
   return (
     <div className="space-y-6">
