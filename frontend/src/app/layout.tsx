@@ -19,28 +19,6 @@ export default function RootLayout({
     <html lang="uz" suppressHydrationWarning>
       <body className="font-sans antialiased">
         <Providers>{children}</Providers>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (() => {
-                const hideSalesWorkerPayment = () => {
-                  if (!location.pathname.includes('/sales')) return;
-                  const nodes = Array.from(document.querySelectorAll('section, div'));
-                  const target = nodes.find((node) =>
-                    node.textContent &&
-                    node.textContent.includes('ISHCHI PULI (SOTUV)') &&
-                    node.textContent.includes("Eski qarz")
-                  );
-                  if (target instanceof HTMLElement) {
-                    target.style.display = 'none';
-                  }
-                };
-                hideSalesWorkerPayment();
-                setInterval(hideSalesWorkerPayment, 500);
-              })();
-            `,
-          }}
-        />
       </body>
     </html>
   )
