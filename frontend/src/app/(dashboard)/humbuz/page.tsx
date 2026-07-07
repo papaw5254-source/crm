@@ -82,12 +82,12 @@ export default function HumbuzPage() {
   const rawWorkerRate = watch('rawWorkerRatePerBrick') || 0
   const rawWorkerPaid = watch('rawWorkerPaidAmount') || 0
   const bakedWorkerRate = watch('bakedWorkerRatePerBrick') || 0
-  const bakedWorkerPaid = 0
+  const bakedWorkerPaid = watch('bakedWorkerPaidAmount') || 0
   const rawWorkerCost = rawBricksEntered * rawWorkerRate
   const bakedWorkerCost = bakedBricksOutput * bakedWorkerRate
   const totalWorkerCost = rawWorkerCost + bakedWorkerCost
   const totalWorkerPaid = rawWorkerPaid
-  const workerDebt = Math.max(0, totalWorkerCost - totalWorkerPaid)
+  const workerDebt = Math.max(0, totalWorkerCost - totalWorkerPaid - bakedWorkerPaid)
 
   const createMutation = useMutation({
     mutationFn: (d: FormData) => kilnService.create(d),
