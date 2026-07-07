@@ -17,8 +17,9 @@ export default function DashboardPage() {
     queryFn: () => stockService.getStock(),
   })
 
-  const rawStock = stocks.find((stock) => stock.brickType === 'RAW_BRICK')?.quantity ?? 0
-  const bakedStock = stocks.find((stock) => stock.brickType === 'BAKED_BRICK')?.quantity ?? 0
+  const stockList = Array.isArray(stocks) ? stocks : stocks ? [stocks] : []
+  const rawStock = stockList.find((stock) => stock.brickType === 'RAW_BRICK')?.quantity ?? 0
+  const bakedStock = stockList.find((stock) => stock.brickType === 'BAKED_BRICK')?.quantity ?? 0
 
   return (
     <div className="space-y-6">

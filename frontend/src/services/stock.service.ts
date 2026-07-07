@@ -4,7 +4,10 @@ import type { Stock, PaginatedResponse, StockMovement, PaginationParams } from '
 export const stockService = {
   async getStock(): Promise<Stock[]> {
     const res = await api.get('/stock')
-    return res.data.data
+    const payload = res.data?.data ?? res.data
+    if (Array.isArray(payload)) return payload
+    if (Array.isArray(payload?.data)) return payload.data
+    return payload ? [payload] : []
   },
 
   async getMovements(params?: PaginationParams): Promise<PaginatedResponse<StockMovement>> {

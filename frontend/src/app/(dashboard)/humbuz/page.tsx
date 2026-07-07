@@ -160,8 +160,9 @@ export default function HumbuzPage() {
   const allOps = data?.data ?? []
   const totalRawIn = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.rawBricksEntered), 0)
   const totalBakedOut = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.bakedBricksOutput), 0)
-  const rawStock = stocks.find((stock) => stock.brickType === 'RAW_BRICK')?.quantity ?? 0
-  const bakedStock = stocks.find((stock) => stock.brickType === 'BAKED_BRICK')?.quantity ?? 0
+  const stockList = Array.isArray(stocks) ? stocks : stocks ? [stocks] : []
+  const rawStock = stockList.find((stock) => stock.brickType === 'RAW_BRICK')?.quantity ?? 0
+  const bakedStock = stockList.find((stock) => stock.brickType === 'BAKED_BRICK')?.quantity ?? 0
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: KilnOperation) => <span className="font-medium">{formatDate(r.date)}</span> },

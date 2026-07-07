@@ -77,6 +77,7 @@ export default function SalesPage() {
     mutationFn: (data: FormData) => salesService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales'] })
+      queryClient.refetchQueries({ queryKey: ['sales'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['debtors'] })

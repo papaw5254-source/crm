@@ -16,17 +16,17 @@ export interface CreateWorkerPaymentDto {
 export const workerPaymentsService = {
   async getAll(params?: PaginationParams & { category?: string; month?: number; year?: number; debtOnly?: boolean }): Promise<PaginatedResponse<WorkerPayment>> {
     const res = await api.get('/worker-payments', { params })
-    return res.data.data
+    return res.data?.data ?? res.data
   },
 
   async create(data: CreateWorkerPaymentDto): Promise<WorkerPayment> {
     const res = await api.post('/worker-payments', data)
-    return res.data.data
+    return res.data?.data ?? res.data
   },
 
   async update(id: string, data: Partial<CreateWorkerPaymentDto>): Promise<WorkerPayment> {
     const res = await api.patch(`/worker-payments/${id}`, data)
-    return res.data.data
+    return res.data?.data ?? res.data
   },
 
   async delete(id: string): Promise<void> {
@@ -35,6 +35,6 @@ export const workerPaymentsService = {
 
   async getReport(params?: { month?: number; year?: number }): Promise<WorkerPaymentReport> {
     const res = await api.get('/worker-payments/report', { params })
-    return res.data.data
+    return res.data?.data ?? res.data
   },
 }
