@@ -1,103 +1,184 @@
 'use client'
 
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
-import { Flame, Package, PackagePlus, ShoppingCart, Warehouse } from 'lucide-react'
-import { stockService } from '@/services/stock.service'
-import { StatsCard } from '@/components/shared/stats-card'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { useAuth } from '@/providers/auth-provider'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  Banknote,
+  Boxes,
+  Flame,
+  Package,
+  ShoppingCart,
+  TrendingUp,
+  Warehouse,
+} from 'lucide-react'
+
+type StockItem = {
+  brickType?: string
+  quantity?: number | string
+}
+
+type DashboardStats = {
+  todayIncome?: number | string
+  todayExpense?: number | string
+  todayProfit?: number | string
+  monthlyProfit?: number | string
+}
+
+function toArray<T>(value: any): T[] {
+  if (Array.isArray(value)) return value
+  if (Array.isArray(value?.data)) return value.data
+  if (Array.isArray(value?.data?.data)) return value.data.data
+  return []
+}
+
+function toNumber(value: unknown): number {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : 0
+}
+
+function formatNumber(value: unknown): string {
+  return new Intl.NumberFormat('uz-UZ').format(toNumber(value))
+}
+
+function formatMoney(value: unknown): string {
+  return `${formatNumber(value)} so'm`
+}
+
+async function apiGet<T>(url: string): Promise<T | null> {
+  try {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      cache: 'no-store',
+    })
+
+    if (!response.ok) return null
+    return (await response.json()) as T
+  } catch {
+    return null
+  }
+}
 
 export default function DashboardPage() {
-  const { user } = useAuth()
+  const [stockResponse, setStockResponse] = useState<any>(null)
+  const [statsResponse, setStatsResponse] = useState<any>(null)
 
-  const { data: stocks = [] } = useQuery({
-    queryKey: ['stock'],
-    queryFn: () => stockService.getStock(),
-  })
+  useEffect(() => {
+    let active = true
 
-  const stockList = Array.isArray(stocks) ? stocks : stocks ? [stocks] : []
-  const rawStock = stockList.find((stock) => stock.brickType === 'RAW_BRICK')?.quantity ?? 0
-  const bakedStock = stockList.find((stock) => stock.brickType === 'BAKED_BRICK')?.quantity ?? 0
+    async function loadDashboard() {
+      const [stock, stats] = await Promise.all([
+        apiGet('/api/stock'),
+        apiGet('/api/reports/dashboard').catch(() => null),
+      ])
+
+      if (!active) return
+      setStockResponse(stock)
+      setStatsResponse(stats)
+    }
+
+    loadDashboard()
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const stocks = useMemo(() => toArray<StockItem>(stockResponse), [stockResponse])
+  const stats: DashboardStats = statsResponse?.data ?? statsResponse ?? {}
+
+  const rawStock = stocks.find((item) => item?.brickType === 'RAW_BRICK')?.quantity ?? 0
+  const bakedStock = stocks.find((item) => item?.brickType === 'BAKED_BRICK')?.quantity ?? 0
+
+  const cards = [
+    {
+      label: "Xom g'isht",
+      value: formatNumber(rawStock),
+      suffix: 'dona',
+      icon: Package,
+      color: 'text-amber-600',
+      bg: 'bg-amber-100',
+    },
+    {
+      label: "Pishgan g'isht",
+      value: formatNumber(bakedStock),
+      suffix: 'dona',
+      icon: Flame,
+      color: 'text-red-600',
+      bg: 'bg-red-100',
+    },
+    {
+      label: 'Bugungi tushum',
+      value: formatMoney(stats.todayIncome),
+      suffix: '',
+      icon: Banknote,
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-100',
+    },
+    {
+      label: 'Oylik foyda',
+      value: formatMoney(stats.monthlyProfit),
+      suffix: '',
+      icon: TrendingUp,
+      color: 'text-blue-600',
+      bg: 'bg-blue-100',
+    },
+  ]
+
+  const links = [
+    { href: '/inventory', label: "Xom g'isht", icon: Boxes },
+    { href: '/humbuz', label: 'Xumbuz', icon: Flame },
+    { href: '/sales', label: 'Sotuv', icon: ShoppingCart },
+    { href: '/zahiralar', label: 'Zahira', icon: Warehouse },
+  ]
 
   return (
-    <div className="space-y-6">
+    <main className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Xush kelibsiz, {user?.fullName || user?.username || 'foydalanuvchi'}!
-        </h1>
-        <p className="text-sm text-muted-foreground">G&apos;isht zavodi CRM tizimi</p>
+        <h1 className="text-2xl font-bold text-slate-950">G'isht Zavodi CRM</h1>
+        <p className="mt-1 text-sm text-slate-500">Ombor va moliyaviy holat</p>
       </div>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Ombor holati
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <StatsCard title="Xom g'isht" value={rawStock} icon={Package} color="amber" format="number" suffix="dona" />
-          <StatsCard title="Pishgan g'isht" value={bakedStock} icon={Flame} color="red" format="number" suffix="dona" />
-        </div>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => {
+          const Icon = card.icon
+          return (
+            <div key={card.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-slate-600">{card.label}</p>
+                  <p className="mt-3 text-2xl font-bold text-slate-950">
+                    {card.value}
+                    {card.suffix ? <span className="ml-1 text-sm font-medium text-slate-500">{card.suffix}</span> : null}
+                  </p>
+                </div>
+                <div className={`rounded-lg p-3 ${card.bg}`}>
+                  <Icon className={`h-6 w-6 ${card.color}`} />
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Tezkor bo&apos;limlar
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <PackagePlus className="h-5 w-5 text-emerald-600" />
-              <div>
-                <p className="font-semibold">Xom g&apos;isht kirim</p>
-                <p className="text-sm text-muted-foreground">Pressdan chiqqan g&apos;ishtlar</p>
-              </div>
-              <Button asChild size="sm" className="w-full">
-                <Link href="/inventory">Ochish</Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <Flame className="h-5 w-5 text-orange-600" />
-              <div>
-                <p className="font-semibold">Humbuz</p>
-                <p className="text-sm text-muted-foreground">Kirdi, chiqdi va pishgan g&apos;isht</p>
-              </div>
-              <Button asChild size="sm" className="w-full">
-                <Link href="/humbuz">Ochish</Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <ShoppingCart className="h-5 w-5 text-blue-600" />
-              <div>
-                <p className="font-semibold">Sotuv</p>
-                <p className="text-sm text-muted-foreground">Naqd, karta va nasiya sotuvlar</p>
-              </div>
-              <Button asChild size="sm" className="w-full">
-                <Link href="/sales">Ochish</Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <Warehouse className="h-5 w-5 text-slate-600" />
-              <div>
-                <p className="font-semibold">Zaxira</p>
-                <p className="text-sm text-muted-foreground">Xom va pishgan g&apos;isht zaxirasi</p>
-              </div>
-              <Button asChild size="sm" className="w-full">
-                <Link href="/zaxira">Ochish</Link>
-              </Button>
-            </CardContent>
-          </Card>
+      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-950">Bo'limlar</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {links.map((link) => {
+            const Icon = link.icon
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="flex items-center gap-3 rounded-md border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50"
+              >
+                <Icon className="h-5 w-5 text-emerald-600" />
+                {link.label}
+              </Link>
+            )
+          })}
         </div>
       </section>
-    </div>
+    </main>
   )
 }
