@@ -153,7 +153,7 @@ export default function SalesPage() {
     { key: 'total', header: 'Jami', cell: (r: Sale) => <span className="font-semibold text-primary">{formatCurrency(Number(r.totalAmount))}</span> },
     {
       key: 'workerCost',
-      header: <span data-sales-worker-column="true">Ishchi puli</span>,
+      header: 'Ishchi puli',
       cell: (r: Sale) => r.totalWorkerCost ? (
         <div className="text-sm">
           <div className="font-medium">{formatCurrency(Number(r.totalWorkerCost))}</div>
