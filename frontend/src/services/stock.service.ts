@@ -7,7 +7,9 @@ export const stockService = {
     const payload = res.data?.data ?? res.data
     if (Array.isArray(payload)) return payload
     if (Array.isArray(payload?.data)) return payload.data
-    return payload ? [payload] : []
+    if (Array.isArray(payload?.items)) return payload.items
+    if (Array.isArray(payload?.results)) return payload.results
+    return []
   },
 
   async getMovements(params?: PaginationParams): Promise<PaginatedResponse<StockMovement>> {

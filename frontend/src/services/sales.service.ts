@@ -26,6 +26,26 @@ export interface BankTransferFirm {
 export const salesService = {
   async getAll(params?: PaginationParams & { isReserveSale?: boolean }): Promise<PaginatedResponse<Sale>> {
     const res = await api.get('/sales', { params })
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
+    if (res.data?.meta && Array.isArray(res.data?.data)) return res.data
     return res.data?.data ?? res.data
   },
 

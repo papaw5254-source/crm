@@ -42,4 +42,30 @@ export function getErrorMessage(error: any): string {
   )
 }
 
+export function getApiPayload<T = any>(value: any): T {
+  let current = value
+
+  for (let i = 0; i < 5; i += 1) {
+    if (current?.meta && current?.data !== undefined) break
+    if (current?.data !== undefined) {
+      current = current.data
+      continue
+    }
+    break
+  }
+
+  return current as T
+}
+
+export function getApiList<T = any>(value: any): T[] {
+  const payload = getApiPayload<any>(value)
+
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.data)) return payload.data
+  if (Array.isArray(payload?.items)) return payload.items
+  if (Array.isArray(payload?.results)) return payload.results
+
+  return []
+}
+
 export default api
