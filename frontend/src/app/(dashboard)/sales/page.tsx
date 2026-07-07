@@ -65,6 +65,9 @@ export default function SalesPage() {
   const qty = watch('quantity')
   const price = watch('pricePerBrick')
   const total = (qty || 0) * (price || 0)
+  const workerPaid = 0
+  const totalWorkerCost = 0
+  const workerDebt = 0
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => salesService.create(data),
