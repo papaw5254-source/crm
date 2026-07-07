@@ -47,6 +47,11 @@ type FormData = z.infer<typeof schema>
 
 const KILNS: KilnName[] = ['HUMBUZ_1', 'HUMBUZ_2', 'HUMBUZ_3']
 
+const normalizeRawBrickSource = (source: unknown) => {
+  if (source === 'RESERVE') return 'RESERVE'
+  return 'FIELD'
+}
+
 export default function HumbuzPage() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
@@ -89,7 +94,12 @@ export default function HumbuzPage() {
   const workerDebt = Math.max(0, totalWorkerCost - totalWorkerPaid - bakedWorkerPaid)
 
   const createMutation = useMutation({
-    mutationFn: (d: FormData) => kilnService.create(d),
+      mutationFn: (d: FormData) =>
+        kilnService.create({
+          ...d,
+          rawBrickSource: Number(d.rawBricksEntered || 0) > 0 ? normalizeRawBrickSource(d.rawBrickSource) : d.rawBrickSource,
+          bakedWorkerPaidAmount: 0,
+        }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kiln-operations'] })
       queryClient.refetchQueries({ queryKey: ['kiln-operations'] })
@@ -108,7 +118,12 @@ export default function HumbuzPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: (d: FormData) => kilnService.update(editItem!.id, d),
+      mutationFn: (d: FormData) =>
+        kilnService.update(editItem!.id, {
+          ...d,
+          rawBrickSource: Number(d.rawBricksEntered || 0) > 0 ? normalizeRawBrickSource(d.rawBrickSource) : d.rawBrickSource,
+          bakedWorkerPaidAmount: 0,
+        }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kiln-operations'] })
       queryClient.refetchQueries({ queryKey: ['kiln-operations'] })
@@ -182,6 +197,8 @@ export default function HumbuzPage() {
         operation.humbuzName,
         operation.humbuzId,
       ].map((value) => String(value || '').toLowerCase())
+
+      if (values.every((value) => !value)) return kilnFilter === 'HUMBUZ_1'
 
       const filterValue = String(kilnFilter).toLowerCase()
       const labelValue = kilnNameLabel(kilnFilter as KilnName).toLowerCase()

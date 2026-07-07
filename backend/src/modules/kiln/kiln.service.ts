@@ -186,12 +186,79 @@ export class KilnService {
   async update(id: string, dto: UpdateKilnOperationDto, userId: string): Promise<KilnOperation> {
     const op = await this.findOne(id);
     Object.assign(op, dto);
-    return this.kilnOperationRepository.save(op);
+    const saved = await this.kilnOperationRepository.save(op);
+
+    await this.syncWorkerPayments(saved, userId);
+
+    return saved;
   }
 
   async remove(id: string): Promise<void> {
     const op = await this.findOne(id);
+    await this.dataSource.getRepository(WorkerPayment).delete({
+      category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
+      date: op.date,
+    });
     await this.kilnOperationRepository.remove(op);
+  }
+
+  private async syncWorkerPayments(operation: KilnOperation, userId: string): Promise<void> {
+    const rawEntered = Number(operation.rawBricksEntered || 0);
+    const bakedOutput = Number(operation.bakedBricksOutput || 0);
+    const rawRate = Number(operation.rawWorkerRatePerBrick || operation.workerRatePerBrick || 0);
+    const bakedRate = Number(operation.bakedWorkerRatePerBrick || operation.workerRatePerBrick || 0);
+    const rawPaid = Number(operation.rawWorkerPaidAmount || operation.workerPaidAmount || 0);
+    const bakedPaid = 0;
+    const rawWorkerCost = rawEntered > 0 && rawRate > 0 ? rawEntered * rawRate : 0;
+    const bakedWorkerCost = bakedOutput > 0 && bakedRate > 0 ? bakedOutput * bakedRate : 0;
+    const totalWorkerCost = rawWorkerCost + bakedWorkerCost;
+    const workerDebt = Math.max(0, totalWorkerCost - rawPaid);
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.delete(WorkerPayment, {
+        category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
+        date: operation.date,
+      });
+
+      if (rawWorkerCost > 0) {
+        await manager.save(WorkerPayment, manager.create(WorkerPayment, {
+          workerName: 'Ishchilar (humbuz kirdi)',
+          category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
+          amount: rawWorkerCost,
+          paidAmount: rawPaid,
+          remainingDebt: workerDebt,
+          month: operation.date.slice(0, 7),
+          date: operation.date,
+          description: `Humbuzga kirdi: ${rawEntered} dona xom g'isht (${rawRate} so'm/dona) - ${operation.kilnName}`,
+          createdById: userId,
+        }));
+      }
+
+      if (bakedWorkerCost > 0) {
+        await manager.save(WorkerPayment, manager.create(WorkerPayment, {
+          workerName: 'Ishchilar (humbuz chiqdi)',
+          category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
+          amount: bakedWorkerCost,
+          paidAmount: 0,
+          remainingDebt: 0,
+          month: operation.date.slice(0, 7),
+          date: operation.date,
+          description: `Humbuzdan chiqdi: ${bakedOutput} dona pishgan g'isht (${bakedRate} so'm/dona) - ${operation.kilnName}`,
+          createdById: userId,
+        }));
+      }
+
+      operation.rawWorkerTotalCost = rawWorkerCost;
+      operation.rawWorkerPaidAmount = rawPaid;
+      operation.rawWorkerDebt = workerDebt;
+      operation.bakedWorkerTotalCost = bakedWorkerCost;
+      operation.bakedWorkerPaidAmount = bakedPaid;
+      operation.bakedWorkerDebt = 0;
+      operation.totalWorkerCost = totalWorkerCost;
+      operation.workerPaidAmount = rawPaid;
+      operation.workerDebt = workerDebt;
+      await manager.save(KilnOperation, operation);
+    });
   }
 
   async getReport(dateFrom?: string, dateTo?: string) {

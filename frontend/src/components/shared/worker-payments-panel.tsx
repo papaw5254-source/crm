@@ -80,6 +80,9 @@ export function WorkerPaymentsPanel({ title, categories, limit = 6 }: WorkerPaym
     queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
     queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    queryClient.refetchQueries({ queryKey: ['worker-payments-report'] })
+    queryClient.refetchQueries({ queryKey: ['worker-payments-panel'] })
+    queryClient.refetchQueries({ queryKey: ['dashboard'] })
   }
 
   const createDebtMutation = useMutation({
