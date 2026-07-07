@@ -33,4 +33,13 @@ api.interceptors.response.use(
   },
 )
 
+export function getErrorMessage(error: any): string {
+  return (
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    "Xatolik yuz berdi"
+  )
+}
+
 export default api
