@@ -81,8 +81,6 @@ export class SalesService {
             description: `Sotuv: ${createDto.quantity} dona (${workerRate} so'm/dona)`,
             sourceType: 'SALE',
             sourceId: saved.id,
-            sourceType: 'SALE',
-            sourceId: saved.id,
             createdById: userId,
           }),
         );
@@ -206,7 +204,6 @@ export class SalesService {
         brickType,
       );
       }
-    await this.workerPaymentRepository.delete({ sourceType: 'SALE', sourceId: sale.id });
     await this.workerPaymentRepository.delete({ sourceType: 'SALE', sourceId: sale.id });
     await this.saleRepository.remove(sale);
   }

@@ -86,10 +86,11 @@ export default function SalesPage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: FormData) => salesService.update(editItem!.id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales'] })
-      queryClient.invalidateQueries({ queryKey: ['stock'] })
-      toast.success('Sotuv yangilandi')
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['sales'] })
+        queryClient.refetchQueries({ queryKey: ['sales'] })
+        queryClient.invalidateQueries({ queryKey: ['stock'] })
+        toast.success('Sotuv yangilandi')
       setEditItem(null)
       setDialogOpen(false)
       reset()
@@ -99,10 +100,11 @@ export default function SalesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => salesService.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales'] })
-      queryClient.invalidateQueries({ queryKey: ['stock'] })
-      toast.success('Sotuv o\'chirildi')
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['sales'] })
+        queryClient.refetchQueries({ queryKey: ['sales'] })
+        queryClient.invalidateQueries({ queryKey: ['stock'] })
+        toast.success('Sotuv o\'chirildi')
       setDeleteId(null)
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
@@ -132,12 +134,20 @@ export default function SalesPage() {
     else createMutation.mutate(payload)
   }
 
+  const salesRows = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data?.data?.data)
+        ? data.data.data
+        : []
+  const salesMeta = data?.meta ?? data?.data?.meta
   const filteredData = paymentTypeFilter === 'ALL'
-    ? data?.data ?? []
-    : (data?.data ?? []).filter((s: Sale) => s.paymentType === paymentTypeFilter)
+    ? salesRows
+    : salesRows.filter((s: Sale) => s.paymentType === paymentTypeFilter)
 
-  const totalAmount = (data?.data ?? []).reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0)
-  const totalQty = (data?.data ?? []).reduce((s: number, x: Sale) => s + x.quantity, 0)
+  const totalAmount = salesRows.reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0)
+  const totalQty = salesRows.reduce((s: number, x: Sale) => s + x.quantity, 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: Sale) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -234,7 +244,7 @@ export default function SalesPage() {
           ) : (
             <>
               <DataTable columns={columns} data={filteredData} loading={isLoading} />
-              {data && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
+                {salesMeta && <Pagination page={page} totalPages={salesMeta.totalPages ?? 1} total={salesMeta.total ?? filteredData.length} limit={limit} onPageChange={setPage} />}
             </>
           )}
         </CardContent>
