@@ -47,6 +47,12 @@ export class WorkerPayment {
   @Column({ name: 'source_id', nullable: true })
   sourceId: string;
 
+  @Column({ name: 'source_type', nullable: true })
+  sourceType: string;
+
+  @Column({ name: 'source_id', nullable: true })
+  sourceId: string;
+
   @ManyToOne(() => User, { nullable: true, eager: false })
   createdBy: User;
 
