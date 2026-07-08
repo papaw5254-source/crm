@@ -152,9 +152,6 @@ export class SalesService {
     const sale = await this.findOne(id);
     const oldQuantity = sale.quantity;
     const brickType = sale.brickType || BrickType.BAKED_BRICK;
-    const oldPaymentType = sale.paymentType;
-    const oldCustomerName = sale.customerName;
-    const oldCustomerPhone = sale.customerPhone;
 
     Object.assign(sale, updateDto);
 
@@ -188,19 +185,6 @@ export class SalesService {
 
       const saved = await this.saleRepository.save(sale);
       await this.syncWorkerPayment(saved, userId);
-
-      if (oldPaymentType === PaymentType.DEBT) {
-        await this.debtorsService.syncDebtForSaleCustomer(oldCustomerName, oldCustomerPhone);
-      }
-      if (saved.paymentType === PaymentType.DEBT) {
-        await this.debtorsService.createOrUpdateDebt({
-          fullName: saved.customerName || 'Unknown',
-          phone: saved.customerPhone,
-          amount: Number(saved.totalAmount),
-          saleId: saved.id,
-        });
-      }
-
       return saved;
     }
 
@@ -228,10 +212,6 @@ export class SalesService {
       });
     }
     await this.saleRepository.remove(sale);
-
-    if (sale.paymentType === PaymentType.DEBT) {
-      await this.debtorsService.syncDebtForSaleCustomer(sale.customerName, sale.customerPhone);
-    }
   }
 
   private async syncWorkerPayment(sale: Sale, userId: string): Promise<void> {
