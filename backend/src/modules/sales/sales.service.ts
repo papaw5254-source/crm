@@ -205,6 +205,14 @@ export class SalesService {
       );
       }
     await this.workerPaymentRepository.delete({ sourceType: 'SALE', sourceId: sale.id });
+    const workerCost = Number(sale.totalWorkerCost || 0);
+    if (workerCost > 0) {
+      await this.workerPaymentRepository.delete({
+        category: WorkerPaymentCategory.ROAD_PAYMENT,
+        date: sale.date,
+        amount: sale.totalWorkerCost,
+      });
+    }
     await this.saleRepository.remove(sale);
   }
 

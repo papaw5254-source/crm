@@ -86,7 +86,7 @@ export default function ZaxiraPage() {
 
   const { data: reserveSales, isLoading: salesLoading } = useQuery({
     queryKey: ['reserve-sales', salePage, saleLimit],
-    queryFn: () => salesService.getAll({ page: salePage, limit: saleLimit, isReserveSale: true }),
+    queryFn: () => salesService.getAll({ page: salePage, limit: saleLimit }),
   })
 
   // ─── Movement form ─────────────────────────────────────────────────────────
@@ -132,13 +132,14 @@ export default function ZaxiraPage() {
   const movementTotal = Number(movements?.meta?.total ?? movementRows.length ?? 0)
   const reserveSalesData = reserveSales as any
   const reserveSalesInner = reserveSalesData?.data
-  const reserveSaleRows = Array.isArray(reserveSalesData)
+  const reserveSaleRowsAll = Array.isArray(reserveSalesData)
     ? reserveSalesData
     : Array.isArray(reserveSalesInner)
       ? reserveSalesInner
       : Array.isArray(reserveSalesInner?.data)
         ? reserveSalesInner.data
         : []
+  const reserveSaleRows = reserveSaleRowsAll.filter((sale: Sale) => sale?.isReserveSale === true || String((sale as any)?.isReserveSale) === 'true')
   const reserveSaleMeta = reserveSalesData?.meta ?? reserveSalesInner?.meta
 
   const saleMutation = useMutation({

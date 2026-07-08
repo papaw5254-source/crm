@@ -145,6 +145,17 @@ export class ReserveService {
     if (!movement) throw new NotFoundException('Movement not found');
 
     const { brickType } = movement;
+    const workerCost = Number(movement.totalWorkerCost || 0);
+    if (workerCost > 0) {
+      const category = movement.brickType === BrickType.RAW_BRICK
+        ? WorkerPaymentCategory.RESERVE_RAW_LOADING
+        : WorkerPaymentCategory.RESERVE_BAKED_LOADING;
+      await this.workerPaymentRepository.delete({
+        category,
+        date: movement.date,
+        amount: movement.totalWorkerCost,
+      });
+    }
     await this.workerPaymentRepository.delete({ sourceType: 'RESERVE_MOVEMENT', sourceId: movement.id });
     await this.reserveMovementRepository.remove(movement);
 
