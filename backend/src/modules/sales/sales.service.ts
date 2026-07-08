@@ -136,10 +136,26 @@ export class SalesService {
       qb.andWhere('(sale.isReserveSale = false OR sale.isReserveSale IS NULL)');
     }
 
+    const totals = await qb
+      .clone()
+      .select('COALESCE(SUM(sale.totalAmount), 0)', 'totalAmount')
+      .addSelect('COALESCE(SUM(sale.quantity), 0)', 'totalQuantity')
+      .getRawOne();
+
     qb.orderBy(`sale.${sortBy}`, sortOrder as 'ASC' | 'DESC').skip(skip).take(limit);
 
     const [data, total] = await qb.getManyAndCount();
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        totalAmount: Number(totals?.totalAmount ?? totals?.totalamount ?? 0),
+        totalQuantity: Number(totals?.totalQuantity ?? totals?.totalquantity ?? 0),
+      },
+    };
   }
 
   async findOne(id: string): Promise<Sale> {

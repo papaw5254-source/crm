@@ -163,8 +163,9 @@ export default function SalesPage() {
     ? salesRows
     : salesRows.filter((s: Sale) => s.paymentType === paymentTypeFilter)
 
-  const totalAmount = salesRows.reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0)
-  const totalQty = salesRows.reduce((s: number, x: Sale) => s + x.quantity, 0)
+  const totalSales = Number(salesMeta?.total ?? salesRows.length)
+  const totalAmount = Number(salesMeta?.totalAmount ?? salesRows.reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0))
+  const totalQty = Number(salesMeta?.totalQuantity ?? salesRows.reduce((s: number, x: Sale) => s + x.quantity, 0))
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: Sale) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -232,7 +233,7 @@ export default function SalesPage() {
       />
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatsCard title="Jami sotuvlar" value={salesRows.length} icon={ShoppingCart} color="emerald" format="number" suffix="ta" />
+          <StatsCard title="Jami sotuvlar" value={totalSales} icon={ShoppingCart} color="emerald" format="number" suffix="ta" />
         <StatsCard title="Jami summa" value={totalAmount} icon={ShoppingCart} color="blue" />
         <StatsCard title="Jami miqdor" value={totalQty} icon={ShoppingCart} color="purple" format="number" suffix="dona" />
       </div>

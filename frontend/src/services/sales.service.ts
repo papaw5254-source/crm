@@ -69,6 +69,8 @@ export interface PaginatedSales {
     page?: number
     limit?: number
     totalPages?: number
+    totalAmount?: number
+    totalQuantity?: number
     [key: string]: any
   }
   [key: string]: any
