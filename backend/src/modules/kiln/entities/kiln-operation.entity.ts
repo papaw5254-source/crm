@@ -73,6 +73,18 @@ export class KilnOperation {
   @Column({ name: 'baked_worker_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
   bakedWorkerDebt: number;
 
+  @Column({ name: 'qachigar_rate_per_brick', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  qachigarRatePerBrick: number;
+
+  @Column({ name: 'qachigar_total_cost', type: 'decimal', precision: 14, scale: 2, nullable: true })
+  qachigarTotalCost: number;
+
+  @Column({ name: 'qachigar_paid_amount', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  qachigarPaidAmount: number;
+
+  @Column({ name: 'qachigar_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  qachigarDebt: number;
+
   @ManyToOne(() => User, { nullable: true, eager: false })
   createdBy: User;
 

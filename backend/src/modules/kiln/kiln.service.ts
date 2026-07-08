@@ -45,11 +45,15 @@ export class KilnService {
       const bakedRate = dto.bakedWorkerRatePerBrick ?? legacyRate;
       const rawPaid = dto.rawWorkerPaidAmount ?? (dto.rawWorkerRatePerBrick === undefined ? legacyPaid : 0);
       const bakedPaid = dto.bakedWorkerPaidAmount ?? 0;
+      const qachigarRate = dto.qachigarRatePerBrick ?? 0;
+      const qachigarPaid = dto.qachigarPaidAmount ?? 0;
 
       const rawWorkerCost = rawEntered > 0 && rawRate > 0 ? rawEntered * rawRate : 0;
       const bakedWorkerCost = bakedOutput > 0 && bakedRate > 0 ? bakedOutput * bakedRate : 0;
+      const qachigarCost = bakedOutput > 0 && qachigarRate > 0 ? bakedOutput * qachigarRate : 0;
       const rawWorkerDebt = Math.max(0, rawWorkerCost - rawPaid);
       const bakedWorkerDebt = Math.max(0, bakedWorkerCost - bakedPaid);
+      const qachigarDebt = Math.max(0, qachigarCost - qachigarPaid);
 
       if (rawWorkerCost > 0) {
         await manager.save(WorkerPayment, manager.create(WorkerPayment, {
@@ -83,7 +87,23 @@ export class KilnService {
           }));
         }
 
-      if (rawWorkerCost > 0 || bakedWorkerCost > 0) {
+      if (qachigarCost > 0) {
+        await manager.save(WorkerPayment, manager.create(WorkerPayment, {
+          workerName: 'Qachigar',
+          category: WorkerPaymentCategory.QACHIGAR,
+          amount: qachigarCost,
+          paidAmount: qachigarPaid,
+          remainingDebt: qachigarDebt,
+          month: dto.date.slice(0, 7),
+          date: dto.date,
+          description: `Qachigar: ${bakedOutput} dona pishgan g'isht (${qachigarRate} so'm/dona) - ${dto.kilnName}`,
+          sourceType: 'KILN_OPERATION',
+          sourceId: saved.id,
+          createdById: userId,
+        }));
+      }
+
+      if (rawWorkerCost > 0 || bakedWorkerCost > 0 || qachigarCost > 0) {
         saved.rawWorkerRatePerBrick = rawRate || null;
         saved.rawWorkerTotalCost = rawWorkerCost;
         saved.rawWorkerPaidAmount = rawPaid;
@@ -95,6 +115,10 @@ export class KilnService {
         saved.totalWorkerCost = rawWorkerCost + bakedWorkerCost;
         saved.workerPaidAmount = rawPaid + bakedPaid;
         saved.workerDebt = rawWorkerDebt + bakedWorkerDebt;
+        saved.qachigarRatePerBrick = qachigarRate || null;
+        saved.qachigarTotalCost = qachigarCost;
+        saved.qachigarPaidAmount = qachigarPaid;
+        saved.qachigarDebt = qachigarDebt;
         await manager.save(KilnOperation, saved);
       }
 
@@ -215,10 +239,14 @@ export class KilnService {
     const bakedRate = Number(operation.bakedWorkerRatePerBrick || operation.workerRatePerBrick || 0);
     const rawPaid = Number(operation.rawWorkerPaidAmount || operation.workerPaidAmount || 0);
     const bakedPaid = 0;
+    const qachigarRate = Number(operation.qachigarRatePerBrick || 0);
+    const qachigarPaid = Number(operation.qachigarPaidAmount || 0);
     const rawWorkerCost = rawEntered > 0 && rawRate > 0 ? rawEntered * rawRate : 0;
     const bakedWorkerCost = bakedOutput > 0 && bakedRate > 0 ? bakedOutput * bakedRate : 0;
+    const qachigarCost = bakedOutput > 0 && qachigarRate > 0 ? bakedOutput * qachigarRate : 0;
     const totalWorkerCost = rawWorkerCost + bakedWorkerCost;
     const workerDebt = Math.max(0, totalWorkerCost - rawPaid);
+    const qachigarDebt = Math.max(0, qachigarCost - qachigarPaid);
 
       await this.dataSource.transaction(async (manager) => {
         await manager.delete(WorkerPayment, {
@@ -258,6 +286,22 @@ export class KilnService {
           }));
         }
 
+      if (qachigarCost > 0) {
+        await manager.save(WorkerPayment, manager.create(WorkerPayment, {
+          workerName: 'Qachigar',
+          category: WorkerPaymentCategory.QACHIGAR,
+          amount: qachigarCost,
+          paidAmount: qachigarPaid,
+          remainingDebt: qachigarDebt,
+          month: operation.date.slice(0, 7),
+          date: operation.date,
+          description: `Qachigar: ${bakedOutput} dona pishgan g'isht (${qachigarRate} so'm/dona) - ${operation.kilnName}`,
+          sourceType: 'KILN_OPERATION',
+          sourceId: operation.id,
+          createdById: userId,
+        }));
+      }
+
       operation.rawWorkerTotalCost = rawWorkerCost;
       operation.rawWorkerPaidAmount = rawPaid;
       operation.rawWorkerDebt = workerDebt;
@@ -267,6 +311,10 @@ export class KilnService {
       operation.totalWorkerCost = totalWorkerCost;
       operation.workerPaidAmount = rawPaid;
       operation.workerDebt = workerDebt;
+      operation.qachigarRatePerBrick = qachigarRate || null;
+      operation.qachigarTotalCost = qachigarCost;
+      operation.qachigarPaidAmount = qachigarPaid;
+      operation.qachigarDebt = qachigarDebt;
       await manager.save(KilnOperation, operation);
     });
   }

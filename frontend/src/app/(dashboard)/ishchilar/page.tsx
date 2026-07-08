@@ -29,7 +29,7 @@ import { useAuth } from '@/providers/auth-provider'
 import type { WorkerPayment, WorkerPaymentCategory } from '@/types'
 
 const CATEGORIES: WorkerPaymentCategory[] = [
-  'HUMBUZ_KIRDI_CHIQDI', 'HUMBUZ_ESHIKCHI', 'PRESS',
+  'HUMBUZ_KIRDI_CHIQDI', 'HUMBUZ_ESHIKCHI', 'QACHIGAR', 'PRESS',
   'FIELD_RAW_LOADING', 'RESERVE_RAW_LOADING', 'RESERVE_BAKED_LOADING',
   'ROAD_PAYMENT', 'ADVANCE', 'OTHER',
 ]

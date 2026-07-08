@@ -15,6 +15,8 @@ export interface CreateKilnOperationDto {
   rawWorkerPaidAmount?: number
   bakedWorkerRatePerBrick?: number
   bakedWorkerPaidAmount?: number
+  qachigarRatePerBrick?: number
+  qachigarPaidAmount?: number
 }
 
 export const kilnService = {

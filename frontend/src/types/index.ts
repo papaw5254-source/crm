@@ -183,6 +183,10 @@ export interface KilnOperation {
   bakedWorkerTotalCost?: number
   bakedWorkerPaidAmount?: number
   bakedWorkerDebt?: number
+  qachigarRatePerBrick?: number
+  qachigarTotalCost?: number
+  qachigarPaidAmount?: number
+  qachigarDebt?: number
   createdBy?: User
   createdAt: string
   updatedAt: string
@@ -267,6 +271,7 @@ export interface MoneyIncome {
 export type WorkerPaymentCategory =
   | 'HUMBUZ_KIRDI_CHIQDI'
   | 'HUMBUZ_ESHIKCHI'
+  | 'QACHIGAR'
   | 'PRESS'
   | 'FIELD_RAW_LOADING'
   | 'RESERVE_RAW_LOADING'

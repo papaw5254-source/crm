@@ -160,6 +160,7 @@ export function workerPaymentCategoryLabel(category: string): string {
   const labels: Record<string, string> = {
     HUMBUZ_KIRDI_CHIQDI: 'Humbuz kirdi-chiqdi',
     HUMBUZ_ESHIKCHI: 'Humbuz eshikchi',
+    QACHIGAR: 'Qachigar',
     PRESS: 'Press',
     FIELD_RAW_LOADING: 'Dala xom yuklash',
     RESERVE_RAW_LOADING: 'Zaxira xom yuklash',
