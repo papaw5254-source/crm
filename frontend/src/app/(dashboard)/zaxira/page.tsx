@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Warehouse, ArrowUp, ArrowDown, ShoppingCart, Trash2 } from 'lucide-react'
+import { Plus, Warehouse, ArrowUp, ArrowDown, ShoppingCart, Trash2, Pencil } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
