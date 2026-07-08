@@ -15,8 +15,8 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Role } from '../../common/enums/role.enum';
-import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CreateSaleDto } from './dto/create-sale.dto';
+import { SalesQueryDto } from './dto/sales-query.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 import { SalesService } from './sales.service';
 
@@ -35,7 +35,7 @@ export class SalesController {
 
   @Get()
   @ApiOperation({ summary: 'Get all sales' })
-  findAll(@Query() paginationDto: PaginationDto) {
+  findAll(@Query() paginationDto: SalesQueryDto) {
     return this.salesService.findAll(paginationDto);
   }
 
