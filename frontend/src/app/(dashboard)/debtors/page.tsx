@@ -243,7 +243,7 @@ export default function DebtorsPage() {
             ) : payments.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">To&apos;lov yo&apos;q</p>
             ) : (
-              payments.map((p: DebtPayment) => (
+              payments.filter(Boolean).map((p: DebtPayment) => (
                 <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
                   <div>
                     <p className="font-medium text-sm text-emerald-600 dark:text-emerald-400">
@@ -251,7 +251,7 @@ export default function DebtorsPage() {
                     </p>
                     <p className="text-xs text-muted-foreground">{p.description || "To'lov"}</p>
                   </div>
-                  <span className="text-xs text-muted-foreground">{formatDate(p.date)}</span>
+                  <span className="text-xs text-muted-foreground">{formatDate(p.date || '')}</span>
                 </div>
               ))
             )}

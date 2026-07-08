@@ -56,7 +56,13 @@ export function DataTable<T>({ columns, data, loading, skeletonRows = 5 }: DataT
                   >
                     {columns.map((col) => (
                       <td key={col.key} className={cn('px-4 py-3', col.className)}>
-                        {col.cell(row)}
+                        {(() => {
+                          try {
+                            return col.cell(row)
+                          } catch {
+                            return <span className="text-muted-foreground">—</span>
+                          }
+                        })()}
                       </td>
                     ))}
                   </tr>

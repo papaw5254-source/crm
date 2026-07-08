@@ -68,12 +68,13 @@ export function WorkerPaymentsPanel({ title, categories, limit = 6 }: WorkerPaym
         categories.map((category) =>
           workerPaymentsService.getAll({ category, limit, sortBy: 'date', sortOrder: 'DESC' }),
         ),
-      )
-      return results
-        .flatMap((result) => result.data)
-        .sort((a, b) => b.date.localeCompare(a.date))
-        .slice(0, limit)
-    },
+        )
+        return results
+          .flatMap((result) => result.data ?? [])
+          .filter(Boolean)
+          .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+          .slice(0, limit)
+      },
   })
 
   const refresh = () => {
@@ -187,10 +188,10 @@ export function WorkerPaymentsPanel({ title, categories, limit = 6 }: WorkerPaym
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Yuklanmoqda...</p>
           ) : payments?.length ? (
-            payments.map((payment: WorkerPayment) => (
+            payments.filter(Boolean).map((payment: WorkerPayment) => (
               <div key={payment.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm">
                 <div>
-                  <p className="font-medium">{formatDate(payment.date)} - {payment.workerName}</p>
+                  <p className="font-medium">{formatDate(payment.date || '')} - {payment.workerName}</p>
                   <p className="text-xs text-muted-foreground">{workerPaymentCategoryLabel(payment.category)}</p>
                 </div>
                 <div className="text-right ml-auto">
