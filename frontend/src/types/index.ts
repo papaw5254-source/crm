@@ -249,7 +249,7 @@ export interface PrepaymentDelivery {
 }
 
 // ─── Money Incomes / Pul kirimlari ───────────────────────────────────────────
-export type MoneyIncomeSource = 'FOUNDER' | 'BANK' | 'DEBT_RETURN' | 'OTHER'
+export type MoneyIncomeSource = 'FOUNDER' | 'BANK' | 'DAILY_SALE' | 'DEBT_RETURN' | 'OTHER'
 
 export interface MoneyIncome {
   id: string
@@ -309,8 +309,10 @@ export interface DashboardData {
   reserveRawBrick: number
   reserveBakedBrick: number
   todaySalesAmount: number
+  todayIncome: number
   todayCashReceived: number
   todayDebtAmount: number
+  todayExpense: number
   todayExpenses: number
   todayProfit: number
   monthlyProfit: number
@@ -344,6 +346,7 @@ export interface DailyReport {
   totalSalesAmount: number
   cashSales: number
   cardSales: number
+  bankTransferSales: number
   debtSalesAmount: number
   debtPayments: number
   prepaymentPaid: number
@@ -463,7 +466,14 @@ export interface CashflowReport {
   totalInflows: number
   totalOutflows: number
   netCashflow: number
-  inflows: { cashSales: number; cardSales: number; debtPayments: number; prepayments: number; moneyIncomes: number }
+  inflows: {
+    cashSales: number
+    cardSales: number
+    bankTransferSales: number
+    debtPayments: number
+    prepayments: number
+    moneyIncomes: number
+  }
   outflows: { expenses: number; workerPayments: number }
 }
 

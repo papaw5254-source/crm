@@ -27,12 +27,12 @@ import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
 import type { MoneyIncome, MoneyIncomeSource } from '@/types'
 
-type KirimSource = Extract<MoneyIncomeSource, 'FOUNDER' | 'BANK' | 'OTHER'>
-const SOURCES: KirimSource[] = ['FOUNDER', 'BANK', 'OTHER']
+type KirimSource = Extract<MoneyIncomeSource, 'FOUNDER' | 'BANK' | 'DAILY_SALE' | 'OTHER'>
+const SOURCES: KirimSource[] = ['FOUNDER', 'BANK', 'DAILY_SALE', 'OTHER']
 
 const schema = z.object({
   amount: z.coerce.number().min(0.01, "Summa 0 dan katta bo'lishi kerak"),
-  source: z.enum(['FOUNDER', 'BANK', 'OTHER']),
+  source: z.enum(['FOUNDER', 'BANK', 'DAILY_SALE', 'OTHER']),
   fromWhom: z.string().optional(),
   description: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),

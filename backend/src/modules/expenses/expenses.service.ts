@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { ExpenseCategory } from '../../common/enums/expense-category.enum';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { Expense } from './entities/expense.entity';
@@ -21,13 +22,14 @@ export class ExpensesService {
     return this.expenseRepository.save(expense);
   }
 
-  async findAll(paginationDto: PaginationDto) {
+  async findAll(paginationDto: PaginationDto & { category?: ExpenseCategory }) {
     const {
       page = 1,
       limit = 20,
       search,
       dateFrom,
       dateTo,
+      category,
       sortBy = 'createdAt',
       sortOrder = 'DESC',
     } = paginationDto;
@@ -44,6 +46,7 @@ export class ExpensesService {
     }
     if (dateFrom) qb.andWhere('expense.date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('expense.date <= :dateTo', { dateTo });
+    if (category) qb.andWhere('expense.category = :category', { category });
 
     qb.orderBy(`expense.${sortBy}`, sortOrder as 'ASC' | 'DESC')
       .skip(skip)

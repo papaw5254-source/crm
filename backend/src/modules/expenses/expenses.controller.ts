@@ -15,8 +15,8 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Role } from '../../common/enums/role.enum';
-import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CreateExpenseDto } from './dto/create-expense.dto';
+import { ExpenseQueryDto } from './dto/expense-query.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { ExpensesService } from './expenses.service';
 
@@ -35,7 +35,7 @@ export class ExpensesController {
 
   @Get()
   @ApiOperation({ summary: 'Get all expenses' })
-  findAll(@Query() paginationDto: PaginationDto) {
+  findAll(@Query() paginationDto: ExpenseQueryDto) {
     return this.expensesService.findAll(paginationDto);
   }
 

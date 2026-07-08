@@ -65,48 +65,56 @@ export class ReportsService {
     const todayExpenses = await this.expenseRepo.createQueryBuilder('e').where('e.date = :today', { today }).getMany();
     const todayMoneyIncomes = await this.moneyIncomeRepo.createQueryBuilder('mi').where('mi.date = :today', { today }).getMany();
     const todayWorkerPayments = await this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date = :today', { today }).getMany();
+    const todayPrepayments = await this.prepaymentRepo.createQueryBuilder('p').where('p.date = :today', { today }).getMany();
 
     const todaySalesAmount = todaySales.reduce((s, x) => s + Number(x.totalAmount), 0);
-    const todayCashSales = todaySales.filter(x => x.paymentType === PaymentType.CASH || x.paymentType === PaymentType.CARD).reduce((s, x) => s + Number(x.totalAmount), 0);
+    const todayCashSales = todaySales.filter(x => x.paymentType === PaymentType.CASH).reduce((s, x) => s + Number(x.totalAmount), 0);
+    const todayCardSales = todaySales.filter(x => x.paymentType === PaymentType.CARD).reduce((s, x) => s + Number(x.totalAmount), 0);
+    const todayBankTransferSales = todaySales.filter(x => x.paymentType === PaymentType.BANK_TRANSFER).reduce((s, x) => s + Number(x.totalAmount), 0);
     const todayDebtSales = todaySales.filter(x => x.paymentType === PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0);
     const todayDebtPaymentsTotal = todayDebtPayments.reduce((s, x) => s + Number(x.amount), 0);
     const todayExpensesTotal = todayExpenses.reduce((s, x) => s + Number(x.amount), 0);
     const todayMoneyIncomesTotal = todayMoneyIncomes.reduce((s, x) => s + Number(x.amount), 0);
+    const todayPrepaymentPaid = todayPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const todayWorkerAccrued = todayWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
 
-    const receivedCash = todayCashSales + todayDebtPaymentsTotal + todayMoneyIncomesTotal;
+    const receivedCash = todayCashSales + todayCardSales + todayBankTransferSales + todayDebtPaymentsTotal + todayPrepaymentPaid + todayMoneyIncomesTotal;
     const todayProfit = receivedCash - todayExpensesTotal - todayWorkerAccrued;
 
     // Monthly
-    const [monthlySales, monthlyDebtPay, monthlyExpenses, monthlyMoneyIn, monthlyWorkerPay] = await Promise.all([
+    const [monthlySales, monthlyDebtPay, monthlyExpenses, monthlyMoneyIn, monthlyWorkerPay, monthlyPrepayments] = await Promise.all([
       this.saleRepo.createQueryBuilder('s').where('s.date >= :ms AND s.date <= :today', { ms: monthStart, today }).getMany(),
       this.debtPaymentRepo.createQueryBuilder('dp').where('dp.date >= :ms AND dp.date <= :today', { ms: monthStart, today }).getMany(),
       this.expenseRepo.createQueryBuilder('e').where('e.date >= :ms AND e.date <= :today', { ms: monthStart, today }).getMany(),
       this.moneyIncomeRepo.createQueryBuilder('mi').where('mi.date >= :ms AND mi.date <= :today', { ms: monthStart, today }).getMany(),
       this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date >= :ms AND wp.date <= :today', { ms: monthStart, today }).getMany(),
+      this.prepaymentRepo.createQueryBuilder('p').where('p.date >= :ms AND p.date <= :today', { ms: monthStart, today }).getMany(),
     ]);
 
-    const mCash = monthlySales.filter(x => x.paymentType !== PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0);
+    const mCash = monthlySales.filter(x => [PaymentType.CASH, PaymentType.CARD, PaymentType.BANK_TRANSFER].includes(x.paymentType)).reduce((s, x) => s + Number(x.totalAmount), 0);
     const mDebtPay = monthlyDebtPay.reduce((s, x) => s + Number(x.amount), 0);
     const mExp = monthlyExpenses.reduce((s, x) => s + Number(x.amount), 0);
     const mMoneyIn = monthlyMoneyIn.reduce((s, x) => s + Number(x.amount), 0);
     const mWorkerAccrued = monthlyWorkerPay.reduce((s, x) => s + Number(x.amount), 0);
-    const monthlyProfit = mCash + mDebtPay + mMoneyIn - mExp - mWorkerAccrued;
+    const mPrepaymentPaid = monthlyPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
+    const monthlyProfit = mCash + mDebtPay + mPrepaymentPaid + mMoneyIn - mExp - mWorkerAccrued;
 
-    const [yearlySales, yearlyDebtPay, yearlyExpenses, yearlyMoneyIn, yearlyWorkerPay] = await Promise.all([
+    const [yearlySales, yearlyDebtPay, yearlyExpenses, yearlyMoneyIn, yearlyWorkerPay, yearlyPrepayments] = await Promise.all([
       this.saleRepo.createQueryBuilder('s').where('s.date >= :ys AND s.date <= :ye', { ys: yearStart, ye: yearEnd }).getMany(),
       this.debtPaymentRepo.createQueryBuilder('dp').where('dp.date >= :ys AND dp.date <= :ye', { ys: yearStart, ye: yearEnd }).getMany(),
       this.expenseRepo.createQueryBuilder('e').where('e.date >= :ys AND e.date <= :ye', { ys: yearStart, ye: yearEnd }).getMany(),
       this.moneyIncomeRepo.createQueryBuilder('mi').where('mi.date >= :ys AND mi.date <= :ye', { ys: yearStart, ye: yearEnd }).getMany(),
       this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date >= :ys AND wp.date <= :ye', { ys: yearStart, ye: yearEnd }).getMany(),
+      this.prepaymentRepo.createQueryBuilder('p').where('p.date >= :ys AND p.date <= :ye', { ys: yearStart, ye: yearEnd }).getMany(),
     ]);
 
-    const yCash = yearlySales.filter(x => x.paymentType !== PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0);
+    const yCash = yearlySales.filter(x => [PaymentType.CASH, PaymentType.CARD, PaymentType.BANK_TRANSFER].includes(x.paymentType)).reduce((s, x) => s + Number(x.totalAmount), 0);
     const yDebtPay = yearlyDebtPay.reduce((s, x) => s + Number(x.amount), 0);
     const yExp = yearlyExpenses.reduce((s, x) => s + Number(x.amount), 0);
     const yMoneyIn = yearlyMoneyIn.reduce((s, x) => s + Number(x.amount), 0);
     const yWorkerAccrued = yearlyWorkerPay.reduce((s, x) => s + Number(x.amount), 0);
-    const yearlyProfit = yCash + yDebtPay + yMoneyIn - yExp - yWorkerAccrued;
+    const yPrepaymentPaid = yearlyPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
+    const yearlyProfit = yCash + yDebtPay + yPrepaymentPaid + yMoneyIn - yExp - yWorkerAccrued;
 
     const totalDebts = await this.debtorRepo.createQueryBuilder('d').select('SUM(d.remainingDebt)', 'v').getRawOne();
     const workerDebts = await this.workerPaymentRepo.createQueryBuilder('wp').select('SUM(wp.remainingDebt)', 'v').getRawOne();
@@ -122,8 +130,10 @@ export class ReportsService {
       reserveBakedBrick: reserveBaked,
       currentStock: bakedStock,
       todaySalesAmount,
-      todayCashReceived: todayCashSales,
+      todayIncome: receivedCash,
+      todayCashReceived: receivedCash,
       todayDebtAmount: todayDebtSales,
+      todayExpense: todayExpensesTotal,
       todayExpenses: todayExpensesTotal,
       todayProfit,
       monthlyProfit,
@@ -162,8 +172,9 @@ export class ReportsService {
     const bakedReserveSales = reserveSales.filter(s => s.brickType === BrickType.BAKED_BRICK);
 
     const totalSalesAmount = sales.reduce((s, x) => s + Number(x.totalAmount), 0);
-    const cashSales = sales.filter(x => x.paymentType === PaymentType.CASH || x.paymentType === PaymentType.CARD).reduce((s, x) => s + Number(x.totalAmount), 0);
+    const cashSales = sales.filter(x => x.paymentType === PaymentType.CASH).reduce((s, x) => s + Number(x.totalAmount), 0);
     const cardSales = sales.filter(x => x.paymentType === PaymentType.CARD).reduce((s, x) => s + Number(x.totalAmount), 0);
+    const bankTransferSales = sales.filter(x => x.paymentType === PaymentType.BANK_TRANSFER).reduce((s, x) => s + Number(x.totalAmount), 0);
     const debtSalesAmount = sales.filter(x => x.paymentType === PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0);
     const prepaymentSales = sales.filter(x => x.paymentType === PaymentType.PREPAYMENT).reduce((s, x) => s + Number(x.totalAmount), 0);
     const debtPaymentsTotal = debtPayments.reduce((s, x) => s + Number(x.amount), 0);
@@ -178,7 +189,7 @@ export class ReportsService {
       expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + Number(e.amount);
     });
 
-    const receivedCash = cashSales + debtPaymentsTotal + prepaymentPaid + moneyIncomesTotal;
+    const receivedCash = cashSales + cardSales + bankTransferSales + debtPaymentsTotal + prepaymentPaid + moneyIncomesTotal;
     const netProfit = receivedCash - totalExpenses - workerAccrued;
     const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
 
@@ -211,6 +222,7 @@ export class ReportsService {
       totalSalesAmount,
       cashSales,
       cardSales,
+      bankTransferSales,
       debtSalesAmount,
       prepaymentSales,
       debtPayments: debtPaymentsTotal,
@@ -240,18 +252,20 @@ export class ReportsService {
     const lastDay = new Date(year, month, 0).getDate();
     const dateTo = `${year}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
-    const [sales, expenses, debtPayments, incomes, moneyIncomes, workerPayments] = await Promise.all([
+    const [sales, expenses, debtPayments, incomes, moneyIncomes, workerPayments, prepayments] = await Promise.all([
       this.saleRepo.createQueryBuilder('s').where('s.date >= :df AND s.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.expenseRepo.createQueryBuilder('e').where('e.date >= :df AND e.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.debtPaymentRepo.createQueryBuilder('dp').where('dp.date >= :df AND dp.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.inventoryRepo.createQueryBuilder('i').where('i.date >= :df AND i.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.moneyIncomeRepo.createQueryBuilder('mi').where('mi.date >= :df AND mi.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date >= :df AND wp.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
+      this.prepaymentRepo.createQueryBuilder('p').where('p.date >= :df AND p.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
     ]);
 
     const totalSalesAmount = sales.reduce((s, x) => s + Number(x.totalAmount), 0);
-    const cashReceived = sales.filter(x => x.paymentType !== PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0)
+    const cashReceived = sales.filter(x => [PaymentType.CASH, PaymentType.CARD, PaymentType.BANK_TRANSFER].includes(x.paymentType)).reduce((s, x) => s + Number(x.totalAmount), 0)
       + debtPayments.reduce((s, x) => s + Number(x.amount), 0)
+      + prepayments.reduce((s, x) => s + Number(x.paidAmount), 0)
       + moneyIncomes.reduce((s, x) => s + Number(x.amount), 0);
     const debtSalesAmount = sales.filter(x => x.paymentType === PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0);
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
@@ -295,18 +309,20 @@ export class ReportsService {
     const dateFrom = `${year}-01-01`;
     const dateTo = `${year}-12-31`;
 
-    const [sales, expenses, debtPayments, incomes, moneyIncomes, workerPayments] = await Promise.all([
+    const [sales, expenses, debtPayments, incomes, moneyIncomes, workerPayments, prepayments] = await Promise.all([
       this.saleRepo.createQueryBuilder('s').where('s.date >= :df AND s.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.expenseRepo.createQueryBuilder('e').where('e.date >= :df AND e.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.debtPaymentRepo.createQueryBuilder('dp').where('dp.date >= :df AND dp.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.inventoryRepo.createQueryBuilder('i').where('i.date >= :df AND i.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.moneyIncomeRepo.createQueryBuilder('mi').where('mi.date >= :df AND mi.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date >= :df AND wp.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
+      this.prepaymentRepo.createQueryBuilder('p').where('p.date >= :df AND p.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
     ]);
 
     const totalSalesAmount = sales.reduce((s, x) => s + Number(x.totalAmount), 0);
-    const cashReceived = sales.filter(x => x.paymentType !== PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0)
+    const cashReceived = sales.filter(x => [PaymentType.CASH, PaymentType.CARD, PaymentType.BANK_TRANSFER].includes(x.paymentType)).reduce((s, x) => s + Number(x.totalAmount), 0)
       + debtPayments.reduce((s, x) => s + Number(x.amount), 0)
+      + prepayments.reduce((s, x) => s + Number(x.paidAmount), 0)
       + moneyIncomes.reduce((s, x) => s + Number(x.amount), 0);
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
     const workerAccrued = workerPayments.reduce((s, x) => s + Number(x.amount), 0);
@@ -453,6 +469,7 @@ export class ReportsService {
 
     const cashSales = sales.filter(x => x.paymentType === PaymentType.CASH).reduce((s, x) => s + Number(x.totalAmount), 0);
     const cardSales = sales.filter(x => x.paymentType === PaymentType.CARD).reduce((s, x) => s + Number(x.totalAmount), 0);
+    const bankTransferSales = sales.filter(x => x.paymentType === PaymentType.BANK_TRANSFER).reduce((s, x) => s + Number(x.totalAmount), 0);
     const debtSales = sales.filter(x => x.paymentType === PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0);
     const debtPaymentsTotal = debtPayments.reduce((s, x) => s + Number(x.amount), 0);
     const prepaymentPaid = prepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
@@ -462,7 +479,7 @@ export class ReportsService {
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
     const workerPaid = workerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
 
-    const totalInflow = cashSales + cardSales + debtPaymentsTotal + prepaymentPaid + founderIncome + bankIncome + otherIncome;
+    const totalInflow = cashSales + cardSales + bankTransferSales + debtPaymentsTotal + prepaymentPaid + founderIncome + bankIncome + otherIncome;
     const totalOutflow = totalExpenses + workerPaid;
     const netCashflow = totalInflow - totalOutflow;
 
@@ -470,7 +487,7 @@ export class ReportsService {
       dateFrom, dateTo,
       totalInflows: totalInflow,
       totalOutflows: totalOutflow,
-      inflows: { cashSales, cardSales, debtPayments: debtPaymentsTotal, prepayments: prepaymentPaid, moneyIncomes: founderIncome + bankIncome + otherIncome, founderIncome, bankIncome, otherIncome, total: totalInflow },
+      inflows: { cashSales, cardSales, bankTransferSales, debtPayments: debtPaymentsTotal, prepayments: prepaymentPaid, moneyIncomes: founderIncome + bankIncome + otherIncome, founderIncome, bankIncome, otherIncome, total: totalInflow },
       outflows: { expenses: totalExpenses, workerPayments: workerPaid, total: totalOutflow },
       debtSales,
       netCashflow,
@@ -504,6 +521,7 @@ export class ReportsService {
         bakedBrickSold: daily.bakedBrickSold,
         cashSales: daily.cashSales,
         cardSales: daily.cardSales,
+        bankTransferSales: daily.bankTransferSales,
         debtSales: daily.debtSalesAmount,
         prepaymentSales: daily.prepaymentSales,
         total: daily.totalSalesAmount,
