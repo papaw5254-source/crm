@@ -130,6 +130,16 @@ export default function ZaxiraPage() {
   const bakedReserveBalance = Number(balance?.bakedBrick ?? balance?.BAKED_BRICK ?? 0)
   const movementRows = Array.isArray(movements?.data) ? movements.data : []
   const movementTotal = Number(movements?.meta?.total ?? movementRows.length ?? 0)
+  const reserveSalesData = reserveSales as any
+  const reserveSalesInner = reserveSalesData?.data
+  const reserveSaleRows = Array.isArray(reserveSalesData)
+    ? reserveSalesData
+    : Array.isArray(reserveSalesInner)
+      ? reserveSalesInner
+      : Array.isArray(reserveSalesInner?.data)
+        ? reserveSalesInner.data
+        : []
+  const reserveSaleMeta = reserveSalesData?.meta ?? reserveSalesInner?.meta
 
   const saleMutation = useMutation({
     mutationFn: (d: SaleForm) =>
@@ -379,11 +389,11 @@ export default function ZaxiraPage() {
         {/* ── Sotuv tab ──────────────────────────────────────────────────────── */}
         <TabsContent value="sotuv" className="mt-4 space-y-4">
           <div className="flex items-center justify-between">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
-              <StatsCard title="Jami sotuvlar" value={reserveSales?.meta.total ?? 0} icon={ShoppingCart} color="emerald" format="number" suffix="ta" />
-              <StatsCard
-                title="Jami summa"
-                value={(reserveSales?.data ?? []).reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0)}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+                <StatsCard title="Jami sotuvlar" value={reserveSaleMeta?.total ?? reserveSaleRows.length} icon={ShoppingCart} color="emerald" format="number" suffix="ta" />
+                <StatsCard
+                  title="Jami summa"
+                  value={reserveSaleRows.reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0)}
                 icon={ShoppingCart}
                 color="blue"
                 format="currency"
@@ -403,7 +413,7 @@ export default function ZaxiraPage() {
 
           <Card>
             <CardContent className="p-4">
-              {(reserveSales?.data ?? []).length === 0 && !salesLoading ? (
+                {reserveSaleRows.length === 0 && !salesLoading ? (
                 <EmptyState
                   icon={ShoppingCart}
                   title="Sotuv yo'q"
@@ -412,8 +422,8 @@ export default function ZaxiraPage() {
                 />
               ) : (
                 <>
-                  <DataTable columns={saleColumns} data={reserveSales?.data ?? []} loading={salesLoading} />
-                  {reserveSales && <Pagination page={salePage} totalPages={reserveSales.meta.totalPages} total={reserveSales.meta.total} limit={saleLimit} onPageChange={setSalePage} />}
+                    <DataTable columns={saleColumns} data={reserveSaleRows} loading={salesLoading} />
+                    {reserveSaleMeta && <Pagination page={salePage} totalPages={reserveSaleMeta.totalPages ?? 1} total={reserveSaleMeta.total ?? reserveSaleRows.length} limit={saleLimit} onPageChange={setSalePage} />}
                 </>
               )}
             </CardContent>
