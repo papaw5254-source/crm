@@ -134,14 +134,16 @@ export default function SalesPage() {
     else createMutation.mutate(payload)
   }
 
-  const salesRows = Array.isArray(data)
-    ? data
-    : Array.isArray(data?.data)
-      ? data.data
-      : Array.isArray(data?.data?.data)
-        ? data.data.data
+  const responseData = data as any
+  const responseInner = responseData?.data
+  const salesRows = Array.isArray(responseData)
+    ? responseData
+    : Array.isArray(responseInner)
+      ? responseInner
+      : Array.isArray(responseInner?.data)
+        ? responseInner.data
         : []
-  const salesMeta = data?.meta ?? data?.data?.meta
+  const salesMeta = responseData?.meta ?? responseInner?.meta
   const filteredData = paymentTypeFilter === 'ALL'
     ? salesRows
     : salesRows.filter((s: Sale) => s.paymentType === paymentTypeFilter)
