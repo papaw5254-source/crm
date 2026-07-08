@@ -185,16 +185,7 @@ export class SalesService {
     const sale = await this.findOne(id);
     const brickType = sale.brickType || BrickType.BAKED_BRICK;
     if (sale.isReserveSale) {
-      await this.reserveService.createMovement(
-        {
-          brickType,
-          movementType: ReserveMovementType.ADD,
-          quantity: sale.quantity,
-          reason: `Sotuv bekor qilindi (id: ${id})`,
-          date: new Date().toISOString().split('T')[0],
-        },
-        userId,
-      );
+      await this.reserveService.deleteSaleMovement(brickType, sale.quantity, sale.date);
     } else {
       await this.stockService.increaseStock(
         sale.quantity,

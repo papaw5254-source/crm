@@ -162,6 +162,23 @@ export class ReserveService {
     await this.recalculateBalance(brickType);
   }
 
+  async deleteSaleMovement(brickType: BrickType, quantity: number, date: string): Promise<void> {
+    const movement = await this.reserveMovementRepository.findOne({
+      where: {
+        brickType,
+        quantity,
+        date,
+        movementType: ReserveMovementType.SALE,
+      },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (!movement) return;
+
+    await this.reserveMovementRepository.remove(movement);
+    await this.recalculateBalance(brickType);
+  }
+
   async updateMovement(id: string, dto: CreateReserveMovementDto, userId: string): Promise<ReserveMovement> {
     const movement = await this.reserveMovementRepository.findOne({ where: { id } });
     if (!movement) throw new NotFoundException('Movement not found');
