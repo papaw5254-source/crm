@@ -53,8 +53,8 @@ export default function SalesPage() {
   const debouncedSearch = useDebounce(search)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['sales', page, limit, debouncedSearch, false],
-    queryFn: () => salesService.getAll({ page, limit, search: debouncedSearch, isReserveSale: false }),
+    queryKey: ['sales', page, limit, debouncedSearch],
+    queryFn: () => salesService.getAll({ page, limit, search: debouncedSearch }),
   })
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -126,6 +126,7 @@ export default function SalesPage() {
   const onSubmit = (data: FormData) => {
     const payload = {
       ...data,
+      isReserveSale: false,
       customerName: data.customerName?.trim() || undefined,
       customerPhone: data.customerPhone?.trim() || undefined,
       description: data.description?.trim() || undefined,
