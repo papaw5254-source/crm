@@ -89,11 +89,11 @@ export class SalesService {
         );
       }
 
-    if (createDto.paymentType === PaymentType.DEBT) {
+    if (saved.paymentType === PaymentType.DEBT) {
       await this.debtorsService.createOrUpdateDebt({
-        fullName: createDto.customerName || 'Unknown',
-        phone: createDto.customerPhone,
-        amount: totalAmount,
+        fullName: saved.customerName || 'Unknown',
+        phone: saved.customerPhone,
+        amount: Number(saved.totalAmount),
         saleId: saved.id,
       });
     }

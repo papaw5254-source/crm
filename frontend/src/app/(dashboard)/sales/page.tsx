@@ -77,6 +77,7 @@ export default function SalesPage() {
       queryClient.invalidateQueries({ queryKey: ['stock'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['debtors'] })
+      queryClient.refetchQueries({ queryKey: ['debtors'] })
       queryClient.invalidateQueries({ queryKey: ['bank-transfer-firms'] })
       queryClient.invalidateQueries({ queryKey: ['debt-firms'] })
       queryClient.invalidateQueries({ queryKey: ['firm-names'] })
@@ -140,6 +141,7 @@ export default function SalesPage() {
     const payload = {
       ...data,
       isReserveSale: false,
+      paymentType: data.paymentType,
       customerName: data.customerName?.trim() || undefined,
       customerPhone: data.customerPhone?.trim() || undefined,
       description: data.description?.trim() || undefined,
