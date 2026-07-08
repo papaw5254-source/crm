@@ -1,7 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { PaymentType } from '../../common/enums/payment-type.enum';
+import { Sale } from '../sales/entities/sale.entity';
 import { CreateDebtPaymentDto } from './dto/create-debt-payment.dto';
 import { CreateDebtorDto } from './dto/create-debtor.dto';
 import { UpdateDebtorDto } from './dto/update-debtor.dto';
@@ -15,6 +17,7 @@ export class DebtorsService {
     private readonly debtorRepository: Repository<Debtor>,
     @InjectRepository(DebtPayment)
     private readonly debtPaymentRepository: Repository<DebtPayment>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(createDebtorDto: CreateDebtorDto): Promise<Debtor> {
@@ -38,25 +41,33 @@ export class DebtorsService {
       debtor = await this.debtorRepository.findOne({ where: { fullName: data.fullName } });
     }
 
-    if (debtor) {
-      debtor.totalDebt = Number(debtor.totalDebt) + data.amount;
-      debtor.remainingDebt = Number(debtor.totalDebt) - Number(debtor.paidAmount);
-      debtor.isPaid = debtor.remainingDebt <= 0;
-    } else {
+    if (!debtor) {
       debtor = this.debtorRepository.create({
         fullName: data.fullName,
         phone: data.phone,
-        totalDebt: data.amount,
+        totalDebt: 0,
         paidAmount: 0,
-        remainingDebt: data.amount,
+        remainingDebt: 0,
         isPaid: false,
       });
+      debtor = await this.debtorRepository.save(debtor);
+    } else {
+      debtor.fullName = data.fullName || debtor.fullName;
+      debtor.phone = data.phone || debtor.phone;
+      debtor = await this.debtorRepository.save(debtor);
     }
 
-    return this.debtorRepository.save(debtor);
+    return this.recalculateDebtorDebt(debtor);
+  }
+
+  async syncDebtForSaleCustomer(fullName?: string, phone?: string): Promise<void> {
+    const debtor = await this.findDebtorByCustomer(fullName, phone);
+    if (debtor) await this.recalculateDebtorDebt(debtor);
   }
 
   async findAll(paginationDto: PaginationDto) {
+    await this.recalculateAllDebtors();
+
     const {
       page = 1,
       limit = 20,
@@ -161,6 +172,8 @@ export class DebtorsService {
   }
 
   async getTotalDebtStats() {
+    await this.recalculateAllDebtors();
+
     const result = await this.debtorRepository
       .createQueryBuilder('debtor')
       .select('COUNT(*)', 'totalDebtors')
@@ -178,5 +191,49 @@ export class DebtorsService {
       totalRemainingDebt: parseFloat(result.totalRemainingDebt) || 0,
       unpaidDebtors,
     };
+  }
+
+  private async findDebtorByCustomer(fullName?: string, phone?: string): Promise<Debtor | null> {
+    if (phone) {
+      const byPhone = await this.debtorRepository.findOne({ where: { phone } });
+      if (byPhone) return byPhone;
+    }
+
+    if (fullName) {
+      return this.debtorRepository.findOne({ where: { fullName } });
+    }
+
+    return null;
+  }
+
+  private async recalculateAllDebtors(): Promise<void> {
+    const debtors = await this.debtorRepository.find();
+    for (const debtor of debtors) {
+      await this.recalculateDebtorDebt(debtor);
+    }
+  }
+
+  private async recalculateDebtorDebt(debtor: Debtor): Promise<Debtor> {
+    const saleRepo = this.dataSource.getRepository(Sale);
+    const qb = saleRepo
+      .createQueryBuilder('sale')
+      .select('COALESCE(SUM(sale.totalAmount), 0)', 'total')
+      .where('sale.paymentType = :paymentType', { paymentType: PaymentType.DEBT });
+
+    if (debtor.phone) {
+      qb.andWhere('sale.customerPhone = :phone', { phone: debtor.phone });
+    } else {
+      qb.andWhere('sale.customerName = :fullName', { fullName: debtor.fullName });
+    }
+
+    const result = await qb.getRawOne<{ total: string }>();
+    const totalDebt = Number(result?.total || 0);
+    const paidAmount = Number(debtor.paidAmount || 0);
+
+    debtor.totalDebt = totalDebt;
+    debtor.remainingDebt = Math.max(0, totalDebt - paidAmount);
+    debtor.isPaid = debtor.remainingDebt <= 0;
+
+    return this.debtorRepository.save(debtor);
   }
 }
