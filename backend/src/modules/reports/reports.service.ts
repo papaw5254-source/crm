@@ -72,10 +72,10 @@ export class ReportsService {
     const todayDebtPaymentsTotal = todayDebtPayments.reduce((s, x) => s + Number(x.amount), 0);
     const todayExpensesTotal = todayExpenses.reduce((s, x) => s + Number(x.amount), 0);
     const todayMoneyIncomesTotal = todayMoneyIncomes.reduce((s, x) => s + Number(x.amount), 0);
-    const todayWorkerPaid = todayWorkerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
+    const todayWorkerAccrued = todayWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
 
     const receivedCash = todayCashSales + todayDebtPaymentsTotal + todayMoneyIncomesTotal;
-    const todayProfit = receivedCash - todayExpensesTotal - todayWorkerPaid;
+    const todayProfit = receivedCash - todayExpensesTotal - todayWorkerAccrued;
 
     // Monthly
     const [monthlySales, monthlyDebtPay, monthlyExpenses, monthlyMoneyIn, monthlyWorkerPay] = await Promise.all([
@@ -90,8 +90,8 @@ export class ReportsService {
     const mDebtPay = monthlyDebtPay.reduce((s, x) => s + Number(x.amount), 0);
     const mExp = monthlyExpenses.reduce((s, x) => s + Number(x.amount), 0);
     const mMoneyIn = monthlyMoneyIn.reduce((s, x) => s + Number(x.amount), 0);
-    const mWorkerPay = monthlyWorkerPay.reduce((s, x) => s + Number(x.paidAmount), 0);
-    const monthlyProfit = mCash + mDebtPay + mMoneyIn - mExp - mWorkerPay;
+    const mWorkerAccrued = monthlyWorkerPay.reduce((s, x) => s + Number(x.amount), 0);
+    const monthlyProfit = mCash + mDebtPay + mMoneyIn - mExp - mWorkerAccrued;
 
     const [yearlySales, yearlyDebtPay, yearlyExpenses, yearlyMoneyIn, yearlyWorkerPay] = await Promise.all([
       this.saleRepo.createQueryBuilder('s').where('s.date >= :ys AND s.date <= :ye', { ys: yearStart, ye: yearEnd }).getMany(),
@@ -105,8 +105,8 @@ export class ReportsService {
     const yDebtPay = yearlyDebtPay.reduce((s, x) => s + Number(x.amount), 0);
     const yExp = yearlyExpenses.reduce((s, x) => s + Number(x.amount), 0);
     const yMoneyIn = yearlyMoneyIn.reduce((s, x) => s + Number(x.amount), 0);
-    const yWorkerPay = yearlyWorkerPay.reduce((s, x) => s + Number(x.paidAmount), 0);
-    const yearlyProfit = yCash + yDebtPay + yMoneyIn - yExp - yWorkerPay;
+    const yWorkerAccrued = yearlyWorkerPay.reduce((s, x) => s + Number(x.amount), 0);
+    const yearlyProfit = yCash + yDebtPay + yMoneyIn - yExp - yWorkerAccrued;
 
     const totalDebts = await this.debtorRepo.createQueryBuilder('d').select('SUM(d.remainingDebt)', 'v').getRawOne();
     const workerDebts = await this.workerPaymentRepo.createQueryBuilder('wp').select('SUM(wp.remainingDebt)', 'v').getRawOne();
@@ -179,8 +179,8 @@ export class ReportsService {
     });
 
     const receivedCash = cashSales + debtPaymentsTotal + prepaymentPaid + moneyIncomesTotal;
-    const netProfit = receivedCash - totalExpenses - workerPaid;
-    const paperProfit = totalSalesAmount - totalExpenses - workerPaid;
+    const netProfit = receivedCash - totalExpenses - workerAccrued;
+    const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
 
     const [bakedStock, rawStock, reserveRaw, reserveBaked] = await Promise.all([
       this.getStockBalance(BrickType.BAKED_BRICK),
@@ -255,9 +255,10 @@ export class ReportsService {
       + moneyIncomes.reduce((s, x) => s + Number(x.amount), 0);
     const debtSalesAmount = sales.filter(x => x.paymentType === PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0);
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
+    const workerAccrued = workerPayments.reduce((s, x) => s + Number(x.amount), 0);
     const workerPaid = workerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
-    const netProfit = cashReceived - totalExpenses - workerPaid;
-    const paperProfit = totalSalesAmount - totalExpenses - workerPaid;
+    const netProfit = cashReceived - totalExpenses - workerAccrued;
+    const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
 
     const dailyData: Record<string, any> = {};
     for (let d = 1; d <= lastDay; d++) {
@@ -280,7 +281,7 @@ export class ReportsService {
       year, month, dateFrom, dateTo,
       totalAddedBricks: incomes.reduce((s, x) => s + x.quantity, 0),
       totalSoldBricks: sales.reduce((s, x) => s + x.quantity, 0),
-      totalSalesAmount, cashReceived, debtSalesAmount, totalExpenses, workerPaid, netProfit, paperProfit,
+      totalSalesAmount, cashReceived, debtSalesAmount, totalExpenses, workerAccrued, workerPaid, netProfit, paperProfit,
       groupedByDay: dailyData,
       expenseByCategory,
       bestSalesDay: Object.entries(dailyData).sort((a, b) => b[1].salesAmount - a[1].salesAmount)[0]
@@ -308,9 +309,10 @@ export class ReportsService {
       + debtPayments.reduce((s, x) => s + Number(x.amount), 0)
       + moneyIncomes.reduce((s, x) => s + Number(x.amount), 0);
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
+    const workerAccrued = workerPayments.reduce((s, x) => s + Number(x.amount), 0);
     const workerPaid = workerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
-    const netProfit = cashReceived - totalExpenses - workerPaid;
-    const paperProfit = totalSalesAmount - totalExpenses - workerPaid;
+    const netProfit = cashReceived - totalExpenses - workerAccrued;
+    const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
 
     const monthlyData: Record<string, any> = {};
     for (let m = 1; m <= 12; m++) {
@@ -335,7 +337,7 @@ export class ReportsService {
       totalSoldBricks: sales.reduce((s, x) => s + x.quantity, 0),
       totalSalesAmount, cashReceived,
       debtSalesAmount: sales.filter(x => x.paymentType === PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0),
-      totalExpenses, workerPaid, netProfit, paperProfit,
+      totalExpenses, workerAccrued, workerPaid, netProfit, paperProfit,
       groupedByMonth: monthlyData, expenseByCategory,
     };
   }
