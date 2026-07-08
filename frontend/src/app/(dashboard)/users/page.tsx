@@ -202,7 +202,7 @@ export default function UsersPage() {
           ) : (
             <>
               <DataTable columns={columns} data={data?.data ?? []} loading={isLoading} />
-              {data && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
+              {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages ?? 1} total={data.meta.total ?? 0} limit={limit} onPageChange={setPage} />}
             </>
           )}
         </CardContent>

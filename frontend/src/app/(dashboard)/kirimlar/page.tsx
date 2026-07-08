@@ -201,7 +201,7 @@ export default function KirimlarPage() {
           ) : (
             <>
               <DataTable columns={columns} data={incomeRows} loading={isLoading} />
-              {data && sourceFilter === 'ALL' && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
+              {data?.meta && sourceFilter === 'ALL' && <Pagination page={page} totalPages={data.meta.totalPages ?? 1} total={data.meta.total ?? 0} limit={limit} onPageChange={setPage} />}
             </>
           )}
         </CardContent>

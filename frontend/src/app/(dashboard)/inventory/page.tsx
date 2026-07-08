@@ -213,7 +213,7 @@ export default function InventoryPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <StatsCard title="Jami xom g'isht kirim" value={data?.meta?.totalQuantity ?? 0} icon={PackagePlus} color="emerald" format="number" suffix="dona" />
-        <StatsCard title="Kirim yozuvlari" value={data?.meta.total ?? 0} icon={PackagePlus} color="blue" format="number" suffix="ta" />
+        <StatsCard title="Kirim yozuvlari" value={data?.meta?.total ?? 0} icon={PackagePlus} color="blue" format="number" suffix="ta" />
       </div>
 
       <WorkerPaymentsPanel title="Ishchi puli (Press)" categories={['PRESS']} />
@@ -244,8 +244,8 @@ export default function InventoryPage() {
               {data && (
                 <Pagination
                   page={page}
-                  totalPages={data.meta.totalPages}
-                  total={data.meta.total}
+                  totalPages={data.meta?.totalPages ?? 1}
+                  total={data.meta?.total ?? 0}
                   limit={limit}
                   onPageChange={setPage}
                 />

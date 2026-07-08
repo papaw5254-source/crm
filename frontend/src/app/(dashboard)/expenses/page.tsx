@@ -163,7 +163,7 @@ export default function ExpensesPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatsCard title="Jami xarajatlar" value={data?.meta.total ?? 0} icon={Receipt} color="red" format="number" suffix="ta" />
+        <StatsCard title="Jami xarajatlar" value={data?.meta?.total ?? 0} icon={Receipt} color="red" format="number" suffix="ta" />
         <StatsCard title="Jami summa" value={totalAmount} icon={Receipt} color="amber" />
       </div>
 
@@ -200,7 +200,7 @@ export default function ExpensesPage() {
           ) : (
             <>
               <DataTable columns={columns} data={data?.data ?? []} loading={isLoading} />
-              {data && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
+              {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages ?? 1} total={data.meta.total ?? 0} limit={limit} onPageChange={setPage} />}
             </>
           )}
         </CardContent>

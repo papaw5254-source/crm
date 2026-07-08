@@ -297,7 +297,7 @@ export default function ZalogPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatsCard title="Jami zaloglar" value={data?.meta.total ?? 0} icon={Wallet} color="blue" format="number" suffix="ta" />
+        <StatsCard title="Jami zaloglar" value={data?.meta?.total ?? 0} icon={Wallet} color="blue" format="number" suffix="ta" />
         <StatsCard title="Faol zaloglar" value={totalActive} icon={Wallet} color="amber" format="number" suffix="ta" />
         <StatsCard title="Jami to'langan" value={totalPaid} icon={Wallet} color="emerald" />
       </div>
@@ -335,7 +335,7 @@ export default function ZalogPage() {
           ) : (
             <>
               <DataTable columns={columns} data={allItems} loading={isLoading} />
-              {data && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
+              {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages ?? 1} total={data.meta.total ?? 0} limit={limit} onPageChange={setPage} />}
             </>
           )}
         </CardContent>
