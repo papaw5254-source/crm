@@ -55,10 +55,9 @@ export default function KirimlarPage() {
     queryKey: ['money-incomes', page, limit, debouncedSearch, sourceFilter],
     queryFn: () =>
       moneyIncomesService.getAll({
-        page,
-        limit,
+        page: sourceFilter === 'ALL' ? page : 1,
+        limit: sourceFilter === 'ALL' ? limit : 1000,
         search: debouncedSearch,
-        source: sourceFilter !== 'ALL' ? sourceFilter : undefined,
       }),
   })
 
@@ -111,7 +110,10 @@ export default function KirimlarPage() {
     setDialogOpen(true)
   }
 
-  const totalAmount = (data?.data ?? []).reduce((s: number, x: MoneyIncome) => s + Number(x.amount), 0)
+  const incomeRows = (data?.data ?? []).filter((income: MoneyIncome) =>
+    sourceFilter === 'ALL' ? true : income.source === sourceFilter,
+  )
+  const totalAmount = incomeRows.reduce((s: number, x: MoneyIncome) => s + Number(x.amount), 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: MoneyIncome) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -162,7 +164,7 @@ export default function KirimlarPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatsCard title="Jami kirimlar" value={data?.meta.total ?? 0} icon={Banknote} color="emerald" format="number" suffix="ta" />
+        <StatsCard title="Jami kirimlar" value={incomeRows.length} icon={Banknote} color="emerald" format="number" suffix="ta" />
         <StatsCard title="Jami summa" value={totalAmount} icon={Banknote} color="blue" />
       </div>
 
@@ -194,12 +196,12 @@ export default function KirimlarPage() {
       <Card>
         <CardContent className="p-4 space-y-4">
           <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Kimdan yoki izoh bo'yicha..." className="max-w-sm" />
-          {(data?.data ?? []).length === 0 && !isLoading ? (
+          {incomeRows.length === 0 && !isLoading ? (
             <EmptyState icon={Banknote} title="Kirim yo'q" description="Birinchi kirimni qo'shing" action={<Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />Kirim qo&apos;shish</Button>} />
           ) : (
             <>
-              <DataTable columns={columns} data={data?.data ?? []} loading={isLoading} />
-              {data && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
+              <DataTable columns={columns} data={incomeRows} loading={isLoading} />
+              {data && sourceFilter === 'ALL' && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
             </>
           )}
         </CardContent>
