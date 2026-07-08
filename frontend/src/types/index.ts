@@ -405,12 +405,18 @@ export interface DayData {
   soldBricks: number
   addedBricks: number
   expenses: number
+  workerAccrued?: number
+  cashReceived?: number
+  profit?: number
 }
 
 export interface MonthData {
   salesAmount: number
   soldBricks: number
   expenses: number
+  workerAccrued?: number
+  cashReceived?: number
+  profit?: number
 }
 
 export interface DebtReport {

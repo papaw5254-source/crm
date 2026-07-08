@@ -87,7 +87,7 @@ export default function ReportsPage() {
         date: formatDate(date, 'dd.MM'),
         savdo: Number(d.salesAmount),
         xarajat: Number(d.expenses),
-        foyda: Number(d.salesAmount) - Number(d.expenses),
+        foyda: Number(d.profit ?? Number(d.salesAmount) - Number(d.expenses)),
       }))
     : []
 
@@ -96,7 +96,7 @@ export default function ReportsPage() {
         oy: `${key.split('-')[1]}-oy`,
         savdo: Number(m.salesAmount),
         xarajat: Number(m.expenses),
-        foyda: Number(m.salesAmount) - Number(m.expenses),
+        foyda: Number(m.profit ?? Number(m.salesAmount) - Number(m.expenses)),
       }))
     : []
 

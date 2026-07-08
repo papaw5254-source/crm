@@ -47,6 +47,16 @@ export class ReportsService {
     return latest ? latest.newQuantity : 0;
   }
 
+  private cashSaleAmount(sales: Sale[]): number {
+    return sales
+      .filter((x) => [PaymentType.CASH, PaymentType.CARD, PaymentType.BANK_TRANSFER].includes(x.paymentType))
+      .reduce((s, x) => s + Number(x.totalAmount), 0);
+  }
+
+  private moneyIncomeAmount(incomes: MoneyIncome[]): number {
+    return incomes.reduce((s, x) => s + Number(x.amount), 0);
+  }
+
   async getDashboard() {
     const today = new Date().toISOString().split('T')[0];
     const monthStart = today.substring(0, 7) + '-01';
@@ -91,10 +101,10 @@ export class ReportsService {
       this.prepaymentRepo.createQueryBuilder('p').where('p.date >= :ms AND p.date <= :today', { ms: monthStart, today }).getMany(),
     ]);
 
-    const mCash = monthlySales.filter(x => [PaymentType.CASH, PaymentType.CARD, PaymentType.BANK_TRANSFER].includes(x.paymentType)).reduce((s, x) => s + Number(x.totalAmount), 0);
+    const mCash = this.cashSaleAmount(monthlySales);
     const mDebtPay = monthlyDebtPay.reduce((s, x) => s + Number(x.amount), 0);
     const mExp = monthlyExpenses.reduce((s, x) => s + Number(x.amount), 0);
-    const mMoneyIn = monthlyMoneyIn.reduce((s, x) => s + Number(x.amount), 0);
+    const mMoneyIn = this.moneyIncomeAmount(monthlyMoneyIn);
     const mWorkerAccrued = monthlyWorkerPay.reduce((s, x) => s + Number(x.amount), 0);
     const mPrepaymentPaid = monthlyPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const monthlyProfit = mCash + mDebtPay + mPrepaymentPaid + mMoneyIn - mExp - mWorkerAccrued;
@@ -108,10 +118,10 @@ export class ReportsService {
       this.prepaymentRepo.createQueryBuilder('p').where('p.date >= :ys AND p.date <= :ye', { ys: yearStart, ye: yearEnd }).getMany(),
     ]);
 
-    const yCash = yearlySales.filter(x => [PaymentType.CASH, PaymentType.CARD, PaymentType.BANK_TRANSFER].includes(x.paymentType)).reduce((s, x) => s + Number(x.totalAmount), 0);
+    const yCash = this.cashSaleAmount(yearlySales);
     const yDebtPay = yearlyDebtPay.reduce((s, x) => s + Number(x.amount), 0);
     const yExp = yearlyExpenses.reduce((s, x) => s + Number(x.amount), 0);
-    const yMoneyIn = yearlyMoneyIn.reduce((s, x) => s + Number(x.amount), 0);
+    const yMoneyIn = this.moneyIncomeAmount(yearlyMoneyIn);
     const yWorkerAccrued = yearlyWorkerPay.reduce((s, x) => s + Number(x.amount), 0);
     const yPrepaymentPaid = yearlyPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const yearlyProfit = yCash + yDebtPay + yPrepaymentPaid + yMoneyIn - yExp - yWorkerAccrued;
@@ -179,7 +189,7 @@ export class ReportsService {
     const prepaymentSales = sales.filter(x => x.paymentType === PaymentType.PREPAYMENT).reduce((s, x) => s + Number(x.totalAmount), 0);
     const debtPaymentsTotal = debtPayments.reduce((s, x) => s + Number(x.amount), 0);
     const prepaymentPaid = prepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
-    const moneyIncomesTotal = moneyIncomes.reduce((s, x) => s + Number(x.amount), 0);
+    const moneyIncomesTotal = this.moneyIncomeAmount(moneyIncomes);
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
     const workerAccrued = workerPayments.reduce((s, x) => s + Number(x.amount), 0);
     const workerPaid = workerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
@@ -263,10 +273,10 @@ export class ReportsService {
     ]);
 
     const totalSalesAmount = sales.reduce((s, x) => s + Number(x.totalAmount), 0);
-    const cashReceived = sales.filter(x => [PaymentType.CASH, PaymentType.CARD, PaymentType.BANK_TRANSFER].includes(x.paymentType)).reduce((s, x) => s + Number(x.totalAmount), 0)
+    const cashReceived = this.cashSaleAmount(sales)
       + debtPayments.reduce((s, x) => s + Number(x.amount), 0)
       + prepayments.reduce((s, x) => s + Number(x.paidAmount), 0)
-      + moneyIncomes.reduce((s, x) => s + Number(x.amount), 0);
+      + this.moneyIncomeAmount(moneyIncomes);
     const debtSalesAmount = sales.filter(x => x.paymentType === PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0);
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
     const workerAccrued = workerPayments.reduce((s, x) => s + Number(x.amount), 0);
@@ -280,11 +290,24 @@ export class ReportsService {
       const dSales = sales.filter(x => x.date === dayStr);
       const dExp = expenses.filter(x => x.date === dayStr);
       const dInc = incomes.filter(x => x.date === dayStr);
+      const dDebtPayments = debtPayments.filter(x => x.date === dayStr);
+      const dMoneyIncomes = moneyIncomes.filter(x => x.date === dayStr);
+      const dWorkerPayments = workerPayments.filter(x => x.date === dayStr);
+      const dPrepayments = prepayments.filter(x => x.date === dayStr);
+      const dCashReceived = this.cashSaleAmount(dSales)
+        + dDebtPayments.reduce((s, x) => s + Number(x.amount), 0)
+        + dPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0)
+        + this.moneyIncomeAmount(dMoneyIncomes);
+      const dExpenses = dExp.reduce((s, x) => s + Number(x.amount), 0);
+      const dWorkerAccrued = dWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
       dailyData[dayStr] = {
         salesAmount: dSales.reduce((s, x) => s + Number(x.totalAmount), 0),
         soldBricks: dSales.reduce((s, x) => s + x.quantity, 0),
         addedBricks: dInc.reduce((s, x) => s + x.quantity, 0),
-        expenses: dExp.reduce((s, x) => s + Number(x.amount), 0),
+        expenses: dExpenses,
+        workerAccrued: dWorkerAccrued,
+        cashReceived: dCashReceived,
+        profit: dCashReceived - dExpenses - dWorkerAccrued,
       };
     }
 
@@ -320,10 +343,10 @@ export class ReportsService {
     ]);
 
     const totalSalesAmount = sales.reduce((s, x) => s + Number(x.totalAmount), 0);
-    const cashReceived = sales.filter(x => [PaymentType.CASH, PaymentType.CARD, PaymentType.BANK_TRANSFER].includes(x.paymentType)).reduce((s, x) => s + Number(x.totalAmount), 0)
+    const cashReceived = this.cashSaleAmount(sales)
       + debtPayments.reduce((s, x) => s + Number(x.amount), 0)
       + prepayments.reduce((s, x) => s + Number(x.paidAmount), 0)
-      + moneyIncomes.reduce((s, x) => s + Number(x.amount), 0);
+      + this.moneyIncomeAmount(moneyIncomes);
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
     const workerAccrued = workerPayments.reduce((s, x) => s + Number(x.amount), 0);
     const workerPaid = workerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
@@ -337,11 +360,24 @@ export class ReportsService {
       const mSales = sales.filter(x => x.date.startsWith(prefix));
       const mExp = expenses.filter(x => x.date.startsWith(prefix));
       const mInc = incomes.filter(x => x.date.startsWith(prefix));
+      const mDebtPayments = debtPayments.filter(x => x.date.startsWith(prefix));
+      const mMoneyIncomes = moneyIncomes.filter(x => x.date.startsWith(prefix));
+      const mWorkerPayments = workerPayments.filter(x => x.date.startsWith(prefix));
+      const mPrepayments = prepayments.filter(x => x.date.startsWith(prefix));
+      const mCashReceived = this.cashSaleAmount(mSales)
+        + mDebtPayments.reduce((s, x) => s + Number(x.amount), 0)
+        + mPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0)
+        + this.moneyIncomeAmount(mMoneyIncomes);
+      const mExpenses = mExp.reduce((s, x) => s + Number(x.amount), 0);
+      const mWorkerAccrued = mWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
       monthlyData[prefix] = {
         salesAmount: mSales.reduce((s, x) => s + Number(x.totalAmount), 0),
         soldBricks: mSales.reduce((s, x) => s + x.quantity, 0),
         addedBricks: mInc.reduce((s, x) => s + x.quantity, 0),
-        expenses: mExp.reduce((s, x) => s + Number(x.amount), 0),
+        expenses: mExpenses,
+        workerAccrued: mWorkerAccrued,
+        cashReceived: mCashReceived,
+        profit: mCashReceived - mExpenses - mWorkerAccrued,
       };
     }
 
