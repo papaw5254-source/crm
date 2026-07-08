@@ -51,15 +51,33 @@ export class SalesController {
     return this.salesService.getBankTransferFirms();
   }
 
+  @Get('firms/bank-transfer')
+  @ApiOperation({ summary: 'Get bank transfer firms summary (legacy route)' })
+  getBankTransferFirmsLegacy() {
+    return this.salesService.getBankTransferFirms();
+  }
+
   @Get('debt/firms')
   @ApiOperation({ summary: 'Get debt (nasiya) firms summary' })
   getDebtFirms() {
     return this.salesService.getDebtFirms();
   }
 
+  @Get('firms/debt')
+  @ApiOperation({ summary: 'Get debt (nasiya) firms summary (legacy route)' })
+  getDebtFirmsLegacy() {
+    return this.salesService.getDebtFirms();
+  }
+
   @Get('firm-names')
   @ApiOperation({ summary: 'Get unique firm names for autocomplete' })
   getFirmNames() {
+    return this.salesService.getFirmNames();
+  }
+
+  @Get('firms')
+  @ApiOperation({ summary: 'Get unique firm names for autocomplete (legacy route)' })
+  getFirmNamesLegacy() {
     return this.salesService.getFirmNames();
   }
 

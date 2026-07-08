@@ -187,6 +187,9 @@ export default function ZaxiraPage() {
         queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
         queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['bank-transfer-firms'] })
+      queryClient.invalidateQueries({ queryKey: ['debt-firms'] })
+      queryClient.invalidateQueries({ queryKey: ['firm-names'] })
       toast.success('Sotuv qo\'shildi')
       setSaleDialogOpen(false)
       saleForm.reset({ date: new Date().toISOString().split('T')[0], brickType: 'BAKED_BRICK', paymentType: 'CASH' })
@@ -213,6 +216,10 @@ export default function ZaxiraPage() {
         queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
         queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
         queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+        queryClient.invalidateQueries({ queryKey: ['bank-transfer-firms'] })
+        queryClient.invalidateQueries({ queryKey: ['debt-firms'] })
+        queryClient.invalidateQueries({ queryKey: ['firm-names'] })
       toast.success('Sotuv o\'chirildi')
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),

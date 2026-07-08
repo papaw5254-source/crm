@@ -229,7 +229,7 @@ export const salesService = {
   },
 
   async getBankTransferFirms(): Promise<string[]> {
-    const response = await api.get('/sales/firms/bank-transfer')
+    const response = await api.get('/sales/bank-transfer/firms')
     const payload = unwrapPayload<any>(response.data)
     if (Array.isArray(payload)) return payload
     if (Array.isArray(payload?.data)) return payload.data
@@ -237,7 +237,7 @@ export const salesService = {
   },
 
   async getDebtFirms(): Promise<string[]> {
-    const response = await api.get('/sales/firms/debt')
+    const response = await api.get('/sales/debt/firms')
     const payload = unwrapPayload<any>(response.data)
     if (Array.isArray(payload)) return payload
     if (Array.isArray(payload?.data)) return payload.data
@@ -245,7 +245,7 @@ export const salesService = {
   },
 
   async getFirmNames(): Promise<string[]> {
-    const response = await api.get('/sales/firms')
+    const response = await api.get('/sales/firm-names')
     const payload = unwrapPayload<any>(response.data)
     if (Array.isArray(payload)) return payload
     if (Array.isArray(payload?.data)) return payload.data
