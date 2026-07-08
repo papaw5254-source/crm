@@ -23,10 +23,35 @@ export class CreateSaleDto {
   @Min(1, { message: 'Quantity must be a positive number' })
   quantity: number;
 
-  @ApiProperty({ example: 450.5 })
+  @ApiPropertyOptional({ example: 450.5 })
+  @IsOptional()
   @IsNumber()
   @Min(0.01, { message: 'Price per brick must be a positive number' })
-  pricePerBrick: number;
+  pricePerBrick?: number;
+
+  @ApiPropertyOptional({ example: 450.5, description: 'Legacy frontend field' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0.01)
+  pricePerUnit?: number;
+
+  @ApiPropertyOptional({ example: 450500 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalAmount?: number;
+
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  paidAmount?: number;
+
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  debtAmount?: number;
 
   @ApiProperty({ enum: PaymentType, example: PaymentType.CASH })
   @IsEnum(PaymentType)

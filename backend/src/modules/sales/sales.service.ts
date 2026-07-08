@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaginationDto } from '../../common/dto/pagination.dto';
@@ -30,7 +30,9 @@ export class SalesService {
 
   async create(createDto: CreateSaleDto, userId: string): Promise<Sale> {
     const brickType = createDto.brickType || BrickType.BAKED_BRICK;
-    const totalAmount = Number((createDto.quantity * createDto.pricePerBrick).toFixed(2));
+    const pricePerBrick = Number(createDto.pricePerBrick ?? createDto.pricePerUnit ?? 0);
+    if (pricePerBrick <= 0) throw new BadRequestException('Price per brick is required');
+    const totalAmount = Number((createDto.quantity * pricePerBrick).toFixed(2));
     const workerRate = Number(createDto.workerRatePerBrick || 0);
     const totalWorkerCost = workerRate > 0 ? createDto.quantity * workerRate : 0;
     const workerPaidAmount = Number(createDto.workerPaidAmount || 0);
@@ -60,6 +62,7 @@ export class SalesService {
     const sale = this.saleRepository.create({
       ...createDto,
       brickType,
+      pricePerBrick,
       totalAmount,
       totalWorkerCost,
       workerPaidAmount,
@@ -127,7 +130,11 @@ export class SalesService {
     if (dateTo) qb.andWhere('sale.date <= :dateTo', { dateTo });
     if (paymentType) qb.andWhere('sale.paymentType = :paymentType', { paymentType });
     if (brickType) qb.andWhere('sale.brickType = :brickType', { brickType });
-    if (isReserveSale !== undefined) qb.andWhere('sale.isReserveSale = :isReserveSale', { isReserveSale });
+    if (isReserveSale === true) {
+      qb.andWhere('sale.isReserveSale = true');
+    } else if (isReserveSale === false) {
+      qb.andWhere('(sale.isReserveSale = false OR sale.isReserveSale IS NULL)');
+    }
 
     qb.orderBy(`sale.${sortBy}`, sortOrder as 'ASC' | 'DESC').skip(skip).take(limit);
 
