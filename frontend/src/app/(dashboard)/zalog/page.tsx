@@ -186,11 +186,11 @@ export default function ZalogPage() {
       key: 'deliveries',
       header: 'Yetkazildi',
       cell: (r: Prepayment) => {
-        const deliveries = Array.isArray(r.deliveries) ? r.deliveries : []
+        const deliveries = Array.isArray(r.deliveries) ? r.deliveries.filter(Boolean) : []
         const deliveredQty = Number(r.deliveredQuantity ?? 0)
         const recentDates = deliveries
           .slice()
-          .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+          .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
           .slice(0, 2)
 
         return (
@@ -198,7 +198,7 @@ export default function ZalogPage() {
             <p className="font-medium text-sm">{formatNumber(deliveredQty)} dona</p>
             {recentDates.length > 0 ? (
               <p className="text-xs text-muted-foreground">
-                {recentDates.map((d) => formatDate(d.deliveredAt ?? d.date)).join(', ')}
+                {recentDates.map((d) => formatDate(d.deliveredAt ?? d.date ?? '')).join(', ')}
                 {deliveries.length > 2 ? ` +${deliveries.length - 2}` : ''}
               </p>
             ) : (
@@ -524,10 +524,10 @@ export default function ZalogPage() {
                 <div>
                   <h3 className="font-semibold text-sm mb-2">Yetkazishlar tarixi</h3>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {deliveries!.map((d: PrepaymentDelivery) => (
+                    {deliveries!.filter(Boolean).map((d: PrepaymentDelivery) => (
                       <div key={d.id} className="flex justify-between items-center p-2.5 rounded-lg bg-muted/30 text-sm">
                         <div>
-                          <p className="font-medium">{formatDate(d.deliveredAt ?? d.date)}</p>
+                          <p className="font-medium">{formatDate(d.deliveredAt ?? d.date ?? '')}</p>
                           {d.description && <p className="text-xs text-muted-foreground">{d.description}</p>}
                         </div>
                         <span className="font-semibold text-emerald-600">{formatNumber(d.quantity)} dona</span>

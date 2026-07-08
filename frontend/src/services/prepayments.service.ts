@@ -31,8 +31,8 @@ function asPaginatedPrepayments(value: any): PaginatedResponse<Prepayment> {
 
 function asDeliveries(value: any): PrepaymentDelivery[] {
   const payload = unwrapPayload<any>(value)
-  if (Array.isArray(payload)) return payload
-  if (Array.isArray(payload?.data)) return payload.data
+  if (Array.isArray(payload)) return payload.filter(Boolean)
+  if (Array.isArray(payload?.data)) return payload.data.filter(Boolean)
   return []
 }
 
