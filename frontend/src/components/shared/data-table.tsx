@@ -17,6 +17,8 @@ interface DataTableProps<T> {
 }
 
 export function DataTable<T>({ columns, data, loading, skeletonRows = 5 }: DataTableProps<T>) {
+  const safeData = Array.isArray(data) ? data.filter(Boolean) : []
+
   return (
     <div className="rounded-xl border overflow-hidden">
       <div className="overflow-x-auto">
@@ -47,7 +49,7 @@ export function DataTable<T>({ columns, data, loading, skeletonRows = 5 }: DataT
                     ))}
                   </tr>
                 ))
-              : data.map((row, i) => (
+              : safeData.map((row, i) => (
                   <tr
                     key={i}
                     className="border-b last:border-0 hover:bg-muted/30 transition-colors"
