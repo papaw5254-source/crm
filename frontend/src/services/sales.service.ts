@@ -144,26 +144,18 @@ function normalizeSalePayload(data: CreateSaleDto | UpdateSaleDto) {
   delete payload.workerPayment
   delete payload.workerPaymentAmount
   delete payload.workerPrice
-    delete payload.workerDebtAmount
-    delete payload.workerPaymentNote
-    delete payload.workerPaymentId
+  delete payload.workerDebtAmount
+  delete payload.workerPaymentNote
+  delete payload.workerPaymentId
+  delete payload.totalAmount
+  delete payload.paidAmount
+  delete payload.debtAmount
+  delete payload.pricePerUnit
 
   if (data.quantity !== undefined) payload.quantity = Number(data.quantity)
   if (data.pricePerBrick !== undefined) payload.pricePerBrick = Number(data.pricePerBrick)
-  if (data.pricePerUnit !== undefined) payload.pricePerUnit = Number(data.pricePerUnit)
-    if (data.totalAmount !== undefined) payload.totalAmount = Number(data.totalAmount)
-    if (data.paidAmount !== undefined) payload.paidAmount = Number(data.paidAmount)
-    if (data.workerRatePerBrick !== undefined) payload.workerRatePerBrick = Number(data.workerRatePerBrick)
-    if (data.workerPaidAmount !== undefined) payload.workerPaidAmount = Number(data.workerPaidAmount)
-  if (data.debtAmount !== undefined) payload.debtAmount = Number(data.debtAmount)
-
-  if (payload.totalAmount === undefined && payload.quantity !== undefined && (payload.pricePerBrick !== undefined || payload.pricePerUnit !== undefined)) {
-    payload.totalAmount = payload.quantity * (payload.pricePerBrick ?? payload.pricePerUnit)
-  }
-
-  if (payload.debtAmount === undefined && payload.totalAmount !== undefined && payload.paidAmount !== undefined) {
-    payload.debtAmount = Math.max(Number(payload.totalAmount) - Number(payload.paidAmount), 0)
-  }
+  if (data.workerRatePerBrick !== undefined) payload.workerRatePerBrick = Number(data.workerRatePerBrick)
+  if (data.workerPaidAmount !== undefined) payload.workerPaidAmount = Number(data.workerPaidAmount)
 
   return payload
 }
