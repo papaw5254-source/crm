@@ -87,9 +87,10 @@ export default function DebtorsPage() {
       (d.phone && d.phone.includes(search))
     )
 
-  const totalDebt = debtors.reduce((s: number, d: Debtor) => s + Number(d.totalDebt), 0)
-  const totalPaid = debtors.reduce((s: number, d: Debtor) => s + Number(d.paidAmount), 0)
-  const totalRemaining = debtors.reduce((s: number, d: Debtor) => s + Number(d.remainingDebt), 0)
+  const debtStatsRows = debtors.filter((d: Debtor) => Number(d.totalDebt || 0) > 0)
+  const totalDebt = debtStatsRows.reduce((s: number, d: Debtor) => s + Number(d.totalDebt), 0)
+  const totalPaid = debtStatsRows.reduce((s: number, d: Debtor) => s + Number(d.paidAmount), 0)
+  const totalRemaining = debtStatsRows.reduce((s: number, d: Debtor) => s + Number(d.remainingDebt), 0)
 
   return (
     <div className="space-y-6">
