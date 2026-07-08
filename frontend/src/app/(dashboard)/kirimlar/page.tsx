@@ -8,7 +8,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { moneyIncomesService } from '@/services/money-incomes.service'
-import { salesService } from '@/services/sales.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
@@ -26,7 +25,7 @@ import { cn, formatDate, formatCurrency, moneyIncomeSourceLabel, moneyIncomeSour
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
-import type { MoneyIncome, MoneyIncomeSource, Sale } from '@/types'
+import type { MoneyIncome, MoneyIncomeSource } from '@/types'
 
 type KirimSource = Extract<MoneyIncomeSource, 'FOUNDER' | 'BANK' | 'OTHER'>
 const SOURCES: KirimSource[] = ['FOUNDER', 'BANK', 'OTHER']
@@ -51,7 +50,6 @@ export default function KirimlarPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
-  const today = new Date().toISOString().split('T')[0]
 
   const { data, isLoading } = useQuery({
     queryKey: ['money-incomes', page, limit, debouncedSearch, sourceFilter],
@@ -67,11 +65,6 @@ export default function KirimlarPage() {
   const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { date: new Date().toISOString().split('T')[0], source: 'OTHER' },
-  })
-
-  const { data: todaySales } = useQuery({
-    queryKey: ['money-incomes-today-sales', today],
-    queryFn: () => salesService.getRegular({ dateFrom: today, dateTo: today, limit: 1000 }),
   })
 
   const createMutation = useMutation({
@@ -118,11 +111,7 @@ export default function KirimlarPage() {
     setDialogOpen(true)
   }
 
-  const manualIncomeTotal = (data?.data ?? []).reduce((s: number, x: MoneyIncome) => s + Number(x.amount), 0)
-  const todaySalesIncome = (todaySales?.data ?? [])
-    .filter((sale: Sale) => ['CASH', 'CARD', 'BANK_TRANSFER'].includes(sale.paymentType))
-    .reduce((s: number, sale: Sale) => s + Number(sale.totalAmount), 0)
-  const totalAmount = manualIncomeTotal + todaySalesIncome
+  const totalAmount = (data?.data ?? []).reduce((s: number, x: MoneyIncome) => s + Number(x.amount), 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: MoneyIncome) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -172,9 +161,8 @@ export default function KirimlarPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <StatsCard title="Jami kirimlar" value={data?.meta.total ?? 0} icon={Banknote} color="emerald" format="number" suffix="ta" />
-        <StatsCard title="Bugungi sotuv tushumi" value={todaySalesIncome} icon={Banknote} color="amber" />
         <StatsCard title="Jami summa" value={totalAmount} icon={Banknote} color="blue" />
       </div>
 

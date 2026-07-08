@@ -15,8 +15,8 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Role } from '../../common/enums/role.enum';
-import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CreateMoneyIncomeDto } from './dto/create-money-income.dto';
+import { MoneyIncomeQueryDto } from './dto/money-income-query.dto';
 import { UpdateMoneyIncomeDto } from './dto/update-money-income.dto';
 import { MoneyIncomesService } from './money-incomes.service';
 
@@ -35,7 +35,7 @@ export class MoneyIncomesController {
 
   @Get()
   @ApiOperation({ summary: 'Barcha pul kirimlarini olish' })
-  findAll(@Query() paginationDto: PaginationDto) {
+  findAll(@Query() paginationDto: MoneyIncomeQueryDto) {
     return this.moneyIncomesService.findAll(paginationDto);
   }
 
