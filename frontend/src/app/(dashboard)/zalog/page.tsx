@@ -183,6 +183,32 @@ export default function ZalogPage() {
       ),
     },
     {
+      key: 'deliveries',
+      header: 'Yetkazildi',
+      cell: (r: Prepayment) => {
+        const deliveries = Array.isArray(r.deliveries) ? r.deliveries : []
+        const deliveredQty = Number(r.deliveredQuantity ?? 0)
+        const recentDates = deliveries
+          .slice()
+          .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+          .slice(0, 2)
+
+        return (
+          <div>
+            <p className="font-medium text-sm">{formatNumber(deliveredQty)} dona</p>
+            {recentDates.length > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {recentDates.map((d) => formatDate(d.deliveredAt ?? d.date)).join(', ')}
+                {deliveries.length > 2 ? ` +${deliveries.length - 2}` : ''}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Hali yo&apos;q</p>
+            )}
+          </div>
+        )
+      },
+    },
+    {
       key: 'paymentType',
       header: "To'lov",
       cell: (r: Prepayment) => r.paymentType ? (

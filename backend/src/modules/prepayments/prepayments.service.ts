@@ -51,8 +51,10 @@ export class PrepaymentsService {
     const qb = this.prepaymentRepository
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.createdBy', 'user')
+      .leftJoinAndSelect('p.deliveries', 'deliveries')
       .orderBy('p.date', 'DESC')
       .addOrderBy('p.createdAt', 'DESC')
+      .addOrderBy('deliveries.date', 'DESC')
       .skip(skip)
       .take(limit);
 
