@@ -126,10 +126,19 @@ export default function ZaxiraPage() {
   const watchedMovQty = movForm.watch('quantity') || 0
   const totalMovWorkerCost = watchedMovQty * watchedMovRate
   const movWorkerDebt = totalMovWorkerCost - watchedMovPaid
-  const rawReserveBalance = Number(balance?.rawBrick ?? balance?.RAW_BRICK ?? 0)
-  const bakedReserveBalance = Number(balance?.bakedBrick ?? balance?.BAKED_BRICK ?? 0)
-  const movementRows = Array.isArray(movements?.data) ? movements.data : []
-  const movementTotal = Number(movements?.meta?.total ?? movementRows.length ?? 0)
+  const balanceData = balance as any
+  const movementData = movements as any
+  const movementInner = movementData?.data
+  const rawReserveBalance = Number(balanceData?.rawBrick ?? balanceData?.RAW_BRICK ?? balanceData?.data?.rawBrick ?? balanceData?.data?.RAW_BRICK ?? 0)
+  const bakedReserveBalance = Number(balanceData?.bakedBrick ?? balanceData?.BAKED_BRICK ?? balanceData?.data?.bakedBrick ?? balanceData?.data?.BAKED_BRICK ?? 0)
+  const movementRows = Array.isArray(movementData)
+    ? movementData
+    : Array.isArray(movementInner)
+      ? movementInner
+      : Array.isArray(movementInner?.data)
+        ? movementInner.data
+        : []
+  const movementTotal = Number(movementData?.meta?.total ?? movementInner?.meta?.total ?? movementRows.length ?? 0)
 
   const saleMutation = useMutation({
     mutationFn: (d: SaleForm) =>
