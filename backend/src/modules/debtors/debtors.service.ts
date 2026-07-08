@@ -208,9 +208,44 @@ export class DebtorsService {
 
   private async recalculateAllDebtors(): Promise<void> {
     const debtors = await this.debtorRepository.find();
-    for (const debtor of debtors) {
-      await this.recalculateDebtorDebt(debtor);
+    if (!debtors.length) return;
+
+    const saleRepo = this.dataSource.getRepository(Sale);
+    const debtSales = await saleRepo.find({
+      where: { paymentType: PaymentType.DEBT },
+      select: {
+        customerName: true,
+        customerPhone: true,
+        totalAmount: true,
+      },
+    });
+
+    const totals = new Map<string, number>();
+    for (const sale of debtSales) {
+      const key = this.debtCustomerKey(sale.customerName, sale.customerPhone);
+      totals.set(key, (totals.get(key) || 0) + Number(sale.totalAmount || 0));
     }
+
+    const changed: Debtor[] = [];
+    for (const debtor of debtors) {
+      const totalDebt = totals.get(this.debtCustomerKey(debtor.fullName, debtor.phone)) || 0;
+      const paidAmount = Number(debtor.paidAmount || 0);
+      const remainingDebt = Math.max(0, totalDebt - paidAmount);
+      const isPaid = remainingDebt <= 0;
+
+      if (
+        Number(debtor.totalDebt || 0) !== totalDebt ||
+        Number(debtor.remainingDebt || 0) !== remainingDebt ||
+        debtor.isPaid !== isPaid
+      ) {
+        debtor.totalDebt = totalDebt;
+        debtor.remainingDebt = remainingDebt;
+        debtor.isPaid = isPaid;
+        changed.push(debtor);
+      }
+    }
+
+    if (changed.length) await this.debtorRepository.save(changed);
   }
 
   private async recalculateDebtorDebt(debtor: Debtor): Promise<Debtor> {
@@ -235,5 +270,11 @@ export class DebtorsService {
     debtor.isPaid = debtor.remainingDebt <= 0;
 
     return this.debtorRepository.save(debtor);
+  }
+
+  private debtCustomerKey(fullName?: string, phone?: string): string {
+    const normalizedPhone = (phone || '').trim();
+    if (normalizedPhone) return `phone:${normalizedPhone}`;
+    return `name:${(fullName || 'Unknown').trim()}`;
   }
 }
