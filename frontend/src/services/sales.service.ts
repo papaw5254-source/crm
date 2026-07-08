@@ -28,11 +28,15 @@ export interface CreateSaleDto {
   date?: string
   brickType?: BrickType
   quantity?: number
+  pricePerBrick?: number
   pricePerUnit?: number
   totalAmount?: number
   paidAmount?: number
   debtAmount?: number
   paymentType?: PaymentType
+  isReserveSale?: boolean
+  workerRatePerBrick?: number
+  workerPaidAmount?: number
   customerName?: string
   customerPhone?: string
   firmName?: string
@@ -145,6 +149,7 @@ function normalizeSalePayload(data: CreateSaleDto | UpdateSaleDto) {
     delete payload.workerPaymentId
 
   if (data.quantity !== undefined) payload.quantity = Number(data.quantity)
+  if (data.pricePerBrick !== undefined) payload.pricePerBrick = Number(data.pricePerBrick)
   if (data.pricePerUnit !== undefined) payload.pricePerUnit = Number(data.pricePerUnit)
     if (data.totalAmount !== undefined) payload.totalAmount = Number(data.totalAmount)
     if (data.paidAmount !== undefined) payload.paidAmount = Number(data.paidAmount)
@@ -152,8 +157,8 @@ function normalizeSalePayload(data: CreateSaleDto | UpdateSaleDto) {
     if (data.workerPaidAmount !== undefined) payload.workerPaidAmount = Number(data.workerPaidAmount)
   if (data.debtAmount !== undefined) payload.debtAmount = Number(data.debtAmount)
 
-  if (payload.totalAmount === undefined && payload.quantity !== undefined && payload.pricePerUnit !== undefined) {
-    payload.totalAmount = payload.quantity * payload.pricePerUnit
+  if (payload.totalAmount === undefined && payload.quantity !== undefined && (payload.pricePerBrick !== undefined || payload.pricePerUnit !== undefined)) {
+    payload.totalAmount = payload.quantity * (payload.pricePerBrick ?? payload.pricePerUnit)
   }
 
   if (payload.debtAmount === undefined && payload.totalAmount !== undefined && payload.paidAmount !== undefined) {

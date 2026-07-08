@@ -53,8 +53,8 @@ export default function SalesPage() {
   const debouncedSearch = useDebounce(search)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['sales', page, limit, debouncedSearch],
-    queryFn: () => salesService.getAll({ page, limit, search: debouncedSearch }),
+    queryKey: ['sales', page, limit, debouncedSearch, false],
+    queryFn: () => salesService.getAll({ page, limit, search: debouncedSearch, isReserveSale: false }),
   })
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -134,13 +134,14 @@ export default function SalesPage() {
     else createMutation.mutate(payload)
   }
 
-  const salesRows = Array.isArray(data)
+  const allSalesRows = Array.isArray(data)
     ? data
     : Array.isArray(data?.data)
       ? data.data
       : Array.isArray(data?.data?.data)
         ? data.data.data
         : []
+  const salesRows = allSalesRows.filter((s: Sale) => s?.isReserveSale !== true && String((s as any)?.isReserveSale) !== 'true')
   const salesMeta = data?.meta ?? data?.data?.meta
   const filteredData = paymentTypeFilter === 'ALL'
     ? salesRows
@@ -214,8 +215,8 @@ export default function SalesPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatsCard title="Jami sotuvlar" value={data?.meta.total ?? 0} icon={ShoppingCart} color="emerald" format="number" suffix="ta" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <StatsCard title="Jami sotuvlar" value={salesRows.length} icon={ShoppingCart} color="emerald" format="number" suffix="ta" />
         <StatsCard title="Jami summa" value={totalAmount} icon={ShoppingCart} color="blue" />
         <StatsCard title="Jami miqdor" value={totalQty} icon={ShoppingCart} color="purple" format="number" suffix="dona" />
       </div>

@@ -61,6 +61,7 @@ export default function ZaxiraPage() {
   // movement tab state
   const [brickTypeFilter, setBrickTypeFilter] = useState<BrickType | 'ALL'>('ALL')
   const [movementDialogOpen, setMovementDialogOpen] = useState(false)
+  const [editMovement, setEditMovement] = useState<ReserveMovement | null>(null)
   const { page: movPage, limit: movLimit, setPage: setMovPage } = usePagination()
 
   // sale tab state
@@ -80,13 +81,12 @@ export default function ZaxiraPage() {
       reserveService.getAll({
         page: movPage,
         limit: movLimit,
-        brickType: brickTypeFilter !== 'ALL' ? brickTypeFilter : undefined,
       }),
   })
 
   const { data: reserveSales, isLoading: salesLoading } = useQuery({
-    queryKey: ['reserve-sales', salePage, saleLimit],
-    queryFn: () => salesService.getAll({ page: salePage, limit: saleLimit }),
+    queryKey: ['reserve-sales', salePage, saleLimit, true],
+    queryFn: () => salesService.getAll({ page: salePage, limit: saleLimit, isReserveSale: true }),
   })
 
   // ─── Movement form ─────────────────────────────────────────────────────────
@@ -96,13 +96,19 @@ export default function ZaxiraPage() {
   })
 
   const movMutation = useMutation({
-    mutationFn: (d: MovementForm) => reserveService.create({ ...d, movementType: 'ADD' }),
+    mutationFn: (d: MovementForm) =>
+      editMovement
+        ? reserveService.update(editMovement.id, { ...d, movementType: 'ADD' })
+        : reserveService.create({ ...d, movementType: 'ADD' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
       queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      toast.success("Zaxira harakati qo'shildi")
+      toast.success(editMovement ? 'Zaxira harakati yangilandi' : "Zaxira harakati qo'shildi")
       setMovementDialogOpen(false)
+      setEditMovement(null)
       movForm.reset({ date: new Date().toISOString().split('T')[0], brickType: 'RAW_BRICK', movementType: 'ADD' })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
@@ -128,7 +134,10 @@ export default function ZaxiraPage() {
   const movWorkerDebt = totalMovWorkerCost - watchedMovPaid
   const rawReserveBalance = Number(balance?.rawBrick ?? balance?.RAW_BRICK ?? 0)
   const bakedReserveBalance = Number(balance?.bakedBrick ?? balance?.BAKED_BRICK ?? 0)
-  const movementRows = Array.isArray(movements?.data) ? movements.data : []
+  const movementRowsAll = Array.isArray(movements?.data) ? movements.data : []
+  const movementRows = brickTypeFilter === 'ALL'
+    ? movementRowsAll
+    : movementRowsAll.filter((movement: ReserveMovement) => movement?.brickType === brickTypeFilter)
   const movementTotal = Number(movements?.meta?.total ?? movementRows.length ?? 0)
   const reserveSalesData = reserveSales as any
   const reserveSalesInner = reserveSalesData?.data
@@ -141,6 +150,26 @@ export default function ZaxiraPage() {
         : []
   const reserveSaleRows = reserveSaleRowsAll.filter((sale: Sale) => sale?.isReserveSale === true || String((sale as any)?.isReserveSale) === 'true')
   const reserveSaleMeta = reserveSalesData?.meta ?? reserveSalesInner?.meta
+
+  const openMovementCreate = () => {
+    setEditMovement(null)
+    movForm.reset({ date: new Date().toISOString().split('T')[0], brickType: 'RAW_BRICK', movementType: 'ADD' })
+    setMovementDialogOpen(true)
+  }
+
+  const openMovementEdit = (movement: ReserveMovement) => {
+    setEditMovement(movement)
+    movForm.reset({
+      date: movement.date,
+      brickType: movement.brickType,
+      movementType: 'ADD',
+      quantity: Number(movement.quantity),
+      reason: movement.reason || '',
+      workerRatePerBrick: Number(movement.workerRatePerBrick || 0),
+      workerPaidAmount: Number(movement.workerPaidAmount || 0),
+    })
+    setMovementDialogOpen(true)
+  }
 
   const saleMutation = useMutation({
     mutationFn: (d: SaleForm) =>
@@ -227,14 +256,21 @@ export default function ZaxiraPage() {
       key: 'actions',
       header: '',
       cell: (r: ReserveMovement) => (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-destructive hover:text-destructive"
-          onClick={() => { if (confirm("Harakatni o'chirishni tasdiqlaysizmi?")) deleteMovementMutation.mutate(r.id) }}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <div className="flex justify-end gap-1">
+          {r.movementType === 'ADD' && (
+            <Button size="sm" variant="ghost" onClick={() => openMovementEdit(r)}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            onClick={() => { if (confirm("Harakatni o'chirishni tasdiqlaysizmi?")) deleteMovementMutation.mutate(r.id) }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ]
@@ -350,10 +386,7 @@ export default function ZaxiraPage() {
               </div>
             <Button
               className="ml-4 shrink-0"
-              onClick={() => {
-                movForm.reset({ date: new Date().toISOString().split('T')[0], brickType: 'RAW_BRICK', movementType: 'ADD' })
-                setMovementDialogOpen(true)
-              }}
+              onClick={openMovementCreate}
             >
               <Plus className="h-4 w-4 mr-1" /> Harakat qo&apos;shish
             </Button>
@@ -368,17 +401,17 @@ export default function ZaxiraPage() {
             <TabsContent value={brickTypeFilter} className="mt-4">
               <Card>
                 <CardContent className="p-4">
-                  {(movements?.data ?? []).length === 0 && !movLoading ? (
+                    {movementRows.length === 0 && !movLoading ? (
                     <EmptyState
-                      icon={Warehouse}
-                      title="Harakat yo'q"
-                      description="Birinchi zaxira harakatini qo'shing"
-                      action={<Button onClick={() => setMovementDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />Harakat qo&apos;shish</Button>}
-                    />
+                        icon={Warehouse}
+                        title="Harakat yo'q"
+                        description="Birinchi zaxira harakatini qo'shing"
+                        action={<Button onClick={openMovementCreate}><Plus className="h-4 w-4 mr-1" />Harakat qo&apos;shish</Button>}
+                      />
                   ) : (
                     <>
-                      <DataTable columns={movColumns} data={movements?.data ?? []} loading={movLoading} />
-                      {movements && <Pagination page={movPage} totalPages={movements.meta.totalPages} total={movements.meta.total} limit={movLimit} onPageChange={setMovPage} />}
+                        <DataTable columns={movColumns} data={movementRows} loading={movLoading} />
+                        {movements && <Pagination page={movPage} totalPages={movements.meta?.totalPages ?? 1} total={movementTotal} limit={movLimit} onPageChange={setMovPage} />}
                     </>
                   )}
                 </CardContent>
@@ -433,16 +466,16 @@ export default function ZaxiraPage() {
       </Tabs>
 
       {/* ── Movement Dialog ─────────────────────────────────────────────────── */}
-      <Dialog open={movementDialogOpen} onOpenChange={setMovementDialogOpen}>
+      <Dialog open={movementDialogOpen} onOpenChange={(open) => { setMovementDialogOpen(open); if (!open) setEditMovement(null) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Zaxira harakati qo&apos;shish</DialogTitle>
+            <DialogTitle>{editMovement ? 'Zaxira harakatini tahrirlash' : "Zaxira harakati qo'shish"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={movForm.handleSubmit((d) => movMutation.mutate(d))} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>G&apos;isht turi *</Label>
-                <Select defaultValue="RAW_BRICK" onValueChange={(v: string) => movForm.setValue('brickType', v as BrickType)}>
+                <Select value={movForm.watch('brickType') || 'RAW_BRICK'} onValueChange={(v: string) => movForm.setValue('brickType', v as BrickType)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="RAW_BRICK">Xom g&apos;isht</SelectItem>
@@ -507,9 +540,9 @@ export default function ZaxiraPage() {
               )}
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setMovementDialogOpen(false)}>Bekor qilish</Button>
+              <Button type="button" variant="outline" onClick={() => { setMovementDialogOpen(false); setEditMovement(null) }}>Bekor qilish</Button>
               <Button type="submit" disabled={movMutation.isPending}>
-                {movMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+                {movMutation.isPending ? 'Saqlanmoqda...' : editMovement ? 'Saqlash' : "Qo'shish"}
               </Button>
             </DialogFooter>
           </form>

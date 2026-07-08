@@ -159,6 +159,50 @@ export class ReserveService {
     await this.workerPaymentRepository.delete({ sourceType: 'RESERVE_MOVEMENT', sourceId: movement.id });
     await this.reserveMovementRepository.remove(movement);
 
+    await this.recalculateBalance(brickType);
+  }
+
+  async updateMovement(id: string, dto: CreateReserveMovementDto, userId: string): Promise<ReserveMovement> {
+    const movement = await this.reserveMovementRepository.findOne({ where: { id } });
+    if (!movement) throw new NotFoundException('Movement not found');
+    if (movement.movementType !== ReserveMovementType.ADD) {
+      throw new BadRequestException("Faqat qo'lda qo'shilgan zaxira harakatini tahrirlash mumkin");
+    }
+
+    const oldBrickType = movement.brickType;
+    await this.workerPaymentRepository.delete({ sourceType: 'RESERVE_MOVEMENT', sourceId: movement.id });
+    if (Number(movement.totalWorkerCost || 0) > 0) {
+      const oldCategory = movement.brickType === BrickType.RAW_BRICK
+        ? WorkerPaymentCategory.RESERVE_RAW_LOADING
+        : WorkerPaymentCategory.RESERVE_BAKED_LOADING;
+      await this.workerPaymentRepository.delete({
+        category: oldCategory,
+        date: movement.date,
+        amount: movement.totalWorkerCost,
+      });
+    }
+
+    Object.assign(movement, {
+      ...dto,
+      movementType: ReserveMovementType.ADD,
+      totalWorkerCost: 0,
+      workerPaidAmount: 0,
+      workerDebt: 0,
+    });
+    const saved = await this.reserveMovementRepository.save(movement);
+    await this.syncWorkerPayment(saved, userId);
+    await this.recalculateBalance(oldBrickType);
+    if (oldBrickType !== saved.brickType) await this.recalculateBalance(saved.brickType);
+    return this.reserveMovementRepository.findOneOrFail({ where: { id } });
+  }
+
+  private getMovementDelta(movement: ReserveMovement): number {
+    return movement.movementType === ReserveMovementType.ADD || movement.movementType === ReserveMovementType.ADJUSTMENT
+      ? Number(movement.quantity)
+      : -Number(movement.quantity);
+  }
+
+  private async recalculateBalance(brickType: BrickType): Promise<void> {
     const allMovements = await this.reserveMovementRepository.find({
       where: { brickType },
       order: { createdAt: 'ASC' },
@@ -166,12 +210,47 @@ export class ReserveService {
 
     let balance = 0;
     for (const m of allMovements) {
-      const delta = m.newQuantity - m.previousQuantity;
       m.previousQuantity = balance;
-      m.newQuantity = balance + delta;
+      m.newQuantity = balance + this.getMovementDelta(m);
       balance = m.newQuantity;
       await this.reserveMovementRepository.save(m);
     }
+  }
+
+  private async syncWorkerPayment(movement: ReserveMovement, userId: string): Promise<void> {
+    await this.workerPaymentRepository.delete({ sourceType: 'RESERVE_MOVEMENT', sourceId: movement.id });
+
+    const rate = Number(movement.workerRatePerBrick || 0);
+    const totalWorkerCost = rate > 0 ? Number(movement.quantity) * rate : 0;
+    const paid = Number(movement.workerPaidAmount || 0);
+    const workerDebt = Math.max(0, totalWorkerCost - paid);
+
+    movement.totalWorkerCost = totalWorkerCost;
+    movement.workerPaidAmount = paid;
+    movement.workerDebt = workerDebt;
+    await this.reserveMovementRepository.save(movement);
+
+    if (totalWorkerCost <= 0) return;
+
+    const category = movement.brickType === BrickType.RAW_BRICK
+      ? WorkerPaymentCategory.RESERVE_RAW_LOADING
+      : WorkerPaymentCategory.RESERVE_BAKED_LOADING;
+
+    await this.workerPaymentRepository.save(
+      this.workerPaymentRepository.create({
+        workerName: 'Ishchilar (zaxira)',
+        category,
+        amount: totalWorkerCost,
+        paidAmount: paid,
+        remainingDebt: workerDebt,
+        month: movement.date.slice(0, 7),
+        date: movement.date,
+        description: `${movement.quantity} dona (${rate} so'm/dona)`,
+        sourceType: 'RESERVE_MOVEMENT',
+        sourceId: movement.id,
+        createdById: userId,
+      }),
+    );
   }
 
   async getReport(dateFrom?: string, dateTo?: string) {

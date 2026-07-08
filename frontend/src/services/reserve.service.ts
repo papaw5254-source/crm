@@ -24,6 +24,11 @@ export const reserveService = {
     return res.data.data
   },
 
+  async update(id: string, data: CreateReserveMovementDto): Promise<ReserveMovement> {
+    const res = await api.patch(`/reserve/movements/${id}`, data)
+    return res.data.data
+  },
+
   async delete(id: string): Promise<void> {
     await api.delete(`/reserve/movements/${id}`)
   },

@@ -86,6 +86,7 @@ export interface Sale {
   pricePerBrick: number
   totalAmount: number
   paymentType: PaymentType
+  isReserveSale?: boolean
   brickType?: BrickType
   customerName?: string
   customerPhone?: string
