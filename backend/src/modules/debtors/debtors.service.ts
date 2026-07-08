@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { PaymentType } from '../../common/enums/payment-type.enum';
+import { Sale } from '../sales/entities/sale.entity';
 import { CreateDebtPaymentDto } from './dto/create-debt-payment.dto';
 import { CreateDebtorDto } from './dto/create-debtor.dto';
 import { UpdateDebtorDto } from './dto/update-debtor.dto';
@@ -15,6 +17,8 @@ export class DebtorsService {
     private readonly debtorRepository: Repository<Debtor>,
     @InjectRepository(DebtPayment)
     private readonly debtPaymentRepository: Repository<DebtPayment>,
+    @InjectRepository(Sale)
+    private readonly saleRepository: Repository<Sale>,
   ) {}
 
   async create(createDebtorDto: CreateDebtorDto): Promise<Debtor> {
@@ -57,6 +61,8 @@ export class DebtorsService {
   }
 
   async findAll(paginationDto: PaginationDto) {
+    await this.syncDebtSales();
+
     const {
       page = 1,
       limit = 20,
@@ -161,6 +167,8 @@ export class DebtorsService {
   }
 
   async getTotalDebtStats() {
+    await this.syncDebtSales();
+
     const result = await this.debtorRepository
       .createQueryBuilder('debtor')
       .select('COUNT(*)', 'totalDebtors')
@@ -178,6 +186,53 @@ export class DebtorsService {
       totalRemainingDebt: parseFloat(result.totalRemainingDebt) || 0,
       unpaidDebtors,
     };
+  }
+
+  private async syncDebtSales(): Promise<void> {
+    const sales = await this.saleRepository.find({
+      where: { paymentType: PaymentType.DEBT },
+      order: { createdAt: 'ASC' },
+    });
+
+    const groups = new Map<string, { fullName: string; phone?: string; amount: number }>();
+
+    for (const sale of sales) {
+      const fullName = (sale.customerName || 'Unknown').trim() || 'Unknown';
+      const phone = sale.customerPhone?.trim() || undefined;
+      const key = phone ? `phone:${phone}` : `name:${fullName.toLowerCase()}`;
+      const group = groups.get(key) || { fullName, phone, amount: 0 };
+      group.amount += Number(sale.totalAmount || 0);
+      groups.set(key, group);
+    }
+
+    for (const group of groups.values()) {
+      let debtor = group.phone
+        ? await this.debtorRepository.findOne({ where: { phone: group.phone } })
+        : null;
+
+      if (!debtor) {
+        debtor = await this.debtorRepository.findOne({ where: { fullName: group.fullName } });
+      }
+
+      if (!debtor) {
+        debtor = this.debtorRepository.create({
+          fullName: group.fullName,
+          phone: group.phone,
+          totalDebt: group.amount,
+          paidAmount: 0,
+          remainingDebt: group.amount,
+          isPaid: group.amount <= 0,
+        });
+      } else {
+        debtor.fullName = debtor.fullName || group.fullName;
+        debtor.phone = debtor.phone || group.phone;
+        debtor.totalDebt = group.amount;
+        debtor.remainingDebt = group.amount - Number(debtor.paidAmount || 0);
+        debtor.isPaid = debtor.remainingDebt <= 0;
+      }
+
+      await this.debtorRepository.save(debtor);
+    }
   }
 
 }
