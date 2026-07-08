@@ -175,6 +175,11 @@ export const salesService = {
     return asPaginatedSales(response.data)
   },
 
+  async getRegular(params?: SaleQuery): Promise<PaginatedSales> {
+    const response = await api.get('/sales/regular', { params })
+    return asPaginatedSales(response.data)
+  },
+
   async getSales(params?: SaleQuery): Promise<PaginatedSales> {
     return this.getAll(params)
   },

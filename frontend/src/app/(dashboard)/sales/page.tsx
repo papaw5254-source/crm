@@ -54,7 +54,7 @@ export default function SalesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['sales', page, limit, debouncedSearch],
-    queryFn: () => salesService.getAll({ page, limit, search: debouncedSearch }),
+    queryFn: () => salesService.getRegular({ page, limit, search: debouncedSearch }),
   })
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({

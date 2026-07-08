@@ -39,6 +39,12 @@ export class SalesController {
     return this.salesService.findAll(paginationDto);
   }
 
+  @Get('regular')
+  @ApiOperation({ summary: 'Get only main sales, excluding reserve sales' })
+  findRegular(@Query() paginationDto: SalesQueryDto) {
+    return this.salesService.findAll({ ...paginationDto, isReserveSale: false });
+  }
+
   @Get('bank-transfer/firms')
   @ApiOperation({ summary: 'Get bank transfer firms summary' })
   getBankTransferFirms() {
