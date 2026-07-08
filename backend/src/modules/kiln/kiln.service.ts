@@ -63,8 +63,6 @@ export class KilnService {
             description: `Humbuzga kirdi: ${rawEntered} dona xom g'isht (${rawRate} so'm/dona) - ${dto.kilnName}`,
             sourceType: 'KILN_OPERATION',
             sourceId: saved.id,
-            sourceType: 'KILN_OPERATION',
-            sourceId: saved.id,
             createdById: userId,
           }));
         }
@@ -79,8 +77,6 @@ export class KilnService {
             month: dto.date.slice(0, 7),
             date: dto.date,
             description: `Humbuzdan chiqdi: ${bakedOutput} dona pishgan g'isht (${bakedRate} so'm/dona) - ${dto.kilnName}`,
-            sourceType: 'KILN_OPERATION',
-            sourceId: saved.id,
             sourceType: 'KILN_OPERATION',
             sourceId: saved.id,
             createdById: userId,

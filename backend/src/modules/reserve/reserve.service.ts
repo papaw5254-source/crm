@@ -107,8 +107,6 @@ export class ReserveService {
             description: `${dto.quantity} dona (${dto.workerRatePerBrick} so'm/dona)`,
             sourceType: 'RESERVE_MOVEMENT',
             sourceId: saved.id,
-            sourceType: 'RESERVE_MOVEMENT',
-            sourceId: saved.id,
             createdById: userId,
           }),
         );
@@ -148,8 +146,7 @@ export class ReserveService {
 
     const { brickType } = movement;
     await this.workerPaymentRepository.delete({ sourceType: 'RESERVE_MOVEMENT', sourceId: movement.id });
-      await this.workerPaymentRepository.delete({ sourceType: 'RESERVE_MOVEMENT', sourceId: movement.id });
-      await this.reserveMovementRepository.remove(movement);
+    await this.reserveMovementRepository.remove(movement);
 
     const allMovements = await this.reserveMovementRepository.find({
       where: { brickType },
