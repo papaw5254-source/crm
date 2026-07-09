@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -227,7 +227,7 @@ export default function HumbuzPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatsCard title="Jami operatsiyalar" value={data?.meta.total ?? 0} icon={Flame} color="amber" format="number" suffix="ta" />
+        <StatsCard title="Jami operatsiyalar" value={data?.meta?.total ?? 0} icon={Flame} color="amber" format="number" suffix="ta" />
         <StatsCard title="Jami xom kirdi" value={totalRawIn} icon={Flame} color="red" format="number" suffix="dona" />
         <StatsCard title="Jami pishgan chiqdi" value={totalBakedOut} icon={Flame} color="emerald" format="number" suffix="dona" />
       </div>
@@ -270,7 +270,7 @@ export default function HumbuzPage() {
               ) : (
                 <>
                   <DataTable columns={columns} data={allOps} loading={isLoading} />
-                  {data && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
+                  {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
                 </>
               )}
             </CardContent>

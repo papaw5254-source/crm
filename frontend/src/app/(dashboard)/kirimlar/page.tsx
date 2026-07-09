@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -27,12 +27,11 @@ import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
 import type { MoneyIncome, MoneyIncomeSource } from '@/types'
 
-type KirimSource = Extract<MoneyIncomeSource, 'FOUNDER' | 'BANK' | 'DAILY_SALE' | 'OTHER'>
-const SOURCES: KirimSource[] = ['FOUNDER', 'BANK', 'DAILY_SALE', 'OTHER']
+const SOURCES: MoneyIncomeSource[] = ['FOUNDER', 'BANK', 'DEBT_RETURN', 'OTHER']
 
 const schema = z.object({
   amount: z.coerce.number().min(0.01, "Summa 0 dan katta bo'lishi kerak"),
-  source: z.enum(['FOUNDER', 'BANK', 'DAILY_SALE', 'OTHER']),
+  source: z.enum(['FOUNDER', 'BANK', 'DEBT_RETURN', 'OTHER']),
   fromWhom: z.string().optional(),
   description: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
@@ -44,7 +43,7 @@ export default function KirimlarPage() {
   const isAdmin = user?.role === 'ADMIN'
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
-  const [sourceFilter, setSourceFilter] = useState<KirimSource | 'ALL'>('ALL')
+  const [sourceFilter, setSourceFilter] = useState<MoneyIncomeSource | 'ALL'>('ALL')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<MoneyIncome | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -55,9 +54,10 @@ export default function KirimlarPage() {
     queryKey: ['money-incomes', page, limit, debouncedSearch, sourceFilter],
     queryFn: () =>
       moneyIncomesService.getAll({
-        page: sourceFilter === 'ALL' ? page : 1,
-        limit: sourceFilter === 'ALL' ? limit : 1000,
+        page,
+        limit,
         search: debouncedSearch,
+        source: sourceFilter !== 'ALL' ? sourceFilter : undefined,
       }),
   })
 
@@ -103,17 +103,14 @@ export default function KirimlarPage() {
   const openEdit = (item: MoneyIncome) => {
     setEditItem(item)
     setValue('amount', Number(item.amount))
-    setValue('source', item.source === 'DEBT_RETURN' ? 'OTHER' : (item.source as KirimSource))
+    setValue('source', item.source)
     setValue('fromWhom', item.fromWhom || '')
     setValue('description', item.description || '')
     setValue('date', item.date)
     setDialogOpen(true)
   }
 
-  const incomeRows = (data?.data ?? []).filter((income: MoneyIncome) =>
-    sourceFilter === 'ALL' ? true : income.source === sourceFilter,
-  )
-  const totalAmount = incomeRows.reduce((s: number, x: MoneyIncome) => s + Number(x.amount), 0)
+  const totalAmount = (data?.data ?? []).reduce((s: number, x: MoneyIncome) => s + Number(x.amount), 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: MoneyIncome) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -164,7 +161,7 @@ export default function KirimlarPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatsCard title="Jami kirimlar" value={incomeRows.length} icon={Banknote} color="emerald" format="number" suffix="ta" />
+        <StatsCard title="Jami kirimlar" value={data?.meta?.total ?? 0} icon={Banknote} color="emerald" format="number" suffix="ta" />
         <StatsCard title="Jami summa" value={totalAmount} icon={Banknote} color="blue" />
       </div>
 
@@ -196,12 +193,12 @@ export default function KirimlarPage() {
       <Card>
         <CardContent className="p-4 space-y-4">
           <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Kimdan yoki izoh bo'yicha..." className="max-w-sm" />
-          {incomeRows.length === 0 && !isLoading ? (
+          {(data?.data ?? []).length === 0 && !isLoading ? (
             <EmptyState icon={Banknote} title="Kirim yo'q" description="Birinchi kirimni qo'shing" action={<Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />Kirim qo&apos;shish</Button>} />
           ) : (
             <>
-              <DataTable columns={columns} data={incomeRows} loading={isLoading} />
-              {data?.meta && sourceFilter === 'ALL' && <Pagination page={page} totalPages={data.meta.totalPages ?? 1} total={data.meta.total ?? 0} limit={limit} onPageChange={setPage} />}
+              <DataTable columns={columns} data={data?.data ?? []} loading={isLoading} />
+              {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
             </>
           )}
         </CardContent>
@@ -221,7 +218,7 @@ export default function KirimlarPage() {
               </div>
               <div className="space-y-2">
                 <Label>Manba *</Label>
-                <Select defaultValue={editItem?.source === 'DEBT_RETURN' ? 'OTHER' : editItem?.source ?? 'OTHER'} onValueChange={(v: string) => setValue('source', v as KirimSource)}>
+                <Select defaultValue={editItem?.source ?? 'OTHER'} onValueChange={(v: string) => setValue('source', v as MoneyIncomeSource)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {SOURCES.map((s) => <SelectItem key={s} value={s}>{moneyIncomeSourceLabel(s)}</SelectItem>)}

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -29,7 +29,7 @@ import { useAuth } from '@/providers/auth-provider'
 import type { WorkerPayment, WorkerPaymentCategory } from '@/types'
 
 const CATEGORIES: WorkerPaymentCategory[] = [
-  'HUMBUZ_KIRDI_CHIQDI', 'HUMBUZ_ESHIKCHI', 'QACHIGAR', 'PRESS',
+  'HUMBUZ_KIRDI_CHIQDI', 'HUMBUZ_ESHIKCHI', 'PRESS',
   'FIELD_RAW_LOADING', 'RESERVE_RAW_LOADING', 'RESERVE_BAKED_LOADING',
   'ROAD_PAYMENT', 'ADVANCE', 'OTHER',
 ]
@@ -254,7 +254,7 @@ export default function IshchilarPage() {
               ) : (
                 <>
                   <DataTable columns={columns} data={allItems} loading={isLoading} />
-                  {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages ?? 1} total={data.meta.total ?? 0} limit={limit} onPageChange={setPage} />}
+                  {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
                 </>
               )}
             </CardContent>
@@ -266,7 +266,7 @@ export default function IshchilarPage() {
             <CardContent className="p-4 space-y-4">
               {debtsLoading ? (
                 <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />)}</div>
-              ) : !(debts?.data?.length ?? 0) ? (
+              ) : !debts?.data.length ? (
                 <EmptyState icon={HardHat} title="Qarz yo'q" description="Barcha ishchi to'lovlari to'liq amalga oshirilgan" />
               ) : (
                 <div className="space-y-2">

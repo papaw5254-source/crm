@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -197,12 +197,12 @@ export default function UsersPage() {
             className="max-w-sm"
           />
 
-          {(data?.data?.length ?? 0) === 0 && !isLoading ? (
+          {data?.data.length === 0 && !isLoading ? (
             <EmptyState icon={UserCog} title="Foydalanuvchi yo'q" description="Birinchi foydalanuvchini qo'shing" />
           ) : (
             <>
               <DataTable columns={columns} data={data?.data ?? []} loading={isLoading} />
-              {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages ?? 1} total={data.meta.total ?? 0} limit={limit} onPageChange={setPage} />}
+              {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
             </>
           )}
         </CardContent>

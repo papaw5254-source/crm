@@ -1,17 +1,18 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, PackagePlus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, PackagePlus, Pencil, Trash2, HardHat } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { inventoryService } from '@/services/inventory.service'
+import { stockService } from '@/services/stock.service'
+import { workerPaymentsService } from '@/services/worker-payments.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
-import { WorkerPaymentsPanel } from '@/components/shared/worker-payments-panel'
 import { SearchInput } from '@/components/shared/search-input'
 import { Pagination } from '@/components/shared/pagination'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
@@ -21,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
+import Link from 'next/link'
 import { formatDate, formatNumber, formatCurrency, getErrorMessage } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePagination } from '@/hooks/use-pagination'
@@ -49,9 +51,20 @@ export default function InventoryPage() {
   const debouncedSearch = useDebounce(search)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['inventory', 'RAW_BRICK', page, limit, debouncedSearch],
-    queryFn: () => inventoryService.getAll({ page, limit, search: debouncedSearch, brickType: 'RAW_BRICK' }),
+    queryKey: ['inventory', page, limit, debouncedSearch],
+    queryFn: () => inventoryService.getAll({ page, limit, search: debouncedSearch }),
   })
+
+  const { data: stock } = useQuery({
+    queryKey: ['stock'],
+    queryFn: stockService.getStock,
+  })
+
+  const { data: wpReport } = useQuery({
+    queryKey: ['worker-payments-report'],
+    queryFn: () => workerPaymentsService.getReport(),
+  })
+  const pressStats = wpReport?.byCategory?.PRESS ?? { amount: 0, paid: 0, debt: 0 }
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -65,17 +78,12 @@ export default function InventoryPage() {
   const workerDebt = totalWorkerCost - watchedPaid
 
   const createMutation = useMutation({
-    mutationFn: (data: FormData) => inventoryService.create({ ...data, brickType: 'RAW_BRICK' }),
+    mutationFn: (data: FormData) => inventoryService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
       toast.success("Kirim muvaffaqiyatli qo'shildi")
-      setSearch('')
-      setPage(1)
-      queryClient.refetchQueries({ queryKey: ['inventory'] })
       setDialogOpen(false)
       reset({ date: new Date().toISOString().split('T')[0] })
     },
@@ -87,9 +95,6 @@ export default function InventoryPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
-      queryClient.refetchQueries({ queryKey: ['inventory'] })
       toast.success('Kirim yangilandi')
       setEditItem(null)
       setDialogOpen(false)
@@ -103,9 +108,6 @@ export default function InventoryPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
-      queryClient.refetchQueries({ queryKey: ['inventory'] })
       toast.success("Kirim o'chirildi")
       setDeleteId(null)
     },
@@ -117,8 +119,6 @@ export default function InventoryPage() {
     setValue('quantity', item.quantity)
     setValue('description', item.description || '')
     setValue('date', item.date)
-    setValue('workerRatePerBrick', Number(item.workerRatePerBrick ?? 0))
-    setValue('workerPaidAmount', Number(item.workerPaidAmount ?? 0))
     setDialogOpen(true)
   }
 
@@ -201,8 +201,8 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Xom g'isht kirim"
-        description="Pressdan chiqqan xom g'isht kirimlari"
+        title="Kirim (Ishlab chiqarish)"
+        description="Ombordagi g'isht kirimi boshqaruvi"
         actions={
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4 mr-1" />
@@ -212,11 +212,25 @@ export default function InventoryPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatsCard title="Jami xom g'isht kirim" value={data?.meta?.totalQuantity ?? 0} icon={PackagePlus} color="emerald" format="number" suffix="dona" />
-        <StatsCard title="Kirim yozuvlari" value={data?.meta?.total ?? 0} icon={PackagePlus} color="blue" format="number" suffix="ta" />
+        <StatsCard title="Ombordagi g'isht" value={stock?.quantity ?? 0} icon={PackagePlus} color="blue" format="number" suffix="dona" />
+        <StatsCard title="Jami kirimlar" value={data?.meta?.total ?? 0} icon={PackagePlus} color="emerald" format="number" suffix="ta" />
       </div>
 
-      <WorkerPaymentsPanel title="Ishchi puli (Press)" categories={['PRESS']} />
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <HardHat className="h-4 w-4" /> Ishchi puli (Press)
+          </h3>
+          <Link href="/ishchilar" className="text-sm text-primary hover:underline font-medium">
+            Barchasini ko&apos;rish →
+          </Link>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Link href="/ishchilar"><StatsCard title="Hisoblangan" value={Number(pressStats.amount)} icon={HardHat} color="amber" /></Link>
+          <Link href="/ishchilar"><StatsCard title="To'langan" value={Number(pressStats.paid)} icon={HardHat} color="emerald" /></Link>
+          <Link href="/ishchilar"><StatsCard title="Qarz" value={Number(pressStats.debt)} icon={HardHat} color="red" /></Link>
+        </div>
+      </div>
 
       <Card>
         <CardContent className="p-4 space-y-4">
@@ -227,7 +241,7 @@ export default function InventoryPage() {
             className="max-w-sm"
           />
 
-          {(data?.data?.length ?? 0) === 0 && !isLoading ? (
+          {data?.data.length === 0 && !isLoading ? (
             <EmptyState
               icon={PackagePlus}
               title="Kirim yo'q"
@@ -244,8 +258,8 @@ export default function InventoryPage() {
               {data && (
                 <Pagination
                   page={page}
-                  totalPages={data.meta?.totalPages ?? 1}
-                  total={data.meta?.total ?? 0}
+                  totalPages={data.meta.totalPages}
+                  total={data.meta.total}
                   limit={limit}
                   onPageChange={setPage}
                 />

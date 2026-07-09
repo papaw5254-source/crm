@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -93,13 +93,7 @@ export default function ZalogPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (d: CreateFormData) =>
-      prepaymentsService.create({
-        ...d,
-        customerName: d.customerName?.trim() || undefined,
-        customerPhone: d.customerPhone?.trim() || undefined,
-        description: d.description?.trim() || undefined,
-      }),
+    mutationFn: (d: CreateFormData) => prepaymentsService.create(d),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prepayments'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
@@ -127,9 +121,6 @@ export default function ZalogPage() {
     mutationFn: (id: string) => prepaymentsService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prepayments'] })
-      queryClient.invalidateQueries({ queryKey: ['prepayment-deliveries'] })
-      queryClient.invalidateQueries({ queryKey: ['stock'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success("Zalog o'chirildi")
       setDeleteId(null)
     },
@@ -181,32 +172,6 @@ export default function ZalogPage() {
           <p className="text-xs text-muted-foreground">Qolgan / Jami</p>
         </div>
       ),
-    },
-    {
-      key: 'deliveries',
-      header: 'Yetkazildi',
-      cell: (r: Prepayment) => {
-        const deliveries = Array.isArray(r.deliveries) ? r.deliveries.filter(Boolean) : []
-        const deliveredQty = Number(r.deliveredQuantity ?? 0)
-        const recentDates = deliveries
-          .slice()
-          .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
-          .slice(0, 2)
-
-        return (
-          <div>
-            <p className="font-medium text-sm">{formatNumber(deliveredQty)} dona</p>
-            {recentDates.length > 0 ? (
-              <p className="text-xs text-muted-foreground">
-                {recentDates.map((d) => formatDate(d.deliveredAt ?? d.date ?? '')).join(', ')}
-                {deliveries.length > 2 ? ` +${deliveries.length - 2}` : ''}
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground">Hali yo&apos;q</p>
-            )}
-          </div>
-        )
-      },
     },
     {
       key: 'paymentType',
@@ -335,7 +300,7 @@ export default function ZalogPage() {
           ) : (
             <>
               <DataTable columns={columns} data={allItems} loading={isLoading} />
-              {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages ?? 1} total={data.meta.total ?? 0} limit={limit} onPageChange={setPage} />}
+              {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
             </>
           )}
         </CardContent>
@@ -524,10 +489,10 @@ export default function ZalogPage() {
                 <div>
                   <h3 className="font-semibold text-sm mb-2">Yetkazishlar tarixi</h3>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {deliveries!.filter(Boolean).map((d: PrepaymentDelivery) => (
+                    {deliveries!.map((d: PrepaymentDelivery) => (
                       <div key={d.id} className="flex justify-between items-center p-2.5 rounded-lg bg-muted/30 text-sm">
                         <div>
-                          <p className="font-medium">{formatDate(d.deliveredAt ?? d.date ?? '')}</p>
+                          <p className="font-medium">{formatDate(d.deliveredAt ?? d.date)}</p>
                           {d.description && <p className="text-xs text-muted-foreground">{d.description}</p>}
                         </div>
                         <span className="font-semibold text-emerald-600">{formatNumber(d.quantity)} dona</span>
