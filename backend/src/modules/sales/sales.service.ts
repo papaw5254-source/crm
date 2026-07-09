@@ -300,14 +300,8 @@ export class SalesService {
   }
 
   async getFirmSales(firmName: string, paymentType: PaymentType): Promise<Sale[]> {
-    const isUnknown = firmName === "Noma'lum";
-    return this.saleRepository.find({
-      where: {
-        paymentType,
-        customerName: isUnknown ? IsNull() : firmName,
-      },
-      order: { date: 'DESC' },
-    });
+    // TEST: return empty to check if deploy is working
+    return [];
   }
 
   async getFirmNames(): Promise<string[]> {
