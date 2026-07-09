@@ -34,6 +34,15 @@ export class InventoryService {
       workerDebt = Math.max(0, oldDebt + totalWorkerCost - paid);
     }
 
+    let totalKretkachCost: number | null = null;
+    let kretkachDebt: number | null = null;
+    const kretkachOld = createDto.kretkachOldDebt || 0;
+    if (createDto.kretkachRatePerBrick) {
+      totalKretkachCost = createDto.quantity * createDto.kretkachRatePerBrick;
+      const kPaid = createDto.kretkachPaidAmount || 0;
+      kretkachDebt = Math.max(0, kretkachOld + totalKretkachCost - kPaid);
+    }
+
     const income = this.inventoryIncomeRepository.create({
       ...createDto,
       brickType,
@@ -41,6 +50,10 @@ export class InventoryService {
       workerPaidAmount: createDto.workerPaidAmount || 0,
       workerOldDebt: oldDebt,
       workerDebt,
+      totalKretkachCost,
+      kretkachPaidAmount: createDto.kretkachPaidAmount || 0,
+      kretkachOldDebt: kretkachOld,
+      kretkachDebt,
       createdById: userId,
     });
     const saved = await this.inventoryIncomeRepository.save(income);
@@ -59,6 +72,26 @@ export class InventoryService {
           date: createDto.date,
           description: `${createDto.quantity} dona xom g'isht (${createDto.workerRatePerBrick} so'm/dona)`,
           sourceType: 'INVENTORY_INCOME',
+          sourceId: saved.id,
+          createdById: userId,
+        }),
+      );
+    }
+
+    if (createDto.kretkachRatePerBrick && totalKretkachCost !== null) {
+      const kPaid = createDto.kretkachPaidAmount || 0;
+      await this.workerPaymentRepository.save(
+        this.workerPaymentRepository.create({
+          workerName: 'Kretkachi',
+          category: WorkerPaymentCategory.KRETKACHI,
+          amount: totalKretkachCost,
+          paidAmount: kPaid,
+          debtFromPreviousMonth: kretkachOld,
+          remainingDebt: kretkachDebt!,
+          month: createDto.date.slice(0, 7),
+          date: createDto.date,
+          description: `${createDto.quantity} dona xom g'isht (${createDto.kretkachRatePerBrick} so'm/dona) — kretkachi`,
+          sourceType: 'INVENTORY_INCOME_KRETKACH',
           sourceId: saved.id,
           createdById: userId,
         }),
@@ -164,6 +197,36 @@ export class InventoryService {
       }
     }
 
+    if (updateDto.quantity !== undefined || updateDto.kretkachRatePerBrick !== undefined || updateDto.kretkachPaidAmount !== undefined || updateDto.kretkachOldDebt !== undefined) {
+      const kRate = Number(income.kretkachRatePerBrick || 0);
+      const kPaid = Number(income.kretkachPaidAmount || 0);
+      const kOld = Number(income.kretkachOldDebt || 0);
+      income.totalKretkachCost = kRate > 0 ? income.quantity * kRate : null;
+      income.kretkachPaidAmount = kPaid;
+      income.kretkachOldDebt = kOld;
+      income.kretkachDebt = income.totalKretkachCost !== null ? Math.max(0, kOld + Number(income.totalKretkachCost) - kPaid) : null;
+
+      await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME_KRETKACH', sourceId: id });
+      if (kRate > 0 && income.totalKretkachCost !== null) {
+        await this.workerPaymentRepository.save(
+          this.workerPaymentRepository.create({
+            workerName: 'Kretkachi',
+            category: WorkerPaymentCategory.KRETKACHI,
+            amount: income.totalKretkachCost,
+            paidAmount: kPaid,
+            debtFromPreviousMonth: kOld,
+            remainingDebt: income.kretkachDebt!,
+            month: income.date.slice(0, 7),
+            date: income.date,
+            description: `${income.quantity} dona xom g'isht (${kRate} so'm/dona) — kretkachi`,
+            sourceType: 'INVENTORY_INCOME_KRETKACH',
+            sourceId: id,
+            createdById: userId,
+          }),
+        );
+      }
+    }
+
     const saved = await this.inventoryIncomeRepository.save(income);
 
     if (updateDto.quantity !== undefined && updateDto.quantity !== oldQuantity) {
@@ -181,7 +244,7 @@ export class InventoryService {
   async remove(id: string, userId: string): Promise<void> {
     const income = await this.findOne(id);
     const brickType = income.brickType || BrickType.BAKED_BRICK;
-    // Delete linked payments (new records with sourceType, and old orphan records)
+    // Delete linked payments
     await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME', sourceId: id });
     await this.workerPaymentRepository.createQueryBuilder()
       .delete().from(WorkerPayment)
@@ -189,6 +252,7 @@ export class InventoryService {
       .andWhere('date = :date', { date: income.date })
       .andWhere('source_type IS NULL')
       .execute();
+    await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME_KRETKACH', sourceId: id });
     await this.stockService.decreaseStockBestEffort(
       income.quantity,
       StockMovementType.INCOME_CANCEL,

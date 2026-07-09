@@ -35,4 +35,22 @@ export class UpdateInventoryIncomeDto {
   @IsNumber()
   @Min(0)
   workerOldDebt?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  kretkachRatePerBrick?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  kretkachPaidAmount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  kretkachOldDebt?: number;
 }

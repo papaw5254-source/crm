@@ -41,6 +41,21 @@ export class InventoryIncome {
   @Column({ name: 'worker_old_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
   workerOldDebt: number;
 
+  @Column({ name: 'kretkach_rate_per_brick', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  kretkachRatePerBrick: number;
+
+  @Column({ name: 'total_kretkach_cost', type: 'decimal', precision: 14, scale: 2, nullable: true })
+  totalKretkachCost: number;
+
+  @Column({ name: 'kretkach_paid_amount', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  kretkachPaidAmount: number;
+
+  @Column({ name: 'kretkach_old_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  kretkachOldDebt: number;
+
+  @Column({ name: 'kretkach_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  kretkachDebt: number;
+
   @ManyToOne(() => User, { nullable: true, eager: false })
   createdBy: User;
 

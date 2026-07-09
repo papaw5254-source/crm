@@ -72,6 +72,11 @@ export interface InventoryIncome {
   workerPaidAmount?: number
   workerOldDebt?: number
   workerDebt?: number
+  kretkachRatePerBrick?: number
+  totalKretkachCost?: number
+  kretkachPaidAmount?: number
+  kretkachOldDebt?: number
+  kretkachDebt?: number
   createdById?: string
   createdBy?: User
   createdAt: string
@@ -259,6 +264,7 @@ export type WorkerPaymentCategory =
   | 'HUMBUZ_ESHIKCHI'
   | 'QACHIGAR'
   | 'PRESS'
+  | 'KRETKACHI'
   | 'FIELD_RAW_LOADING'
   | 'RESERVE_RAW_LOADING'
   | 'RESERVE_BAKED_LOADING'

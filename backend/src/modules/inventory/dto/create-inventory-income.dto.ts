@@ -39,4 +39,22 @@ export class CreateInventoryIncomeDto {
   @IsNumber()
   @Min(0)
   workerOldDebt?: number;
+
+  @ApiPropertyOptional({ example: 20 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  kretkachRatePerBrick?: number;
+
+  @ApiPropertyOptional({ example: 100000 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  kretkachPaidAmount?: number;
+
+  @ApiPropertyOptional({ example: 300000 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  kretkachOldDebt?: number;
 }

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -35,6 +35,9 @@ const schema = z.object({
   workerRatePerBrick: z.coerce.number().min(0).optional(),
   workerPaidAmount: z.coerce.number().min(0).optional(),
   workerOldDebt: z.coerce.number().min(0).optional(),
+  kretkachRatePerBrick: z.coerce.number().min(0).optional(),
+  kretkachPaidAmount: z.coerce.number().min(0).optional(),
+  kretkachOldDebt: z.coerce.number().min(0).optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -47,9 +50,17 @@ export default function InventoryPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<InventoryIncome | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [debtDialogOpen, setDebtDialogOpen] = useState(false)
-  const [debtAmountStr, setDebtAmountStr] = useState('')
-  const [debtDate, setDebtDate] = useState(new Date().toISOString().split('T')[0])
+
+  // press eski qarz
+  const [pressDebtDialogOpen, setPressDebtDialogOpen] = useState(false)
+  const [pressDebtAmountStr, setPressDebtAmountStr] = useState('')
+  const [pressDebtDate, setPressDebtDate] = useState(new Date().toISOString().split('T')[0])
+
+  // kretkachi eski qarz
+  const [kretkachDebtDialogOpen, setKretkachDebtDialogOpen] = useState(false)
+  const [kretkachDebtAmountStr, setKretkachDebtAmountStr] = useState('')
+  const [kretkachDebtDate, setKretkachDebtDate] = useState(new Date().toISOString().split('T')[0])
+
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
 
@@ -63,12 +74,14 @@ export default function InventoryPage() {
     queryFn: () => workerPaymentsService.getReport(),
   })
   const pressStats = wpReport?.byCategory?.PRESS ?? { amount: 0, paid: 0, debt: 0 }
+  const kretkachStats = wpReport?.byCategory?.KRETKACHI ?? { amount: 0, paid: 0, debt: 0 }
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { date: new Date().toISOString().split('T')[0] },
   })
 
+  // Press watches
   const watchedQty = watch('quantity') || 0
   const watchedRate = watch('workerRatePerBrick') || 0
   const watchedPaid = watch('workerPaidAmount') || 0
@@ -76,7 +89,20 @@ export default function InventoryPage() {
   const totalWorkerCost = watchedQty * watchedRate
   const workerDebt = Math.max(0, watchedOldDebt + totalWorkerCost - watchedPaid)
 
-  const oldDebtMutation = useMutation({
+  // Kretkachi watches
+  const watchedKretkachRate = watch('kretkachRatePerBrick') || 0
+  const watchedKretkachPaid = watch('kretkachPaidAmount') || 0
+  const watchedKretkachOldDebt = watch('kretkachOldDebt') || 0
+  const totalKretkachCost = watchedQty * watchedKretkachRate
+  const kretkachDebt = Math.max(0, watchedKretkachOldDebt + totalKretkachCost - watchedKretkachPaid)
+
+  const invalidateWorkerPayments = () => {
+    queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+    queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+  }
+
+  const pressOldDebtMutation = useMutation({
     mutationFn: ({ date, amount }: { date: string; amount: number }) =>
       workerPaymentsService.create({
         workerName: 'Ishchilar (press)',
@@ -88,21 +114,35 @@ export default function InventoryPage() {
         description: `Eski qarz: ${amount.toLocaleString()} so'm`,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
-      toast.success("Eski qarz qo'shildi")
-      setDebtDialogOpen(false)
-      setDebtAmountStr('')
-      setDebtDate(new Date().toISOString().split('T')[0])
+      invalidateWorkerPayments()
+      toast.success("Press eski qarz qo'shildi")
+      setPressDebtDialogOpen(false)
+      setPressDebtAmountStr('')
+      setPressDebtDate(new Date().toISOString().split('T')[0])
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
-  const invalidateWorkerPayments = () => {
-    queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
-    queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
-    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-  }
+  const kretkachOldDebtMutation = useMutation({
+    mutationFn: ({ date, amount }: { date: string; amount: number }) =>
+      workerPaymentsService.create({
+        workerName: 'Kretkachi',
+        category: 'KRETKACHI',
+        amount: 0,
+        paidAmount: 0,
+        debtFromPreviousMonth: amount,
+        date,
+        description: `Eski qarz: ${amount.toLocaleString()} so'm`,
+      }),
+    onSuccess: () => {
+      invalidateWorkerPayments()
+      toast.success("Kretkachi eski qarz qo'shildi")
+      setKretkachDebtDialogOpen(false)
+      setKretkachDebtAmountStr('')
+      setKretkachDebtDate(new Date().toISOString().split('T')[0])
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => inventoryService.create(data),
@@ -151,6 +191,9 @@ export default function InventoryPage() {
     setValue('workerRatePerBrick', Number(item.workerRatePerBrick ?? 0) || undefined)
     setValue('workerPaidAmount', Number(item.workerPaidAmount ?? 0) || undefined)
     setValue('workerOldDebt', Number(item.workerOldDebt ?? 0) || undefined)
+    setValue('kretkachRatePerBrick', Number(item.kretkachRatePerBrick ?? 0) || undefined)
+    setValue('kretkachPaidAmount', Number(item.kretkachPaidAmount ?? 0) || undefined)
+    setValue('kretkachOldDebt', Number(item.kretkachOldDebt ?? 0) || undefined)
     setDialogOpen(true)
   }
 
@@ -169,20 +212,16 @@ export default function InventoryPage() {
     {
       key: 'date',
       header: 'Sana',
-      cell: (row: InventoryIncome) => (
-        <span className="font-medium">{formatDate(row.date)}</span>
-      ),
+      cell: (row: InventoryIncome) => <span className="font-medium">{formatDate(row.date)}</span>,
     },
     {
       key: 'quantity',
-      header: "Miqdor (dona)",
-      cell: (row: InventoryIncome) => (
-        <span className="font-semibold text-primary">{formatNumber(row.quantity)}</span>
-      ),
+      header: 'Miqdor (dona)',
+      cell: (row: InventoryIncome) => <span className="font-semibold text-primary">{formatNumber(row.quantity)}</span>,
     },
     {
-      key: 'workerCost',
-      header: 'Ishchi puli',
+      key: 'pressWorker',
+      header: 'Press puli',
       cell: (row: InventoryIncome) => row.totalWorkerCost ? (
         <div className="text-sm">
           <div className="font-medium">{formatCurrency(Number(row.totalWorkerCost))}</div>
@@ -194,18 +233,27 @@ export default function InventoryPage() {
       ) : <span className="text-muted-foreground">—</span>,
     },
     {
+      key: 'kretkach',
+      header: 'Kretkachi puli',
+      cell: (row: InventoryIncome) => row.totalKretkachCost ? (
+        <div className="text-sm">
+          <div className="font-medium">{formatCurrency(Number(row.totalKretkachCost))}</div>
+          <div className="text-xs text-muted-foreground">
+            <span className="text-emerald-600">Berildi: {formatCurrency(Number(row.kretkachPaidAmount ?? 0))}</span>
+            {Number(row.kretkachDebt) > 0 && <span className="text-red-500 ml-1">Qarz: {formatCurrency(Number(row.kretkachDebt))}</span>}
+          </div>
+        </div>
+      ) : <span className="text-muted-foreground">—</span>,
+    },
+    {
       key: 'description',
       header: 'Izoh',
-      cell: (row: InventoryIncome) => (
-        <span className="text-muted-foreground">{row.description || '—'}</span>
-      ),
+      cell: (row: InventoryIncome) => <span className="text-muted-foreground">{row.description || '—'}</span>,
     },
     {
       key: 'createdBy',
-      header: 'Qo\'shgan',
-      cell: (row: InventoryIncome) => (
-        <span className="text-sm">{row.createdBy?.fullName || '—'}</span>
-      ),
+      header: "Qo'shgan",
+      cell: (row: InventoryIncome) => <span className="text-sm">{row.createdBy?.fullName || '—'}</span>,
     },
     {
       key: 'actions',
@@ -237,8 +285,11 @@ export default function InventoryPage() {
         description="Ombordagi g'isht kirimi boshqaruvi"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setDebtDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Eski qarz qo&apos;shish
+            <Button variant="outline" onClick={() => setPressDebtDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Press eski qarz
+            </Button>
+            <Button variant="outline" onClick={() => setKretkachDebtDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Kretkachi eski qarz
             </Button>
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4 mr-1" />
@@ -252,6 +303,7 @@ export default function InventoryPage() {
         <StatsCard title="Jami kirimlar" value={data?.meta?.total ?? 0} icon={PackagePlus} color="emerald" format="number" suffix="ta" />
       </div>
 
+      {/* Press worker stats */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
@@ -265,6 +317,23 @@ export default function InventoryPage() {
           <Link href="/ishchilar"><StatsCard title="Hisoblangan" value={Number(pressStats.amount)} icon={HardHat} color="amber" /></Link>
           <Link href="/ishchilar"><StatsCard title="To'langan" value={Number(pressStats.paid)} icon={HardHat} color="emerald" /></Link>
           <Link href="/ishchilar"><StatsCard title="Qarz" value={Number(pressStats.debt)} icon={HardHat} color="red" /></Link>
+        </div>
+      </div>
+
+      {/* Kretkachi worker stats */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <HardHat className="h-4 w-4" /> Ishchi puli (Kretkachi)
+          </h3>
+          <Link href="/ishchilar" className="text-sm text-primary hover:underline font-medium">
+            Barchasini ko&apos;rish →
+          </Link>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Link href="/ishchilar"><StatsCard title="Hisoblangan" value={Number(kretkachStats.amount)} icon={HardHat} color="amber" /></Link>
+          <Link href="/ishchilar"><StatsCard title="To'langan" value={Number(kretkachStats.paid)} icon={HardHat} color="emerald" /></Link>
+          <Link href="/ishchilar"><StatsCard title="Qarz" value={Number(kretkachStats.debt)} icon={HardHat} color="red" /></Link>
         </div>
       </div>
 
@@ -286,11 +355,7 @@ export default function InventoryPage() {
             />
           ) : (
             <>
-              <DataTable
-                columns={columns}
-                data={data?.data ?? []}
-                loading={isLoading}
-              />
+              <DataTable columns={columns} data={data?.data ?? []} loading={isLoading} />
               {data?.meta && (
                 <Pagination
                   page={page}
@@ -307,7 +372,7 @@ export default function InventoryPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editItem ? 'Kirimni tahrirlash' : "Kirim qo'shish"}</DialogTitle>
           </DialogHeader>
@@ -325,15 +390,16 @@ export default function InventoryPage() {
               </div>
             </div>
 
+            {/* Press section */}
             <div className="rounded-lg border border-dashed p-3 space-y-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (ixtiyoriy)</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Press ishchi puli (ixtiyoriy)</p>
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-2">
                   <Label>Oldingi qarz (so&apos;m)</Label>
                   <Input {...register('workerOldDebt')} type="number" placeholder="0" />
                 </div>
                 <div className="space-y-2">
-                  <Label>1 dona uchun narx (so&apos;m)</Label>
+                  <Label>1 dona narx (so&apos;m)</Label>
                   <Input {...register('workerRatePerBrick')} type="number" placeholder="30" />
                 </div>
                 <div className="space-y-2">
@@ -360,6 +426,47 @@ export default function InventoryPage() {
                   <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
                     <div className="text-xs text-muted-foreground">Jami qarz</div>
                     <div className="font-semibold text-red-500">{formatCurrency(workerDebt)}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Kretkachi section */}
+            <div className="rounded-lg border border-dashed border-orange-300 dark:border-orange-700 p-3 space-y-3">
+              <p className="text-xs font-medium text-orange-600 dark:text-orange-400 uppercase tracking-wide">Kretkachi puli (ixtiyoriy)</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label>Oldingi qarz (so&apos;m)</Label>
+                  <Input {...register('kretkachOldDebt')} type="number" placeholder="0" />
+                </div>
+                <div className="space-y-2">
+                  <Label>1 dona narx (so&apos;m)</Label>
+                  <Input {...register('kretkachRatePerBrick')} type="number" placeholder="20" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Bugun berildi (so&apos;m)</Label>
+                  <Input {...register('kretkachPaidAmount')} type="number" placeholder="0" />
+                </div>
+              </div>
+              {(totalKretkachCost > 0 || watchedKretkachOldDebt > 0) && (
+                <div className="grid grid-cols-4 gap-2 text-sm">
+                  {watchedKretkachOldDebt > 0 && (
+                    <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Oldingi qarz</div>
+                      <div className="font-semibold text-amber-700 dark:text-amber-400">{formatCurrency(watchedKretkachOldDebt)}</div>
+                    </div>
+                  )}
+                  <div className={`rounded-md bg-muted px-3 py-2 text-center ${watchedKretkachOldDebt > 0 ? '' : 'col-span-2'}`}>
+                    <div className="text-xs text-muted-foreground">Bugungi ish</div>
+                    <div className="font-semibold">{formatCurrency(totalKretkachCost)}</div>
+                  </div>
+                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
+                    <div className="text-xs text-muted-foreground">Berildi</div>
+                    <div className="font-semibold text-emerald-600">{formatCurrency(watchedKretkachPaid)}</div>
+                  </div>
+                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
+                    <div className="text-xs text-muted-foreground">Jami qarz</div>
+                    <div className="font-semibold text-red-500">{formatCurrency(kretkachDebt)}</div>
                   </div>
                 </div>
               )}
@@ -393,29 +500,57 @@ export default function InventoryPage() {
         loading={deleteMutation.isPending}
       />
 
-      {/* Eski qarz dialog */}
-      <Dialog open={debtDialogOpen} onOpenChange={(o: boolean) => { setDebtDialogOpen(o); if (!o) { setDebtAmountStr(''); setDebtDate(new Date().toISOString().split('T')[0]) } }}>
+      {/* Press eski qarz dialog */}
+      <Dialog open={pressDebtDialogOpen} onOpenChange={(o: boolean) => { setPressDebtDialogOpen(o); if (!o) { setPressDebtAmountStr(''); setPressDebtDate(new Date().toISOString().split('T')[0]) } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Eski qarz qo&apos;shish (Press)</DialogTitle>
+            <DialogTitle>Press eski qarz qo&apos;shish</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Sana</Label>
-              <Input type="date" value={debtDate} onChange={(e) => setDebtDate(e.target.value)} />
+              <Input type="date" value={pressDebtDate} onChange={(e) => setPressDebtDate(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Qarz miqdori (so&apos;m)</Label>
-              <Input type="number" placeholder="0" value={debtAmountStr} onChange={(e) => setDebtAmountStr(e.target.value)} />
+              <Input type="number" placeholder="0" value={pressDebtAmountStr} onChange={(e) => setPressDebtAmountStr(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDebtDialogOpen(false)}>Bekor qilish</Button>
+            <Button variant="outline" onClick={() => setPressDebtDialogOpen(false)}>Bekor qilish</Button>
             <Button
-              disabled={!debtAmountStr || Number(debtAmountStr) <= 0 || oldDebtMutation.isPending}
-              onClick={() => oldDebtMutation.mutate({ date: debtDate, amount: Number(debtAmountStr) })}
+              disabled={!pressDebtAmountStr || Number(pressDebtAmountStr) <= 0 || pressOldDebtMutation.isPending}
+              onClick={() => pressOldDebtMutation.mutate({ date: pressDebtDate, amount: Number(pressDebtAmountStr) })}
             >
-              {oldDebtMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+              {pressOldDebtMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Kretkachi eski qarz dialog */}
+      <Dialog open={kretkachDebtDialogOpen} onOpenChange={(o: boolean) => { setKretkachDebtDialogOpen(o); if (!o) { setKretkachDebtAmountStr(''); setKretkachDebtDate(new Date().toISOString().split('T')[0]) } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Kretkachi eski qarz qo&apos;shish</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Sana</Label>
+              <Input type="date" value={kretkachDebtDate} onChange={(e) => setKretkachDebtDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Qarz miqdori (so&apos;m)</Label>
+              <Input type="number" placeholder="0" value={kretkachDebtAmountStr} onChange={(e) => setKretkachDebtAmountStr(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setKretkachDebtDialogOpen(false)}>Bekor qilish</Button>
+            <Button
+              disabled={!kretkachDebtAmountStr || Number(kretkachDebtAmountStr) <= 0 || kretkachOldDebtMutation.isPending}
+              onClick={() => kretkachOldDebtMutation.mutate({ date: kretkachDebtDate, amount: Number(kretkachDebtAmountStr) })}
+            >
+              {kretkachOldDebtMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
             </Button>
           </DialogFooter>
         </DialogContent>
