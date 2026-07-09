@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { salesService } from '@/services/sales.service'
-import { workerPaymentService } from '@/services/worker-payment.service'
+import { workerPaymentsService } from '@/services/worker-payments.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
@@ -137,7 +137,7 @@ export default function SalesPage() {
   })
 
   const eskiQarzMutation = useMutation({
-    mutationFn: (d: EskiQarzForm) => workerPaymentService.create({
+    mutationFn: (d: EskiQarzForm) => workerPaymentsService.create({
       workerName: "Ishchilar (xom g'isht yuklash)",
       category: 'FIELD_RAW_LOADING',
       amount: d.amount,
