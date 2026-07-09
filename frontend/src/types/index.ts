@@ -77,6 +77,10 @@ export interface InventoryIncome {
   kretkachPaidAmount?: number
   kretkachOldDebt?: number
   kretkachDebt?: number
+  eshkiDailyAmount?: number
+  eshkiPaidAmount?: number
+  eshkiOldDebt?: number
+  eshkiDebt?: number
   createdById?: string
   createdBy?: User
   createdAt: string
@@ -265,6 +269,7 @@ export type WorkerPaymentCategory =
   | 'QACHIGAR'
   | 'PRESS'
   | 'KRETKACHI'
+  | 'ESHKI'
   | 'FIELD_RAW_LOADING'
   | 'RESERVE_RAW_LOADING'
   | 'RESERVE_BAKED_LOADING'

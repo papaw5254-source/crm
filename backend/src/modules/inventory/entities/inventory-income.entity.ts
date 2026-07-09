@@ -56,6 +56,18 @@ export class InventoryIncome {
   @Column({ name: 'kretkach_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
   kretkachDebt: number;
 
+  @Column({ name: 'eshki_daily_amount', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  eshkiDailyAmount: number;
+
+  @Column({ name: 'eshki_paid_amount', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  eshkiPaidAmount: number;
+
+  @Column({ name: 'eshki_old_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  eshkiOldDebt: number;
+
+  @Column({ name: 'eshki_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  eshkiDebt: number;
+
   @ManyToOne(() => User, { nullable: true, eager: false })
   createdBy: User;
 

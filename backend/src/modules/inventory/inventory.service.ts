@@ -43,6 +43,11 @@ export class InventoryService {
       kretkachDebt = Math.max(0, kretkachOld + totalKretkachCost - kPaid);
     }
 
+    const eshkiOld = createDto.eshkiOldDebt || 0;
+    const eshkiDaily = createDto.eshkiDailyAmount || 0;
+    const eshkiPaid = createDto.eshkiPaidAmount || 0;
+    const eshkiDebtVal = eshkiDaily > 0 || eshkiOld > 0 ? Math.max(0, eshkiOld + eshkiDaily - eshkiPaid) : 0;
+
     const income = this.inventoryIncomeRepository.create({
       ...createDto,
       brickType,
@@ -54,6 +59,10 @@ export class InventoryService {
       kretkachPaidAmount: createDto.kretkachPaidAmount || 0,
       kretkachOldDebt: kretkachOld,
       kretkachDebt,
+      eshkiDailyAmount: eshkiDaily,
+      eshkiPaidAmount: eshkiPaid,
+      eshkiOldDebt: eshkiOld,
+      eshkiDebt: eshkiDebtVal,
       createdById: userId,
     });
     const saved = await this.inventoryIncomeRepository.save(income);
@@ -92,6 +101,25 @@ export class InventoryService {
           date: createDto.date,
           description: `${createDto.quantity} dona xom g'isht (${createDto.kretkachRatePerBrick} so'm/dona) — kretkachi`,
           sourceType: 'INVENTORY_INCOME_KRETKACH',
+          sourceId: saved.id,
+          createdById: userId,
+        }),
+      );
+    }
+
+    if (eshkiDaily > 0 || eshkiOld > 0) {
+      await this.workerPaymentRepository.save(
+        this.workerPaymentRepository.create({
+          workerName: 'Eshki',
+          category: WorkerPaymentCategory.ESHKI,
+          amount: eshkiDaily,
+          paidAmount: eshkiPaid,
+          debtFromPreviousMonth: eshkiOld,
+          remainingDebt: eshkiDebtVal,
+          month: createDto.date.slice(0, 7),
+          date: createDto.date,
+          description: `Eshki kunlik to'lov — ${createDto.date}`,
+          sourceType: 'INVENTORY_INCOME_ESHKI',
           sourceId: saved.id,
           createdById: userId,
         }),
@@ -227,6 +255,36 @@ export class InventoryService {
       }
     }
 
+    if (updateDto.eshkiDailyAmount !== undefined || updateDto.eshkiPaidAmount !== undefined || updateDto.eshkiOldDebt !== undefined) {
+      const eDaily = Number(income.eshkiDailyAmount || 0);
+      const ePaid = Number(income.eshkiPaidAmount || 0);
+      const eOld = Number(income.eshkiOldDebt || 0);
+      income.eshkiDailyAmount = eDaily;
+      income.eshkiPaidAmount = ePaid;
+      income.eshkiOldDebt = eOld;
+      income.eshkiDebt = Math.max(0, eOld + eDaily - ePaid);
+
+      await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME_ESHKI', sourceId: id });
+      if (eDaily > 0 || eOld > 0) {
+        await this.workerPaymentRepository.save(
+          this.workerPaymentRepository.create({
+            workerName: 'Eshki',
+            category: WorkerPaymentCategory.ESHKI,
+            amount: eDaily,
+            paidAmount: ePaid,
+            debtFromPreviousMonth: eOld,
+            remainingDebt: income.eshkiDebt,
+            month: income.date.slice(0, 7),
+            date: income.date,
+            description: `Eshki kunlik to'lov — ${income.date}`,
+            sourceType: 'INVENTORY_INCOME_ESHKI',
+            sourceId: id,
+            createdById: userId,
+          }),
+        );
+      }
+    }
+
     const saved = await this.inventoryIncomeRepository.save(income);
 
     if (updateDto.quantity !== undefined && updateDto.quantity !== oldQuantity) {
@@ -253,6 +311,7 @@ export class InventoryService {
       .andWhere('source_type IS NULL')
       .execute();
     await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME_KRETKACH', sourceId: id });
+    await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME_ESHKI', sourceId: id });
     await this.stockService.decreaseStockBestEffort(
       income.quantity,
       StockMovementType.INCOME_CANCEL,

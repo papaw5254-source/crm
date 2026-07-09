@@ -57,4 +57,22 @@ export class CreateInventoryIncomeDto {
   @IsNumber()
   @Min(0)
   kretkachOldDebt?: number;
+
+  @ApiPropertyOptional({ example: 80000, description: 'Eshki kunlik to\'lov miqdori' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  eshkiDailyAmount?: number;
+
+  @ApiPropertyOptional({ example: 50000 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  eshkiPaidAmount?: number;
+
+  @ApiPropertyOptional({ example: 200000 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  eshkiOldDebt?: number;
 }
