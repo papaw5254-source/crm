@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Building2, Plus, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
+import { Building2, Plus, Pencil, Trash2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -19,9 +19,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { formatDate, formatCurrency, formatNumber, brickTypeLabel, brickTypeColor, paymentTypeLabel, paymentTypeColor, getErrorMessage } from '@/lib/utils'
+import { formatDate, formatCurrency, formatNumber, brickTypeLabel, brickTypeColor, getErrorMessage } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
 import type { Sale, BrickType } from '@/types'
 
@@ -44,28 +43,18 @@ const defaultFormValues: Partial<SaleForm> = {
   date: new Date().toISOString().split('T')[0],
 }
 
-interface SelectedFirmInfo {
-  firm: BankTransferFirm
-  paymentType: string
-}
-
 export default function PerechisleniyaPage() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
   const queryClient = useQueryClient()
-  const [selectedFirmInfo, setSelectedFirmInfo] = useState<SelectedFirmInfo | null>(null)
+  const [selectedFirm, setSelectedFirm] = useState<BankTransferFirm | null>(null)
   const [addSaleOpen, setAddSaleOpen] = useState(false)
   const [editSale, setEditSale] = useState<Sale | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
-  const { data: btFirms = [], isLoading: btLoading } = useQuery({
+  const { data: firms = [], isLoading } = useQuery({
     queryKey: ['bank-transfer-firms'],
     queryFn: () => salesService.getBankTransferFirms(),
-  })
-
-  const { data: debtFirms = [], isLoading: debtLoading } = useQuery({
-    queryKey: ['debt-firms'],
-    queryFn: () => salesService.getDebtFirms(),
   })
 
   const { data: firmNames = [] } = useQuery({
@@ -73,11 +62,10 @@ export default function PerechisleniyaPage() {
     queryFn: () => salesService.getFirmNames(),
   })
 
-  // Lazy load: only fetches when a firm detail dialog is open
   const { data: firmSales = [], isLoading: firmSalesLoading } = useQuery({
-    queryKey: ['firm-sales', selectedFirmInfo?.firm.firmName, selectedFirmInfo?.paymentType],
-    queryFn: () => salesService.getFirmSales(selectedFirmInfo!.firm.firmName, selectedFirmInfo!.paymentType),
-    enabled: !!selectedFirmInfo,
+    queryKey: ['firm-sales', selectedFirm?.firmName, 'BANK_TRANSFER'],
+    queryFn: () => salesService.getFirmSales(selectedFirm!.firmName, 'BANK_TRANSFER'),
+    enabled: !!selectedFirm,
   })
 
   const form = useForm<SaleForm>({
@@ -94,7 +82,6 @@ export default function PerechisleniyaPage() {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['bank-transfer-firms'] })
-    queryClient.invalidateQueries({ queryKey: ['debt-firms'] })
     queryClient.invalidateQueries({ queryKey: ['firm-names'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     queryClient.invalidateQueries({ queryKey: ['stock'] })
@@ -115,9 +102,7 @@ export default function PerechisleniyaPage() {
     mutationFn: (d: SaleForm) => salesService.update(editSale!.id, d as Parameters<typeof salesService.create>[0]),
     onSuccess: () => {
       invalidate()
-      if (selectedFirmInfo) {
-        queryClient.invalidateQueries({ queryKey: ['firm-sales', selectedFirmInfo.firm.firmName, selectedFirmInfo.paymentType] })
-      }
+      queryClient.invalidateQueries({ queryKey: ['firm-sales', selectedFirm?.firmName, 'BANK_TRANSFER'] })
       toast.success('Sotuv yangilandi')
       setAddSaleOpen(false)
       setEditSale(null)
@@ -129,9 +114,7 @@ export default function PerechisleniyaPage() {
     mutationFn: (id: string) => salesService.delete(id),
     onSuccess: () => {
       invalidate()
-      if (selectedFirmInfo) {
-        queryClient.invalidateQueries({ queryKey: ['firm-sales', selectedFirmInfo.firm.firmName, selectedFirmInfo.paymentType] })
-      }
+      queryClient.invalidateQueries({ queryKey: ['firm-sales', selectedFirm?.firmName, 'BANK_TRANSFER'] })
       toast.success("Sotuv o'chirildi")
       setDeleteId(null)
     },
@@ -165,12 +148,11 @@ export default function PerechisleniyaPage() {
     else createMutation.mutate(d)
   }
 
-  const totalBtFirms = btFirms.length
-  const totalBtAmount = btFirms.reduce((s: number, f: BankTransferFirm) => s + f.totalAmount, 0)
-  const totalDebtFirms = debtFirms.length
-  const totalDebtAmount = debtFirms.reduce((s: number, f: BankTransferFirm) => s + f.totalAmount, 0)
+  const totalFirms = firms.length
+  const totalAmount = firms.reduce((s: number, f: BankTransferFirm) => s + f.totalAmount, 0)
+  const totalQty = firms.reduce((s: number, f: BankTransferFirm) => s + f.totalQuantity, 0)
 
-  const firmColumns = (paymentType: string) => [
+  const firmColumns = [
     {
       key: 'firmName',
       header: 'Firma nomi',
@@ -179,7 +161,7 @@ export default function PerechisleniyaPage() {
     {
       key: 'totalSales',
       header: 'Sotuvlar',
-      cell: (row: BankTransferFirm) => <span className="text-muted-foreground">{row.totalSales} ta</span>,
+      cell: (row: BankTransferFirm) => <span className="text-muted-foreground">{row.totalSales} marta</span>,
     },
     {
       key: 'totalQuantity',
@@ -190,16 +172,14 @@ export default function PerechisleniyaPage() {
       key: 'totalAmount',
       header: 'Jami summa',
       cell: (row: BankTransferFirm) => (
-        <span className={`font-semibold ${paymentType === 'DEBT' ? 'text-amber-600 dark:text-amber-400' : 'text-primary'}`}>
-          {formatCurrency(row.totalAmount)}
-        </span>
+        <span className="font-semibold text-primary">{formatCurrency(row.totalAmount)}</span>
       ),
     },
     {
       key: 'actions',
       header: '',
       cell: (row: BankTransferFirm) => (
-        <Button variant="outline" size="sm" onClick={() => setSelectedFirmInfo({ firm: row, paymentType })}>
+        <Button variant="outline" size="sm" onClick={() => setSelectedFirm(row)}>
           Ko&apos;rish
         </Button>
       ),
@@ -207,15 +187,10 @@ export default function PerechisleniyaPage() {
   ]
 
   const saleColumns = [
-    { key: 'date', header: 'Sana', cell: (r: Sale) => <span className="font-medium">{formatDate(r.date)}</span> },
     {
-      key: 'paymentType',
-      header: "To'lov",
-      cell: (r: Sale) => (
-        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${paymentTypeColor(r.paymentType)}`}>
-          {paymentTypeLabel(r.paymentType)}
-        </span>
-      ),
+      key: 'date',
+      header: 'Sana',
+      cell: (r: Sale) => <span className="font-semibold">{formatDate(r.date)}</span>,
     },
     {
       key: 'brickType',
@@ -226,10 +201,26 @@ export default function PerechisleniyaPage() {
         </span>
       ),
     },
-    { key: 'quantity', header: 'Miqdor', cell: (r: Sale) => <span>{formatNumber(r.quantity)} dona</span> },
-    { key: 'pricePerBrick', header: 'Narx', cell: (r: Sale) => <span>{formatCurrency(Number(r.pricePerBrick))}</span> },
-    { key: 'totalAmount', header: 'Jami', cell: (r: Sale) => <span className="font-semibold text-primary">{formatCurrency(Number(r.totalAmount))}</span> },
-    { key: 'desc', header: 'Izoh', cell: (r: Sale) => <span className="text-xs text-muted-foreground">{r.description || '—'}</span> },
+    {
+      key: 'quantity',
+      header: 'Miqdor',
+      cell: (r: Sale) => <span className="font-bold text-base">{formatNumber(r.quantity)} dona</span>,
+    },
+    {
+      key: 'pricePerBrick',
+      header: 'Narx',
+      cell: (r: Sale) => <span>{formatCurrency(Number(r.pricePerBrick))}</span>,
+    },
+    {
+      key: 'totalAmount',
+      header: 'Jami',
+      cell: (r: Sale) => <span className="font-semibold text-primary">{formatCurrency(Number(r.totalAmount))}</span>,
+    },
+    {
+      key: 'desc',
+      header: 'Izoh',
+      cell: (r: Sale) => <span className="text-xs text-muted-foreground">{r.description || '—'}</span>,
+    },
     {
       key: 'actions',
       header: '',
@@ -252,7 +243,7 @@ export default function PerechisleniyaPage() {
     <div className="space-y-6">
       <PageHeader
         title="Perechisleniya"
-        description="Bank o'tkazmasi va nasiya orqali sotuvlar"
+        description="Bank o'tkazmasi orqali sotuvlar"
         actions={
           <Button onClick={openAdd}>
             <Plus className="h-4 w-4 mr-1" /> Sotuv qo&apos;shish
@@ -260,87 +251,50 @@ export default function PerechisleniyaPage() {
         }
       />
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <StatsCard title="Bank firmalar" value={totalBtFirms} icon={Building2} color="purple" format="number" suffix="ta" />
-        <StatsCard title="Bank summa" value={totalBtAmount} icon={Building2} color="blue" />
-        <StatsCard title="Nasiya firmalar" value={totalDebtFirms} icon={Building2} color="amber" format="number" suffix="ta" />
-        <StatsCard title="Nasiya summa" value={totalDebtAmount} icon={Building2} color="red" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatsCard title="Firmalar soni" value={totalFirms} icon={Building2} color="purple" format="number" suffix="ta" />
+        <StatsCard title="Jami g'isht" value={totalQty} icon={Building2} color="blue" format="number" suffix="dona" />
+        <StatsCard title="Jami summa" value={totalAmount} icon={Building2} color="emerald" />
       </div>
 
-      <Tabs defaultValue="bank">
-        <TabsList>
-          <TabsTrigger value="bank">
-            <Building2 className="h-4 w-4 mr-1.5" /> Bank o&apos;tkazmasi
-          </TabsTrigger>
-          <TabsTrigger value="debt">
-            <AlertTriangle className="h-4 w-4 mr-1.5" /> Nasiya (Qarz)
-          </TabsTrigger>
-        </TabsList>
+      <Card>
+        <CardContent className="p-4">
+          {firms.length === 0 && !isLoading ? (
+            <EmptyState
+              icon={Building2}
+              title="Perechisleniya sotuvlar yo'q"
+              description="Bank o'tkazmasi to'lov turi bilan sotuv qo'shing"
+              action={<Button onClick={openAdd}><Plus className="h-4 w-4 mr-1" />Sotuv qo&apos;shish</Button>}
+            />
+          ) : (
+            <DataTable columns={firmColumns} data={firms} loading={isLoading} />
+          )}
+        </CardContent>
+      </Card>
 
-        <TabsContent value="bank" className="mt-4">
-          <Card>
-            <CardContent className="p-4">
-              {btFirms.length === 0 && !btLoading ? (
-                <EmptyState
-                  icon={Building2}
-                  title="Bank o'tkazmasi sotuvlar yo'q"
-                  description="Perechisleniya to'lov turi bilan sotuv qo'shing"
-                  action={<Button onClick={openAdd}><Plus className="h-4 w-4 mr-1" />Sotuv qo&apos;shish</Button>}
-                />
-              ) : (
-                <DataTable columns={firmColumns('BANK_TRANSFER')} data={btFirms} loading={btLoading} />
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="debt" className="mt-4">
-          <Card>
-            <CardContent className="p-4">
-              {debtFirms.length === 0 && !debtLoading ? (
-                <EmptyState
-                  icon={AlertTriangle}
-                  title="Nasiya firmalar yo'q"
-                  description="Nasiya to'lov turi bilan sotuv qo'shing"
-                  action={<Button onClick={openAdd}><Plus className="h-4 w-4 mr-1" />Sotuv qo&apos;shish</Button>}
-                />
-              ) : (
-                <div className="space-y-3">
-                  <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 px-4 py-2 text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 shrink-0" />
-                    Nasiya to&apos;lovlar uchun qarz to&apos;lash Qarzdorlar bo&apos;limida amalga oshiriladi
-                  </div>
-                  <DataTable columns={firmColumns('DEBT')} data={debtFirms} loading={debtLoading} />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Firm detail dialog — sales loaded lazily on open */}
-      <Dialog open={!!selectedFirmInfo} onOpenChange={(o: boolean) => !o && setSelectedFirmInfo(null)}>
+      {/* Firma detail dialog */}
+      <Dialog open={!!selectedFirm} onOpenChange={(o: boolean) => !o && setSelectedFirm(null)}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{selectedFirmInfo?.firm.firmName} — sotuvlar tarixi</DialogTitle>
+            <DialogTitle className="text-lg font-bold">{selectedFirm?.firmName}</DialogTitle>
           </DialogHeader>
-          {selectedFirmInfo && (
+          {selectedFirm && (
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-lg bg-muted p-3 text-center">
-                  <div className="text-xs text-muted-foreground">Sotuvlar</div>
-                  <div className="font-bold text-lg">{selectedFirmInfo.firm.totalSales} ta</div>
+                  <div className="text-xs text-muted-foreground mb-1">Sotuvlar soni</div>
+                  <div className="font-bold text-xl">{selectedFirm.totalSales} ta</div>
                 </div>
                 <div className="rounded-lg bg-muted p-3 text-center">
-                  <div className="text-xs text-muted-foreground">Jami g&apos;isht</div>
-                  <div className="font-bold text-lg">{formatNumber(selectedFirmInfo.firm.totalQuantity)} dona</div>
+                  <div className="text-xs text-muted-foreground mb-1">Jami g&apos;isht</div>
+                  <div className="font-bold text-xl">{formatNumber(selectedFirm.totalQuantity)} dona</div>
                 </div>
                 <div className="rounded-lg bg-primary/10 p-3 text-center">
-                  <div className="text-xs text-muted-foreground">Jami summa</div>
-                  <div className="font-bold text-lg text-primary">{formatCurrency(selectedFirmInfo.firm.totalAmount)}</div>
+                  <div className="text-xs text-muted-foreground mb-1">Jami summa</div>
+                  <div className="font-bold text-xl text-primary">{formatCurrency(selectedFirm.totalAmount)}</div>
                 </div>
               </div>
-              <div className="max-h-96 overflow-y-auto">
+              <div className="max-h-[420px] overflow-y-auto rounded-lg border">
                 <DataTable columns={saleColumns} data={firmSales} loading={firmSalesLoading} />
               </div>
             </div>
@@ -352,7 +306,7 @@ export default function PerechisleniyaPage() {
       <Dialog open={addSaleOpen} onOpenChange={(o: boolean) => { if (!o) { setAddSaleOpen(false); setEditSale(null) } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editSale ? 'Sotuvni tahrirlash' : "Firma sotuvini qo'shish"}</DialogTitle>
+            <DialogTitle>{editSale ? 'Sotuvni tahrirlash' : "Perechisleniya sotuv qo'shish"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -383,7 +337,6 @@ export default function PerechisleniyaPage() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="BANK_TRANSFER">Perechisleniya</SelectItem>
-                    <SelectItem value="DEBT">Nasiya</SelectItem>
                     <SelectItem value="CASH">Naqd</SelectItem>
                     <SelectItem value="CARD">Karta</SelectItem>
                   </SelectContent>
@@ -432,12 +385,9 @@ export default function PerechisleniyaPage() {
             </div>
 
             {totalSaleAmount > 0 && (
-              <div className={`rounded-lg px-4 py-2 text-sm ${watchedPayType === 'DEBT' ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20'}`}>
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 text-sm">
                 <span className="text-muted-foreground">Jami summa: </span>
-                <span className={`font-bold ${watchedPayType === 'DEBT' ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                  {formatCurrency(totalSaleAmount)}
-                </span>
-                {watchedPayType === 'DEBT' && <span className="ml-2 text-xs text-amber-600">(Nasiya — Qarzdorlarga qo&apos;shiladi)</span>}
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(totalSaleAmount)}</span>
               </div>
             )}
 
