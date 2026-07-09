@@ -266,7 +266,7 @@ export default function IshchilarPage() {
             <CardContent className="p-4 space-y-4">
               {debtsLoading ? (
                 <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />)}</div>
-              ) : !debts?.data.length ? (
+              ) : !(debts?.data?.length ?? 0) ? (
                 <EmptyState icon={HardHat} title="Qarz yo'q" description="Barcha ishchi to'lovlari to'liq amalga oshirilgan" />
               ) : (
                 <div className="space-y-2">

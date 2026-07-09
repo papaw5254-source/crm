@@ -195,7 +195,7 @@ export default function ExpensesPage() {
       <Card>
         <CardContent className="p-4 space-y-4">
           <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Izoh bo'yicha qidirish..." className="max-w-sm" />
-          {data?.data.length === 0 && !isLoading ? (
+          {(data?.data?.length ?? 0) === 0 && !isLoading ? (
             <EmptyState icon={Receipt} title="Xarajat yo'q" description="Birinchi xarajatni qo'shing" action={<Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />Xarajat qo&apos;shish</Button>} />
           ) : (
             <>

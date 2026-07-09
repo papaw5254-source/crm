@@ -227,7 +227,7 @@ export default function InventoryPage() {
             className="max-w-sm"
           />
 
-          {data?.data.length === 0 && !isLoading ? (
+          {(data?.data?.length ?? 0) === 0 && !isLoading ? (
             <EmptyState
               icon={PackagePlus}
               title="Kirim yo'q"

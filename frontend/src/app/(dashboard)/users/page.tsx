@@ -197,7 +197,7 @@ export default function UsersPage() {
             className="max-w-sm"
           />
 
-          {data?.data.length === 0 && !isLoading ? (
+          {(data?.data?.length ?? 0) === 0 && !isLoading ? (
             <EmptyState icon={UserCog} title="Foydalanuvchi yo'q" description="Birinchi foydalanuvchini qo'shing" />
           ) : (
             <>
