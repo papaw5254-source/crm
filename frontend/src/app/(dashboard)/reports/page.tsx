@@ -106,6 +106,9 @@ export default function ReportsPage() {
         value: Number(val),
       }))
     : []
+  const cashflowInflows = (cashflow?.inflows ?? {}) as Record<string, any>
+  const cashflowOutflows = (cashflow?.outflows ?? {}) as Record<string, any>
+  const cashflowNet = Number(cashflow?.netCashflow ?? 0)
 
   return (
     <div className="space-y-6">
@@ -343,8 +346,8 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Card>
                 <CardContent className="p-4 divide-y divide-border">
-                  <StatRow label="Jami xom g'isht (ombor + zaxira)" value={formatNumber(stock.totalRawBrick) + ' dona'} />
-                  <StatRow label="Jami pishgan g'isht (ombor + zaxira)" value={formatNumber(stock.totalBakedBrick) + ' dona'} />
+                  <StatRow label="Jami xom g'isht (ombor + zaxira)" value={formatNumber(stock?.totalRawBrick ?? 0) + ' dona'} />
+                  <StatRow label="Jami pishgan g'isht (ombor + zaxira)" value={formatNumber(stock?.totalBakedBrick ?? 0) + ' dona'} />
                 </CardContent>
               </Card>
             </div>
@@ -368,8 +371,8 @@ export default function ReportsPage() {
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-base">Ishchi qarzlari</CardTitle></CardHeader>
               <CardContent className="p-4 divide-y divide-border">
-                <StatRow label="Qarzli ishchilar" value={formatNumber(debts.workerDebts.totalWorkers) + ' ta'} />
-                <StatRow label="Jami ishchi qarzlari" value={formatCurrency(debts.workerDebts.totalDebt)} highlight="red" />
+                <StatRow label="Qarzli ishchilar" value={formatNumber(debts?.workerDebts?.totalWorkers ?? 0) + ' ta'} />
+                <StatRow label="Jami ishchi qarzlari" value={formatCurrency(Number(debts?.workerDebts?.totalDebt ?? 0))} highlight="red" />
               </CardContent>
             </Card>
           )}
@@ -412,28 +415,28 @@ export default function ReportsPage() {
           ) : cashflow ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <StatsCard title="Jami kirim" value={cashflow.totalInflows} icon={ArrowUp} color="emerald" />
-                <StatsCard title="Jami chiqim" value={cashflow.totalOutflows} icon={ArrowDown} color="red" />
-                <StatsCard title="Sof pul oqimi" value={cashflow.netCashflow} icon={Banknote} color={cashflow.netCashflow >= 0 ? 'emerald' : 'red'} />
+                <StatsCard title="Jami kirim" value={Number(cashflow?.totalInflows ?? 0)} icon={ArrowUp} color="emerald" />
+                <StatsCard title="Jami chiqim" value={Number(cashflow?.totalOutflows ?? 0)} icon={ArrowDown} color="red" />
+                <StatsCard title="Sof pul oqimi" value={cashflowNet} icon={Banknote} color={cashflowNet >= 0 ? 'emerald' : 'red'} />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader className="pb-2"><CardTitle className="text-base text-emerald-600">Kirimlar</CardTitle></CardHeader>
                   <CardContent className="p-4 divide-y divide-border">
-                    <StatRow label="Naqd sotuvlar" value={formatCurrency(cashflow.inflows.cashSales)} highlight="green" />
-                    <StatRow label="Karta sotuvlar" value={formatCurrency(cashflow.inflows.cardSales)} highlight="green" />
-                    <StatRow label="Perechisleniya sotuvlar" value={formatCurrency(cashflow.inflows.bankTransferSales ?? 0)} highlight="green" />
-                    <StatRow label="Qarz to'lovlari" value={formatCurrency(cashflow.inflows.debtPayments)} highlight="green" />
-                    <StatRow label="Oldindan to'lovlar" value={formatCurrency(cashflow.inflows.prepayments)} highlight="green" />
-                    <StatRow label="Boshqa kirimlar" value={formatCurrency(cashflow.inflows.moneyIncomes)} highlight="green" />
+                    <StatRow label="Naqd sotuvlar" value={formatCurrency(Number(cashflowInflows.cashSales ?? 0))} highlight="green" />
+                    <StatRow label="Karta sotuvlar" value={formatCurrency(Number(cashflowInflows.cardSales ?? 0))} highlight="green" />
+                    <StatRow label="Perechisleniya sotuvlar" value={formatCurrency(Number(cashflowInflows.bankTransferSales ?? 0))} highlight="green" />
+                    <StatRow label="Qarz to'lovlari" value={formatCurrency(Number(cashflowInflows.debtPayments ?? 0))} highlight="green" />
+                    <StatRow label="Oldindan to'lovlar" value={formatCurrency(Number(cashflowInflows.prepayments ?? 0))} highlight="green" />
+                    <StatRow label="Boshqa kirimlar" value={formatCurrency(Number(cashflowInflows.moneyIncomes ?? 0))} highlight="green" />
                   </CardContent>
                 </Card>
                 <Card>
                   <CardHeader className="pb-2"><CardTitle className="text-base text-red-600">Chiqimlar</CardTitle></CardHeader>
                   <CardContent className="p-4 divide-y divide-border">
-                    <StatRow label="Xarajatlar" value={formatCurrency(cashflow.outflows.expenses)} highlight="red" />
-                    <StatRow label="Ishchi to'lovlari" value={formatCurrency(cashflow.outflows.workerPayments)} highlight="red" />
+                    <StatRow label="Xarajatlar" value={formatCurrency(Number(cashflowOutflows.expenses ?? 0))} highlight="red" />
+                    <StatRow label="Ishchi to'lovlari" value={formatCurrency(Number(cashflowOutflows.workerPayments ?? 0))} highlight="red" />
                   </CardContent>
                 </Card>
               </div>
