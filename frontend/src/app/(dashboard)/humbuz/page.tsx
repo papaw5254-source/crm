@@ -136,6 +136,8 @@ export default function HumbuzPage() {
     setValue('responsibleWorker', item.responsibleWorker || '')
     setValue('date', item.date)
     setValue('description', item.description || '')
+    setValue('workerRatePerBrick', Number(item.rawWorkerRatePerBrick ?? item.bakedWorkerRatePerBrick ?? item.workerRatePerBrick ?? 0) || undefined)
+    setValue('workerPaidAmount', Number(item.workerPaidAmount ?? 0) || undefined)
     setDialogOpen(true)
   }
 
