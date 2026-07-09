@@ -194,6 +194,13 @@ export class ReportsService {
     const workerAccrued = workerPayments.reduce((s, x) => s + Number(x.amount), 0);
     const workerPaid = workerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
 
+    const workerByCategory: Record<string, { accrued: number; paid: number }> = {};
+    workerPayments.forEach((wp) => {
+      if (!workerByCategory[wp.category]) workerByCategory[wp.category] = { accrued: 0, paid: 0 };
+      workerByCategory[wp.category].accrued += Number(wp.amount);
+      workerByCategory[wp.category].paid += Number(wp.paidAmount);
+    });
+
     const expensesByCategory: Record<string, number> = {};
     expenses.forEach((e) => {
       expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + Number(e.amount);
@@ -242,6 +249,7 @@ export class ReportsService {
       expensesByCategory,
       workerAccrued,
       workerPayments: workerPaid,
+      workerByCategory,
       receivedCash,
       netProfit,
       paperProfit,
