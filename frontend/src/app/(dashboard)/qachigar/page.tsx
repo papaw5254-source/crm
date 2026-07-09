@@ -44,6 +44,9 @@ export default function QachigarPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<WorkerPayment | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [debtDialogOpen, setDebtDialogOpen] = useState(false)
+  const [debtDateState, setDebtDateState] = useState(new Date().toISOString().split('T')[0])
+  const [debtAmountStr, setDebtAmountStr] = useState('')
   const { page, limit, setPage } = usePagination()
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -60,7 +63,6 @@ export default function QachigarPage() {
   const watchedRate = watch('ratePerBrick') || 0
   const watchedPaid = watch('paidAmount') || 0
 
-  // Dedicated endpoint — avoids DTO whitelist issues and createdBy join errors
   const { data: bakedOutput, isFetching: loadingBaked } = useQuery({
     queryKey: ['kiln-baked-output', watchedDate, watchedKiln],
     queryFn: () => kilnService.getBakedOutput(watchedDate, watchedKiln),
@@ -71,13 +73,18 @@ export default function QachigarPage() {
 
   const todayCost = bakedCount * watchedRate
 
-  // Previous debt comes from the report — no extra query needed
   const { data: report } = useQuery({
     queryKey: ['worker-payments-report'],
     queryFn: () => workerPaymentsService.getReport(),
   })
   const qachigarStats = report?.byCategory?.QACHIGAR ?? { amount: 0, paid: 0, debt: 0 }
-  const totalPrevDebt = Number(qachigarStats.debt ?? 0)
+  const totalEarned = Number(qachigarStats.amount)
+  const totalPaidStat = Number(qachigarStats.paid)
+  const totalRemainingDebt = Number(qachigarStats.debt)
+  // Derived: debtFromPreviousMonth sum = totalDebt + totalPaid - totalEarned
+  const totalPrevDebtStat = Math.max(0, totalRemainingDebt + totalPaidStat - totalEarned)
+  // For dialog overpayment display: current remaining debt = Jami qarz
+  const totalPrevDebt = totalRemainingDebt
 
   const totalOwed = todayCost + totalPrevDebt
   const remainingAfterPayment = Math.max(0, totalOwed - watchedPaid)
@@ -89,7 +96,7 @@ export default function QachigarPage() {
   })
 
   // Filter QACHIGAR client-side since category param may be stripped by DTO whitelist
-  const allPayments = (payments?.data ?? []).filter((p) => p.category === 'QACHIGAR')
+  const allPayments = (payments?.data ?? []).filter((p: WorkerPayment) => p.category === 'QACHIGAR')
   const totalPages = Math.ceil(allPayments.length / limit) || 1
 
   const createMutation = useMutation({
@@ -135,6 +142,30 @@ export default function QachigarPage() {
       queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
       toast.success("To'lov o'chirildi")
       setDeleteId(null)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const oldDebtMutation = useMutation({
+    mutationFn: ({ date, amount }: { date: string; amount: number }) =>
+      workerPaymentsService.create({
+        workerName: 'Qachigar',
+        category: 'QACHIGAR',
+        amount: 0,
+        paidAmount: 0,
+        debtFromPreviousMonth: amount,
+        date,
+        month: new Date(date).getMonth() + 1,
+        year: new Date(date).getFullYear(),
+        description: `Eski qarz: ${formatCurrency(amount)}`,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-qachigar'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      toast.success("Eski qarz qo'shildi")
+      setDebtDialogOpen(false)
+      setDebtAmountStr('')
+      setDebtDateState(new Date().toISOString().split('T')[0])
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -225,16 +256,22 @@ export default function QachigarPage() {
         title="Qachigar to'lovlari"
         description="Xumbuzda pishgan g'isht uchun qachigar ishchi to'lovlari"
         actions={
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1" /> To&apos;lov qo&apos;shish
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setDebtDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Eski qarz qo&apos;shish
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-1" /> To&apos;lov qo&apos;shish
+            </Button>
+          </div>
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatsCard title="Jami hisoblangan" value={Number(qachigarStats.amount)} icon={HardHat} color="amber" />
-        <StatsCard title="Jami to'langan" value={Number(qachigarStats.paid)} icon={HardHat} color="emerald" />
-        <StatsCard title="Jami qarz" value={Number(qachigarStats.debt)} icon={HardHat} color="red" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard title="Bu oy hisoblangan" value={totalEarned} icon={HardHat} color="amber" />
+        <StatsCard title="Berildi" value={totalPaidStat} icon={HardHat} color="emerald" />
+        <StatsCard title="Oldingi qarz" value={totalPrevDebtStat} icon={HardHat} color="amber" />
+        <StatsCard title="Jami qarz" value={totalRemainingDebt} icon={HardHat} color="red" />
       </div>
 
       <Card>
@@ -297,7 +334,7 @@ export default function QachigarPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Xumbuz *</Label>
-                    <Select defaultValue="HUMBUZ_1" onValueChange={(v) => setValue('kilnName', v as KilnName)}>
+                    <Select defaultValue="HUMBUZ_1" onValueChange={(v: string) => setValue('kilnName', v as KilnName)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {KILNS.map((k) => <SelectItem key={k} value={k}>{kilnNameLabel(k)}</SelectItem>)}
@@ -386,7 +423,10 @@ export default function QachigarPage() {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Bekor qilish</Button>
               <Button
                 type="submit"
-                disabled={isSubmitting || createMutation.isPending || updateMutation.isPending || (!editItem && bakedCount === 0)}
+                disabled={
+                  isSubmitting || createMutation.isPending || updateMutation.isPending ||
+                  (!editItem && bakedCount === 0)
+                }
               >
                 {isSubmitting || createMutation.isPending || updateMutation.isPending ? 'Saqlanmoqda...' : editItem ? 'Saqlash' : "Qo'shish"}
               </Button>
@@ -403,6 +443,33 @@ export default function QachigarPage() {
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
         loading={deleteMutation.isPending}
       />
+
+      <Dialog open={debtDialogOpen} onOpenChange={(o) => { setDebtDialogOpen(o); if (!o) { setDebtAmountStr(''); setDebtDateState(new Date().toISOString().split('T')[0]) } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Eski qarz qo&apos;shish</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Sana</Label>
+              <Input type="date" value={debtDateState} onChange={(e) => setDebtDateState(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Qarz miqdori (so&apos;m)</Label>
+              <Input type="number" placeholder="0" value={debtAmountStr} onChange={(e) => setDebtAmountStr(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDebtDialogOpen(false)}>Bekor qilish</Button>
+            <Button
+              disabled={!debtAmountStr || Number(debtAmountStr) <= 0 || oldDebtMutation.isPending}
+              onClick={() => oldDebtMutation.mutate({ date: debtDateState, amount: Number(debtAmountStr) })}
+            >
+              {oldDebtMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
