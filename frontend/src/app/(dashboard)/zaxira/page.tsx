@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { toast } from 'sonner'
 import { reserveService } from '@/services/reserve.service'
 import { salesService } from '@/services/sales.service'
+import { workerPaymentsService } from '@/services/worker-payments.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
@@ -67,6 +68,11 @@ export default function ZaxiraPage() {
   // sale tab state
   const [saleDialogOpen, setSaleDialogOpen] = useState(false)
   const { page: salePage, limit: saleLimit, setPage: setSalePage } = usePagination()
+
+  // eski qarz
+  const [debtDialogOpen, setDebtDialogOpen] = useState(false)
+  const [debtAmountStr, setDebtAmountStr] = useState('')
+  const [debtDate, setDebtDate] = useState(new Date().toISOString().split('T')[0])
 
   // ─── Queries ───────────────────────────────────────────────────────────────
   const { data: balance, isLoading: balanceLoading } = useQuery({
@@ -212,6 +218,28 @@ export default function ZaxiraPage() {
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
+  const oldDebtMutation = useMutation({
+    mutationFn: ({ date, amount }: { date: string; amount: number }) =>
+      workerPaymentsService.create({
+        workerName: 'Zaxira ishchi',
+        category: 'RESERVE_RAW_LOADING',
+        amount: 0,
+        paidAmount: 0,
+        debtFromPreviousMonth: amount,
+        date,
+        description: `Eski qarz: ${amount.toLocaleString()} so'm`,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+      toast.success("Eski qarz qo'shildi")
+      setDebtDialogOpen(false)
+      setDebtAmountStr('')
+      setDebtDate(new Date().toISOString().split('T')[0])
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
   const deleteSaleMutation = useMutation({
     mutationFn: (id: string) => salesService.delete(id),
     onSuccess: () => {
@@ -331,6 +359,11 @@ export default function ZaxiraPage() {
       <PageHeader
         title="Zaxira boshqaruvi"
         description="Xom va pishgan g'isht zaxirasi"
+        actions={
+          <Button variant="outline" onClick={() => setDebtDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Eski qarz qo&apos;shish
+          </Button>
+        }
       />
 
       {/* Balance Cards */}
@@ -671,6 +704,34 @@ export default function ZaxiraPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Eski qarz dialog */}
+      <Dialog open={debtDialogOpen} onOpenChange={(o: boolean) => { setDebtDialogOpen(o); if (!o) { setDebtAmountStr(''); setDebtDate(new Date().toISOString().split('T')[0]) } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Eski qarz qo&apos;shish (Zaxira)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Sana</Label>
+              <Input type="date" value={debtDate} onChange={(e) => setDebtDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Qarz miqdori (so&apos;m)</Label>
+              <Input type="number" placeholder="0" value={debtAmountStr} onChange={(e) => setDebtAmountStr(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDebtDialogOpen(false)}>Bekor qilish</Button>
+            <Button
+              disabled={!debtAmountStr || Number(debtAmountStr) <= 0 || oldDebtMutation.isPending}
+              onClick={() => oldDebtMutation.mutate({ date: debtDate, amount: Number(debtAmountStr) })}
+            >
+              {oldDebtMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

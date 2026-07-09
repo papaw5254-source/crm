@@ -51,6 +51,9 @@ export default function HumbuzPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<KilnOperation | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [debtDialogOpen, setDebtDialogOpen] = useState(false)
+  const [debtAmountStr, setDebtAmountStr] = useState('')
+  const [debtDate, setDebtDate] = useState(new Date().toISOString().split('T')[0])
   const { page, limit, setPage } = usePagination()
 
   const { data, isLoading } = useQuery({
@@ -136,10 +139,33 @@ export default function HumbuzPage() {
     setValue('responsibleWorker', item.responsibleWorker || '')
     setValue('date', item.date)
     setValue('description', item.description || '')
-    setValue('workerRatePerBrick', Number(item.rawWorkerRatePerBrick ?? item.bakedWorkerRatePerBrick ?? item.workerRatePerBrick ?? 0) || undefined)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setValue('workerRatePerBrick', Number((item as any).rawWorkerRatePerBrick ?? (item as any).bakedWorkerRatePerBrick ?? item.workerRatePerBrick ?? 0) || undefined)
     setValue('workerPaidAmount', Number(item.workerPaidAmount ?? 0) || undefined)
     setDialogOpen(true)
   }
+
+  const oldDebtMutation = useMutation({
+    mutationFn: ({ date, amount }: { date: string; amount: number }) =>
+      workerPaymentsService.create({
+        workerName: 'Humbuz ishchi',
+        category: 'HUMBUZ_KIRDI_CHIQDI',
+        amount: 0,
+        paidAmount: 0,
+        debtFromPreviousMonth: amount,
+        date,
+        description: `Eski qarz: ${amount.toLocaleString()} so'm`,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+      toast.success("Eski qarz qo'shildi")
+      setDebtDialogOpen(false)
+      setDebtAmountStr('')
+      setDebtDate(new Date().toISOString().split('T')[0])
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
 
   const openCreate = () => {
     setEditItem(null)
@@ -220,9 +246,14 @@ export default function HumbuzPage() {
         title="Humbuz boshqaruvi"
         description="3 ta humbuz operatsiyalari"
         actions={
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1" /> Operatsiya qo&apos;shish
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setDebtDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Eski qarz qo&apos;shish
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-1" /> Operatsiya qo&apos;shish
+            </Button>
+          </div>
         }
       />
 
@@ -384,6 +415,34 @@ export default function HumbuzPage() {
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
         loading={deleteMutation.isPending}
       />
+
+      {/* Eski qarz dialog */}
+      <Dialog open={debtDialogOpen} onOpenChange={(o: boolean) => { setDebtDialogOpen(o); if (!o) { setDebtAmountStr(''); setDebtDate(new Date().toISOString().split('T')[0]) } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Eski qarz qo&apos;shish (Humbuz)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Sana</Label>
+              <Input type="date" value={debtDate} onChange={(e) => setDebtDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Qarz miqdori (so&apos;m)</Label>
+              <Input type="number" placeholder="0" value={debtAmountStr} onChange={(e) => setDebtAmountStr(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDebtDialogOpen(false)}>Bekor qilish</Button>
+            <Button
+              disabled={!debtAmountStr || Number(debtAmountStr) <= 0 || oldDebtMutation.isPending}
+              onClick={() => oldDebtMutation.mutate({ date: debtDate, amount: Number(debtAmountStr) })}
+            >
+              {oldDebtMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
