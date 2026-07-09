@@ -39,6 +39,11 @@ export const kilnService = {
     await api.delete(`/kilns/operations/${id}`)
   },
 
+  async getBakedOutput(date: string, kilnName: string): Promise<number> {
+    const res = await api.get('/kilns/baked-output', { params: { date, kilnName } })
+    return Number(res.data?.data?.data ?? res.data?.data ?? res.data ?? 0)
+  },
+
   async getReport(params?: { dateFrom?: string; dateTo?: string; kilnName?: string }) {
     const res = await api.get('/kilns/report', { params })
     return res.data?.data?.data ?? res.data?.data ?? res.data
