@@ -160,6 +160,9 @@ export default function HumbuzPage() {
       queryClient.invalidateQueries({ queryKey: ['stock'] })
       queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
       queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-qachigar'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success("Operatsiya o'chirildi")
       setDeleteId(null)
     },

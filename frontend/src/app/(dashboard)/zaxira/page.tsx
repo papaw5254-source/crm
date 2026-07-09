@@ -202,6 +202,9 @@ export default function ZaxiraPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
       queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success("Harakat o'chirildi")
     },
