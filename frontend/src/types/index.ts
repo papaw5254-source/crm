@@ -269,7 +269,7 @@ export type WorkerPaymentCategory =
   | 'QACHIGAR'
   | 'PRESS'
   | 'KRETKACHI'
-  | 'ESHKI'
+  | 'ESHIKCHI'
   | 'FIELD_RAW_LOADING'
   | 'RESERVE_RAW_LOADING'
   | 'RESERVE_BAKED_LOADING'

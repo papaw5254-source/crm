@@ -110,15 +110,15 @@ export class InventoryService {
     if (eshkiDaily > 0 || eshkiOld > 0) {
       await this.workerPaymentRepository.save(
         this.workerPaymentRepository.create({
-          workerName: 'Eshki',
-          category: WorkerPaymentCategory.ESHKI,
+          workerName: 'Eshikchi',
+          category: WorkerPaymentCategory.ESHIKCHI,
           amount: eshkiDaily,
           paidAmount: eshkiPaid,
           debtFromPreviousMonth: eshkiOld,
           remainingDebt: eshkiDebtVal,
           month: createDto.date.slice(0, 7),
           date: createDto.date,
-          description: `Eshki kunlik to'lov — ${createDto.date}`,
+          description: `Eshikchi kunlik to'lov — ${createDto.date}`,
           sourceType: 'INVENTORY_INCOME_ESHKI',
           sourceId: saved.id,
           createdById: userId,
@@ -268,15 +268,15 @@ export class InventoryService {
       if (eDaily > 0 || eOld > 0) {
         await this.workerPaymentRepository.save(
           this.workerPaymentRepository.create({
-            workerName: 'Eshki',
-            category: WorkerPaymentCategory.ESHKI,
+            workerName: 'Eshikchi',
+            category: WorkerPaymentCategory.ESHIKCHI,
             amount: eDaily,
             paidAmount: ePaid,
             debtFromPreviousMonth: eOld,
             remainingDebt: income.eshkiDebt,
             month: income.date.slice(0, 7),
             date: income.date,
-            description: `Eshki kunlik to'lov — ${income.date}`,
+            description: `Eshikchi kunlik to'lov — ${income.date}`,
             sourceType: 'INVENTORY_INCOME_ESHKI',
             sourceId: id,
             createdById: userId,

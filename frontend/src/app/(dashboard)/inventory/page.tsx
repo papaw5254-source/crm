@@ -65,9 +65,9 @@ export default function InventoryPage() {
   const [kretkachDebtDate, setKretkachDebtDate] = useState(new Date().toISOString().split('T')[0])
 
   // eshki eski qarz
-  const [eshkiDebtDialogOpen, setEshkiDebtDialogOpen] = useState(false)
-  const [eshkiDebtAmountStr, setEshkiDebtAmountStr] = useState('')
-  const [eshkiDebtDate, setEshkiDebtDate] = useState(new Date().toISOString().split('T')[0])
+  const [eshkiDebtDialogOpen, setEshikchiDebtDialogOpen] = useState(false)
+  const [eshkiDebtAmountStr, setEshikchiDebtAmountStr] = useState('')
+  const [eshkiDebtDate, setEshikchiDebtDate] = useState(new Date().toISOString().split('T')[0])
 
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
@@ -105,11 +105,11 @@ export default function InventoryPage() {
   const totalKretkachCost = watchedQty * watchedKretkachRate
   const kretkachDebt = Math.max(0, watchedKretkachOldDebt + totalKretkachCost - watchedKretkachPaid)
 
-  // Eshki watches
-  const watchedEshkiDaily = watch('eshkiDailyAmount') || 0
-  const watchedEshkiPaid = watch('eshkiPaidAmount') || 0
-  const watchedEshkiOldDebt = watch('eshkiOldDebt') || 0
-  const eshkiDebt = Math.max(0, watchedEshkiOldDebt + watchedEshkiDaily - watchedEshkiPaid)
+  // Eshikchi watches
+  const watchedEshikchiDaily = watch('eshkiDailyAmount') || 0
+  const watchedEshikchiPaid = watch('eshkiPaidAmount') || 0
+  const watchedEshikchiOldDebt = watch('eshkiOldDebt') || 0
+  const eshkiDebt = Math.max(0, watchedEshikchiOldDebt + watchedEshikchiDaily - watchedEshikchiPaid)
 
   const invalidateWorkerPayments = () => {
     queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
@@ -162,8 +162,8 @@ export default function InventoryPage() {
   const eshkiOldDebtMutation = useMutation({
     mutationFn: ({ date, amount }: { date: string; amount: number }) =>
       workerPaymentsService.create({
-        workerName: 'Eshki',
-        category: 'ESHKI',
+        workerName: 'Eshikchi',
+        category: 'ESHIKCHI',
         amount: 0,
         paidAmount: 0,
         debtFromPreviousMonth: amount,
@@ -172,10 +172,10 @@ export default function InventoryPage() {
       }),
     onSuccess: () => {
       invalidateWorkerPayments()
-      toast.success("Eshki eski qarz qo'shildi")
-      setEshkiDebtDialogOpen(false)
-      setEshkiDebtAmountStr('')
-      setEshkiDebtDate(new Date().toISOString().split('T')[0])
+      toast.success("Eshikchi eski qarz qo'shildi")
+      setEshikchiDebtDialogOpen(false)
+      setEshikchiDebtAmountStr('')
+      setEshikchiDebtDate(new Date().toISOString().split('T')[0])
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -286,7 +286,7 @@ export default function InventoryPage() {
     },
     {
       key: 'eshki',
-      header: 'Eshki puli',
+      header: 'Eshikchi puli',
       cell: (row: InventoryIncome) => Number(row.eshkiDailyAmount) > 0 || Number(row.eshkiOldDebt) > 0 ? (
         <div className="text-sm">
           <div className="font-medium">{formatCurrency(Number(row.eshkiDailyAmount ?? 0))}</div>
@@ -343,8 +343,8 @@ export default function InventoryPage() {
             <Button variant="outline" onClick={() => setKretkachDebtDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-1" /> Kretkachi eski qarz
             </Button>
-            <Button variant="outline" onClick={() => setEshkiDebtDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Eshki eski qarz
+            <Button variant="outline" onClick={() => setEshikchiDebtDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Eshikchi eski qarz
             </Button>
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4 mr-1" />
@@ -392,11 +392,11 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {/* Eshki worker stats */}
+      {/* Eshikchi worker stats */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <HardHat className="h-4 w-4" /> Ishchi puli (Eshki)
+            <HardHat className="h-4 w-4" /> Ishchi puli (Eshikchi)
           </h3>
           <Link href="/ishchilar" className="text-sm text-primary hover:underline font-medium">
             Barchasini ko&apos;rish →
@@ -544,9 +544,9 @@ export default function InventoryPage() {
               )}
             </div>
 
-            {/* Eshki section */}
+            {/* Eshikchi section */}
             <div className="rounded-lg border border-dashed border-blue-300 dark:border-blue-700 p-3 space-y-3">
-              <p className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide">Eshki puli — kunlik (ixtiyoriy)</p>
+              <p className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide">Eshikchi puli — kunlik (ixtiyoriy)</p>
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-2">
                   <Label>Oldingi qarz (so&apos;m)</Label>
@@ -561,21 +561,21 @@ export default function InventoryPage() {
                   <Input {...register('eshkiPaidAmount')} type="number" placeholder="0" />
                 </div>
               </div>
-              {(watchedEshkiDaily > 0 || watchedEshkiOldDebt > 0) && (
+              {(watchedEshikchiDaily > 0 || watchedEshikchiOldDebt > 0) && (
                 <div className="grid grid-cols-4 gap-2 text-sm">
-                  {watchedEshkiOldDebt > 0 && (
+                  {watchedEshikchiOldDebt > 0 && (
                     <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-center">
                       <div className="text-xs text-muted-foreground">Oldingi qarz</div>
-                      <div className="font-semibold text-amber-700 dark:text-amber-400">{formatCurrency(watchedEshkiOldDebt)}</div>
+                      <div className="font-semibold text-amber-700 dark:text-amber-400">{formatCurrency(watchedEshikchiOldDebt)}</div>
                     </div>
                   )}
-                  <div className={`rounded-md bg-muted px-3 py-2 text-center ${watchedEshkiOldDebt > 0 ? '' : 'col-span-2'}`}>
+                  <div className={`rounded-md bg-muted px-3 py-2 text-center ${watchedEshikchiOldDebt > 0 ? '' : 'col-span-2'}`}>
                     <div className="text-xs text-muted-foreground">Bugungi ish</div>
-                    <div className="font-semibold">{formatCurrency(watchedEshkiDaily)}</div>
+                    <div className="font-semibold">{formatCurrency(watchedEshikchiDaily)}</div>
                   </div>
                   <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
                     <div className="text-xs text-muted-foreground">Berildi</div>
-                    <div className="font-semibold text-emerald-600">{formatCurrency(watchedEshkiPaid)}</div>
+                    <div className="font-semibold text-emerald-600">{formatCurrency(watchedEshikchiPaid)}</div>
                   </div>
                   <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
                     <div className="text-xs text-muted-foreground">Jami qarz</div>
@@ -669,24 +669,24 @@ export default function InventoryPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Eshki eski qarz dialog */}
-      <Dialog open={eshkiDebtDialogOpen} onOpenChange={(o: boolean) => { setEshkiDebtDialogOpen(o); if (!o) { setEshkiDebtAmountStr(''); setEshkiDebtDate(new Date().toISOString().split('T')[0]) } }}>
+      {/* Eshikchi eski qarz dialog */}
+      <Dialog open={eshkiDebtDialogOpen} onOpenChange={(o: boolean) => { setEshikchiDebtDialogOpen(o); if (!o) { setEshikchiDebtAmountStr(''); setEshikchiDebtDate(new Date().toISOString().split('T')[0]) } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Eshki eski qarz qo&apos;shish</DialogTitle>
+            <DialogTitle>Eshikchi eski qarz qo&apos;shish</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Sana</Label>
-              <Input type="date" value={eshkiDebtDate} onChange={(e) => setEshkiDebtDate(e.target.value)} />
+              <Input type="date" value={eshkiDebtDate} onChange={(e) => setEshikchiDebtDate(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Qarz miqdori (so&apos;m)</Label>
-              <Input type="number" placeholder="0" value={eshkiDebtAmountStr} onChange={(e) => setEshkiDebtAmountStr(e.target.value)} />
+              <Input type="number" placeholder="0" value={eshkiDebtAmountStr} onChange={(e) => setEshikchiDebtAmountStr(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEshkiDebtDialogOpen(false)}>Bekor qilish</Button>
+            <Button variant="outline" onClick={() => setEshikchiDebtDialogOpen(false)}>Bekor qilish</Button>
             <Button
               disabled={!eshkiDebtAmountStr || Number(eshkiDebtAmountStr) <= 0 || eshkiOldDebtMutation.isPending}
               onClick={() => eshkiOldDebtMutation.mutate({ date: eshkiDebtDate, amount: Number(eshkiDebtAmountStr) })}
