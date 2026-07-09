@@ -300,18 +300,14 @@ export class SalesService {
   }
 
   async getFirmSales(firmName: string, paymentType: PaymentType): Promise<Sale[]> {
-    const qb = this.saleRepository
-      .createQueryBuilder('sale')
-      .where('sale.paymentType = :paymentType', { paymentType })
-      .orderBy('sale.date', 'DESC');
-
-    if (firmName === "Noma'lum") {
-      qb.andWhere('sale.customerName IS NULL');
-    } else {
-      qb.andWhere('sale.customerName = :customerName', { customerName: firmName });
-    }
-
-    return qb.getMany();
+    const isUnknown = firmName === "Noma'lum";
+    return this.saleRepository.find({
+      where: {
+        paymentType,
+        customerName: isUnknown ? IsNull() : firmName,
+      },
+      order: { date: 'DESC' },
+    });
   }
 
   async getFirmNames(): Promise<string[]> {
