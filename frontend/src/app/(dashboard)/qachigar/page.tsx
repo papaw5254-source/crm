@@ -90,14 +90,16 @@ export default function QachigarPage() {
   const remainingAfterPayment = Math.max(0, totalOwed - watchedPaid)
   const overpaymentFromPrev = Math.max(0, watchedPaid - todayCost)
 
+  // Fetch all records with a large limit — category param is stripped by DTO whitelist,
+  // so we filter QACHIGAR client-side from the full result set
   const { data: payments, isLoading } = useQuery({
-    queryKey: ['worker-payments-qachigar', page, limit],
-    queryFn: () => workerPaymentsService.getAll({ page, limit } as Parameters<typeof workerPaymentsService.getAll>[0]),
+    queryKey: ['worker-payments-qachigar'],
+    queryFn: () => workerPaymentsService.getAll({ limit: 500, sortBy: 'date', sortOrder: 'DESC' } as Parameters<typeof workerPaymentsService.getAll>[0]),
   })
 
-  // Filter QACHIGAR client-side since category param may be stripped by DTO whitelist
-  const allPayments = (payments?.data ?? []).filter((p: WorkerPayment) => p.category === 'QACHIGAR')
-  const totalPages = Math.ceil(allPayments.length / limit) || 1
+  const filteredAll = (payments?.data ?? []).filter((p: WorkerPayment) => p.category === 'QACHIGAR')
+  const totalPages = Math.ceil(filteredAll.length / limit) || 1
+  const allPayments = filteredAll.slice((page - 1) * limit, page * limit)
 
   const createMutation = useMutation({
     mutationFn: (d: FormData) =>
@@ -282,8 +284,8 @@ export default function QachigarPage() {
           ) : (
             <>
               <DataTable columns={columns} data={allPayments} loading={isLoading} />
-              {payments && (
-                <Pagination page={page} totalPages={totalPages} total={allPayments.length} limit={limit} onPageChange={setPage} />
+              {filteredAll.length > limit && (
+                <Pagination page={page} totalPages={totalPages} total={filteredAll.length} limit={limit} onPageChange={setPage} />
               )}
             </>
           )}
@@ -440,7 +442,7 @@ export default function QachigarPage() {
         loading={deleteMutation.isPending}
       />
 
-      <Dialog open={debtDialogOpen} onOpenChange={(o) => { setDebtDialogOpen(o); if (!o) { setDebtAmountStr(''); setDebtDateState(new Date().toISOString().split('T')[0]) } }}>
+      <Dialog open={debtDialogOpen} onOpenChange={(o: boolean) => { setDebtDialogOpen(o); if (!o) { setDebtAmountStr(''); setDebtDateState(new Date().toISOString().split('T')[0]) } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Eski qarz qo&apos;shish</DialogTitle>
