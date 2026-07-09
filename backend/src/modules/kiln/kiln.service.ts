@@ -225,10 +225,28 @@ export class KilnService {
 
   async remove(id: string): Promise<void> {
     const op = await this.findOne(id);
-    await this.dataSource.getRepository(WorkerPayment).delete({
-      sourceType: 'KILN_OPERATION',
-      sourceId: op.id,
-    });
+    const wpRepo = this.dataSource.getRepository(WorkerPayment);
+
+    // Delete worker payments linked to this operation via sourceId
+    await wpRepo.delete({ sourceType: 'KILN_OPERATION', sourceId: op.id });
+
+    // Also delete standalone qachigar payments for the same date+kiln
+    // (created via the Qachigar page — they have no sourceId)
+    const kilnLabels: Record<string, string> = {
+      HUMBUZ_1: '1-Humbuz',
+      HUMBUZ_2: '2-Humbuz',
+      HUMBUZ_3: '3-Humbuz',
+    };
+    const kilnLabel = kilnLabels[op.kilnName] ?? op.kilnName;
+    await wpRepo.createQueryBuilder()
+      .delete()
+      .from(WorkerPayment)
+      .where('category = :cat', { cat: WorkerPaymentCategory.QACHIGAR })
+      .andWhere('date = :date', { date: op.date })
+      .andWhere('description LIKE :desc', { desc: `%${kilnLabel}%` })
+      .andWhere('(source_type IS NULL OR source_type != :st)', { st: 'KILN_OPERATION' })
+      .execute();
+
     await this.kilnOperationRepository.remove(op);
   }
 
