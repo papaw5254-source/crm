@@ -1,4 +1,4 @@
-import { api } from './api'
+import { api, getApiPayload } from './api'
 import type { ReserveMovement, ReserveBalance, PaginatedResponse, PaginationParams } from '@/types'
 
 export interface CreateReserveMovementDto {
@@ -16,17 +16,17 @@ export interface CreateReserveMovementDto {
 export const reserveService = {
   async getAll(params?: PaginationParams & { brickType?: string; movementType?: string }): Promise<PaginatedResponse<ReserveMovement>> {
     const res = await api.get('/reserve/movements', { params })
-    return res.data.data
+    return getApiPayload(res.data)
   },
 
   async create(data: CreateReserveMovementDto): Promise<ReserveMovement> {
     const res = await api.post('/reserve/movements', data)
-    return res.data.data
+    return getApiPayload(res.data)
   },
 
   async update(id: string, data: CreateReserveMovementDto): Promise<ReserveMovement> {
     const res = await api.patch(`/reserve/movements/${id}`, data)
-    return res.data.data
+    return getApiPayload(res.data)
   },
 
   async delete(id: string): Promise<void> {
@@ -35,11 +35,11 @@ export const reserveService = {
 
   async getBalance(): Promise<ReserveBalance> {
     const res = await api.get('/reserve/balance')
-    return res.data.data
+    return getApiPayload(res.data)
   },
 
   async getReport(params?: { dateFrom?: string; dateTo?: string }) {
     const res = await api.get('/reserve/report', { params })
-    return res.data.data
+    return getApiPayload(res.data)
   },
 }
