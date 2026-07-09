@@ -1,4 +1,4 @@
-import { api, getApiPayload } from './api'
+import { api } from './api'
 import type { KilnOperation, PaginatedResponse, PaginationParams } from '@/types'
 
 export interface CreateKilnOperationDto {
@@ -22,17 +22,17 @@ export interface CreateKilnOperationDto {
 export const kilnService = {
   async getAll(params?: PaginationParams & { kilnName?: string; dateFrom?: string; dateTo?: string }): Promise<PaginatedResponse<KilnOperation>> {
     const res = await api.get('/kilns/operations', { params })
-    return getApiPayload(res.data)
+    return res.data?.data?.data ?? res.data?.data ?? res.data
   },
 
   async create(data: CreateKilnOperationDto): Promise<KilnOperation> {
     const res = await api.post('/kilns/operations', data)
-    return getApiPayload(res.data)
+    return res.data?.data?.data ?? res.data?.data ?? res.data
   },
 
   async update(id: string, data: Partial<CreateKilnOperationDto>): Promise<KilnOperation> {
     const res = await api.patch(`/kilns/operations/${id}`, data)
-    return getApiPayload(res.data)
+    return res.data?.data?.data ?? res.data?.data ?? res.data
   },
 
   async delete(id: string): Promise<void> {
@@ -41,6 +41,6 @@ export const kilnService = {
 
   async getReport(params?: { dateFrom?: string; dateTo?: string; kilnName?: string }) {
     const res = await api.get('/kilns/report', { params })
-    return getApiPayload(res.data)
+    return res.data?.data?.data ?? res.data?.data ?? res.data
   },
 }
