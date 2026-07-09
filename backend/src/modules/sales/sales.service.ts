@@ -300,8 +300,18 @@ export class SalesService {
   }
 
   async getFirmSales(firmName: string, paymentType: PaymentType): Promise<Sale[]> {
-    // TEST: return empty to check if deploy is working
-    return [];
+    return this.saleRepository
+      .createQueryBuilder('sale')
+      .select([
+        'sale.id', 'sale.customerName', 'sale.customerPhone',
+        'sale.brickType', 'sale.quantity', 'sale.pricePerBrick',
+        'sale.totalAmount', 'sale.paymentType', 'sale.date',
+        'sale.description', 'sale.createdAt',
+      ])
+      .where('sale.customerName = :firmName', { firmName })
+      .andWhere('sale.paymentType = :paymentType', { paymentType })
+      .orderBy('sale.date', 'DESC')
+      .getMany();
   }
 
   async getFirmNames(): Promise<string[]> {

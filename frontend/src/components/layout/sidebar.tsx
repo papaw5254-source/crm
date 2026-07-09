@@ -51,6 +51,7 @@ const navGroups: NavGroup[] = [
       { href: '/inventory', icon: PackagePlus, label: "Xom g'isht kirim" },
       { href: '/sales', icon: ShoppingCart, label: 'Sotuvlar' },
       { href: '/humbuz', icon: Flame, label: 'Humbuz' },
+      { href: '/qachigar', icon: HardHat, label: 'Qachigar' },
       { href: '/zaxira', icon: Warehouse, label: 'Zaxira' },
     ],
   },
