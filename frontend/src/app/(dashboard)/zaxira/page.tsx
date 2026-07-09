@@ -36,6 +36,7 @@ const movementSchema = z.object({
   date: z.string().min(1, 'Sana kiritilishi shart'),
   workerRatePerBrick: z.coerce.number().min(0).optional(),
   workerPaidAmount: z.coerce.number().min(0).optional(),
+  workerOldDebt: z.coerce.number().min(0).optional(),
 })
 type MovementForm = z.infer<typeof movementSchema>
 
@@ -136,9 +137,10 @@ export default function ZaxiraPage() {
 
   const watchedMovRate = movForm.watch('workerRatePerBrick') || 0
   const watchedMovPaid = movForm.watch('workerPaidAmount') || 0
+  const watchedMovOldDebt = movForm.watch('workerOldDebt') || 0
   const watchedMovQty = movForm.watch('quantity') || 0
   const totalMovWorkerCost = watchedMovQty * watchedMovRate
-  const movWorkerDebt = totalMovWorkerCost - watchedMovPaid
+  const movWorkerDebt = Math.max(0, watchedMovOldDebt + totalMovWorkerCost - watchedMovPaid)
   const rawReserveBalance = Number(balance?.rawBrick ?? balance?.RAW_BRICK ?? 0)
   const bakedReserveBalance = Number(balance?.bakedBrick ?? balance?.BAKED_BRICK ?? 0)
   const movementRowsAll = Array.isArray(movements?.data) ? movements.data : []
@@ -174,6 +176,7 @@ export default function ZaxiraPage() {
       reason: movement.reason || '',
       workerRatePerBrick: Number(movement.workerRatePerBrick || 0),
       workerPaidAmount: Number(movement.workerPaidAmount || 0),
+      workerOldDebt: Number(movement.workerOldDebt ?? 0) || undefined,
     })
     setMovementDialogOpen(true)
   }
@@ -556,7 +559,11 @@ export default function ZaxiraPage() {
             </div>
             <div className="rounded-lg border border-dashed p-3 space-y-3">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (ixtiyoriy)</p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label>Oldingi qarz (so&apos;m)</Label>
+                  <Input {...movForm.register('workerOldDebt')} type="number" placeholder="0" />
+                </div>
                 <div className="space-y-2">
                   <Label>1 dona uchun narx (so&apos;m)</Label>
                   <Input {...movForm.register('workerRatePerBrick')} type="number" placeholder="25" />
@@ -566,10 +573,16 @@ export default function ZaxiraPage() {
                   <Input {...movForm.register('workerPaidAmount')} type="number" placeholder="0" />
                 </div>
               </div>
-              {totalMovWorkerCost > 0 && (
-                <div className="grid grid-cols-3 gap-2 text-sm">
-                  <div className="rounded-md bg-muted px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Jami ishchi puli</div>
+              {(totalMovWorkerCost > 0 || watchedMovOldDebt > 0) && (
+                <div className="grid grid-cols-4 gap-2 text-sm">
+                  {watchedMovOldDebt > 0 && (
+                    <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Oldingi qarz</div>
+                      <div className="font-semibold text-amber-700 dark:text-amber-400">{formatCurrency(watchedMovOldDebt)}</div>
+                    </div>
+                  )}
+                  <div className={`rounded-md bg-muted px-3 py-2 text-center ${watchedMovOldDebt > 0 ? '' : 'col-span-2'}`}>
+                    <div className="text-xs text-muted-foreground">Bugungi ish</div>
                     <div className="font-semibold">{formatCurrency(totalMovWorkerCost)}</div>
                   </div>
                   <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
@@ -577,8 +590,8 @@ export default function ZaxiraPage() {
                     <div className="font-semibold text-emerald-600">{formatCurrency(watchedMovPaid)}</div>
                   </div>
                   <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Zavod qarzi</div>
-                    <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, movWorkerDebt))}</div>
+                    <div className="text-xs text-muted-foreground">Jami qarz</div>
+                    <div className="font-semibold text-red-500">{formatCurrency(movWorkerDebt)}</div>
                   </div>
                 </div>
               )}

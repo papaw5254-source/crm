@@ -60,6 +60,12 @@ export class CreateKilnOperationDto {
   @Min(0)
   workerPaidAmount?: number;
 
+  @ApiPropertyOptional({ example: 500000, description: 'Oldingi oydan qolgan ishchi qarzi' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  workerOldDebt?: number;
+
   @ApiPropertyOptional({ example: 20, description: 'Humbuzga kirgan xom gisht uchun 1 dona ishchi narxi' })
   @IsOptional()
   @IsNumber()

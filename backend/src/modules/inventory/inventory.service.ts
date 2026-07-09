@@ -27,10 +27,11 @@ export class InventoryService {
     let totalWorkerCost: number | null = null;
     let workerDebt: number | null = null;
 
+    const oldDebt = createDto.workerOldDebt || 0;
     if (createDto.workerRatePerBrick) {
       totalWorkerCost = createDto.quantity * createDto.workerRatePerBrick;
       const paid = createDto.workerPaidAmount || 0;
-      workerDebt = totalWorkerCost - paid;
+      workerDebt = Math.max(0, oldDebt + totalWorkerCost - paid);
     }
 
     const income = this.inventoryIncomeRepository.create({
@@ -38,6 +39,7 @@ export class InventoryService {
       brickType,
       totalWorkerCost,
       workerPaidAmount: createDto.workerPaidAmount || 0,
+      workerOldDebt: oldDebt,
       workerDebt,
       createdById: userId,
     });
@@ -51,6 +53,7 @@ export class InventoryService {
           category: WorkerPaymentCategory.PRESS,
           amount: totalWorkerCost,
           paidAmount: paid,
+          debtFromPreviousMonth: oldDebt,
           remainingDebt: workerDebt!,
           month: createDto.date.slice(0, 7),
           date: createDto.date,
@@ -124,12 +127,14 @@ export class InventoryService {
     const brickType = income.brickType || BrickType.BAKED_BRICK;
 
     Object.assign(income, updateDto);
-    if (updateDto.quantity !== undefined || updateDto.workerRatePerBrick !== undefined || updateDto.workerPaidAmount !== undefined) {
+    if (updateDto.quantity !== undefined || updateDto.workerRatePerBrick !== undefined || updateDto.workerPaidAmount !== undefined || updateDto.workerOldDebt !== undefined) {
       const rate = Number(updateDto.workerRatePerBrick ?? income.workerRatePerBrick ?? 0);
       const paid = Number(updateDto.workerPaidAmount ?? income.workerPaidAmount ?? 0);
+      const oldDebt = Number(updateDto.workerOldDebt ?? income.workerOldDebt ?? 0);
       income.totalWorkerCost = rate > 0 ? income.quantity * rate : null;
       income.workerPaidAmount = paid;
-      income.workerDebt = income.totalWorkerCost !== null ? Math.max(0, Number(income.totalWorkerCost) - paid) : null;
+      income.workerOldDebt = oldDebt;
+      income.workerDebt = income.totalWorkerCost !== null ? Math.max(0, oldDebt + Number(income.totalWorkerCost) - paid) : null;
 
       // Sync linked WorkerPayment record (new records with sourceType, and old orphan records)
       await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME', sourceId: id });
@@ -146,6 +151,7 @@ export class InventoryService {
             category: WorkerPaymentCategory.PRESS,
             amount: income.totalWorkerCost,
             paidAmount: paid,
+            debtFromPreviousMonth: oldDebt,
             remainingDebt: income.workerDebt!,
             month: income.date.slice(0, 7),
             date: income.date,

@@ -257,13 +257,14 @@ export class KilnService {
     const bakedRate = Number(operation.bakedWorkerRatePerBrick || operation.workerRatePerBrick || 0);
     const rawPaid = Number(operation.rawWorkerPaidAmount || operation.workerPaidAmount || 0);
     const bakedPaid = 0;
+    const workerOldDebt = Number(operation.workerOldDebt || 0);
     const qachigarRate = Number(operation.qachigarRatePerBrick || 0);
     const qachigarPaid = Number(operation.qachigarPaidAmount || 0);
     const rawWorkerCost = rawEntered > 0 && rawRate > 0 ? rawEntered * rawRate : 0;
     const bakedWorkerCost = bakedOutput > 0 && bakedRate > 0 ? bakedOutput * bakedRate : 0;
     const qachigarCost = bakedOutput > 0 && qachigarRate > 0 ? bakedOutput * qachigarRate : 0;
     const totalWorkerCost = rawWorkerCost + bakedWorkerCost;
-    const workerDebt = Math.max(0, totalWorkerCost - rawPaid);
+    const workerDebt = Math.max(0, workerOldDebt + totalWorkerCost - rawPaid);
     const qachigarDebt = Math.max(0, qachigarCost - qachigarPaid);
 
       await this.dataSource.transaction(async (manager) => {
@@ -278,6 +279,7 @@ export class KilnService {
           category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
           amount: rawWorkerCost,
           paidAmount: rawPaid,
+          debtFromPreviousMonth: workerOldDebt,
           remainingDebt: workerDebt,
             month: operation.date.slice(0, 7),
             date: operation.date,
@@ -329,6 +331,7 @@ export class KilnService {
       operation.totalWorkerCost = totalWorkerCost;
       operation.workerPaidAmount = rawPaid;
       operation.workerDebt = workerDebt;
+      operation.workerOldDebt = workerOldDebt;
       operation.qachigarRatePerBrick = qachigarRate || null;
       operation.qachigarTotalCost = qachigarCost;
       operation.qachigarPaidAmount = qachigarPaid;

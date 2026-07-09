@@ -90,7 +90,8 @@ export class ReserveService {
     if (dto.workerRatePerBrick && dto.workerRatePerBrick > 0) {
       const totalWorkerCost = dto.quantity * dto.workerRatePerBrick;
       const paid = dto.workerPaidAmount || 0;
-      const workerDebt = totalWorkerCost - paid;
+      const oldDebt = dto.workerOldDebt || 0;
+      const workerDebt = Math.max(0, oldDebt + totalWorkerCost - paid);
       const category = dto.brickType === BrickType.RAW_BRICK
         ? WorkerPaymentCategory.RESERVE_RAW_LOADING
         : WorkerPaymentCategory.RESERVE_BAKED_LOADING;
@@ -101,6 +102,7 @@ export class ReserveService {
           category,
           amount: totalWorkerCost,
           paidAmount: paid,
+          debtFromPreviousMonth: oldDebt,
           remainingDebt: workerDebt,
             month: dto.date.slice(0, 7),
             date: dto.date,
@@ -113,6 +115,7 @@ export class ReserveService {
 
       saved.totalWorkerCost = totalWorkerCost;
       saved.workerPaidAmount = paid;
+      saved.workerOldDebt = oldDebt;
       saved.workerDebt = workerDebt;
       await this.reserveMovementRepository.save(saved);
     }
@@ -204,6 +207,7 @@ export class ReserveService {
       movementType: ReserveMovementType.ADD,
       totalWorkerCost: 0,
       workerPaidAmount: 0,
+      workerOldDebt: dto.workerOldDebt || 0,
       workerDebt: 0,
     });
     const saved = await this.reserveMovementRepository.save(movement);
@@ -240,10 +244,12 @@ export class ReserveService {
     const rate = Number(movement.workerRatePerBrick || 0);
     const totalWorkerCost = rate > 0 ? Number(movement.quantity) * rate : 0;
     const paid = Number(movement.workerPaidAmount || 0);
-    const workerDebt = Math.max(0, totalWorkerCost - paid);
+    const oldDebt = Number(movement.workerOldDebt || 0);
+    const workerDebt = Math.max(0, oldDebt + totalWorkerCost - paid);
 
     movement.totalWorkerCost = totalWorkerCost;
     movement.workerPaidAmount = paid;
+    movement.workerOldDebt = oldDebt;
     movement.workerDebt = workerDebt;
     await this.reserveMovementRepository.save(movement);
 
@@ -259,6 +265,7 @@ export class ReserveService {
         category,
         amount: totalWorkerCost,
         paidAmount: paid,
+        debtFromPreviousMonth: oldDebt,
         remainingDebt: workerDebt,
         month: movement.date.slice(0, 7),
         date: movement.date,

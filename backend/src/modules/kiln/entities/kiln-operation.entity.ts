@@ -49,6 +49,9 @@ export class KilnOperation {
   @Column({ name: 'worker_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
   workerDebt: number;
 
+  @Column({ name: 'worker_old_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  workerOldDebt: number;
+
   @Column({ name: 'raw_worker_rate_per_brick', type: 'decimal', precision: 10, scale: 2, nullable: true })
   rawWorkerRatePerBrick: number;
 

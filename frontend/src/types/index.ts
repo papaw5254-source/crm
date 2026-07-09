@@ -70,6 +70,7 @@ export interface InventoryIncome {
   workerRatePerBrick?: number
   totalWorkerCost?: number
   workerPaidAmount?: number
+  workerOldDebt?: number
   workerDebt?: number
   createdById?: string
   createdBy?: User
@@ -86,16 +87,11 @@ export interface Sale {
   pricePerBrick: number
   totalAmount: number
   paymentType: PaymentType
-  isReserveSale?: boolean
   brickType?: BrickType
   customerName?: string
   customerPhone?: string
   description?: string
   date: string
-  workerRatePerBrick?: number
-  totalWorkerCost?: number
-  workerPaidAmount?: number
-  workerDebt?: number
   createdById?: string
   createdBy?: User
   createdAt: string
@@ -174,19 +170,8 @@ export interface KilnOperation {
   workerRatePerBrick?: number
   totalWorkerCost?: number
   workerPaidAmount?: number
+  workerOldDebt?: number
   workerDebt?: number
-  rawWorkerRatePerBrick?: number
-  rawWorkerTotalCost?: number
-  rawWorkerPaidAmount?: number
-  rawWorkerDebt?: number
-  bakedWorkerRatePerBrick?: number
-  bakedWorkerTotalCost?: number
-  bakedWorkerPaidAmount?: number
-  bakedWorkerDebt?: number
-  qachigarRatePerBrick?: number
-  qachigarTotalCost?: number
-  qachigarPaidAmount?: number
-  qachigarDebt?: number
   createdBy?: User
   createdAt: string
   updatedAt: string
@@ -208,6 +193,7 @@ export interface ReserveMovement {
   workerRatePerBrick?: number
   totalWorkerCost?: number
   workerPaidAmount?: number
+  workerOldDebt?: number
   workerDebt?: number
   date: string
   createdBy?: User
@@ -253,7 +239,7 @@ export interface PrepaymentDelivery {
 }
 
 // ─── Money Incomes / Pul kirimlari ───────────────────────────────────────────
-export type MoneyIncomeSource = 'FOUNDER' | 'BANK' | 'DAILY_SALE' | 'DEBT_RETURN' | 'OTHER'
+export type MoneyIncomeSource = 'FOUNDER' | 'BANK' | 'DEBT_RETURN' | 'OTHER'
 
 export interface MoneyIncome {
   id: string
@@ -302,8 +288,7 @@ export interface WorkerPaymentReport {
   totalAmount: number
   totalPaid: number
   totalDebt: number
-  totalCarriedDebt?: number
-  byCategory: Record<string, { count: number; amount: number; paid: number; debt: number; carriedDebt?: number }>
+  byCategory: Record<string, { count: number; amount: number; paid: number; debt: number }>
 }
 
 // ─── Reports ─────────────────────────────────────────────────────────────────
@@ -314,10 +299,8 @@ export interface DashboardData {
   reserveRawBrick: number
   reserveBakedBrick: number
   todaySalesAmount: number
-  todayIncome: number
   todayCashReceived: number
   todayDebtAmount: number
-  todayExpense: number
   todayExpenses: number
   todayProfit: number
   monthlyProfit: number
@@ -333,40 +316,22 @@ export interface DailyReport {
   date: string
   rawBrickProduced: number
   bakedBrickProduced: number
-  rawBrickToKiln: number
-  rawBrickToKilnFromReserve: number
-  rawBrickToKilnFromField: number
   rawBrickSold: number
   bakedBrickSold: number
-  reserveRawAdded: number
-  reserveBakedAdded: number
-  reserveRawSold: number
-  reserveBakedSold: number
-  reserveRawToKiln: number
-  reserveRawRemoved: number
-  reserveBakedRemoved: number
-  reserveSoldBricks: number
   totalSoldBricks: number
   totalAddedBricks: number
   totalSalesAmount: number
   cashSales: number
   cardSales: number
-  bankTransferSales: number
   debtSalesAmount: number
   debtPayments: number
   prepaymentPaid: number
   moneyIncomes: number
-  expensesByCategory: Record<string, number>
-  workerAccrued: number
   workerPayments: number
   receivedCash: number
   totalExpenses: number
   netProfit: number
   paperProfit: number
-  bakedBrickStock: number
-  rawBrickStock: number
-  reserveRawBrick: number
-  reserveBakedBrick: number
   stockAtEndOfDay: number
 }
 
@@ -410,18 +375,12 @@ export interface DayData {
   soldBricks: number
   addedBricks: number
   expenses: number
-  workerAccrued?: number
-  cashReceived?: number
-  profit?: number
 }
 
 export interface MonthData {
   salesAmount: number
   soldBricks: number
   expenses: number
-  workerAccrued?: number
-  cashReceived?: number
-  profit?: number
 }
 
 export interface DebtReport {
@@ -477,14 +436,7 @@ export interface CashflowReport {
   totalInflows: number
   totalOutflows: number
   netCashflow: number
-  inflows: {
-    cashSales: number
-    cardSales: number
-    bankTransferSales: number
-    debtPayments: number
-    prepayments: number
-    moneyIncomes: number
-  }
+  inflows: { cashSales: number; cardSales: number; debtPayments: number; prepayments: number; moneyIncomes: number }
   outflows: { expenses: number; workerPayments: number }
 }
 
@@ -496,7 +448,6 @@ export interface PaginatedResponse<T> {
     page: number
     limit: number
     totalPages: number
-    totalQuantity?: number
   }
 }
 

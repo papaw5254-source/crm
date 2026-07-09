@@ -8,7 +8,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { inventoryService } from '@/services/inventory.service'
-import { stockService } from '@/services/stock.service'
 import { workerPaymentsService } from '@/services/worker-payments.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
@@ -35,6 +34,7 @@ const schema = z.object({
   date: z.string().min(1, "Sana kiritilishi shart"),
   workerRatePerBrick: z.coerce.number().min(0).optional(),
   workerPaidAmount: z.coerce.number().min(0).optional(),
+  workerOldDebt: z.coerce.number().min(0).optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -58,11 +58,6 @@ export default function InventoryPage() {
     queryFn: () => inventoryService.getAll({ page, limit, search: debouncedSearch }),
   })
 
-  const { data: stock } = useQuery({
-    queryKey: ['stock'],
-    queryFn: stockService.getStock,
-  })
-
   const { data: wpReport } = useQuery({
     queryKey: ['worker-payments-report'],
     queryFn: () => workerPaymentsService.getReport(),
@@ -77,8 +72,9 @@ export default function InventoryPage() {
   const watchedQty = watch('quantity') || 0
   const watchedRate = watch('workerRatePerBrick') || 0
   const watchedPaid = watch('workerPaidAmount') || 0
+  const watchedOldDebt = watch('workerOldDebt') || 0
   const totalWorkerCost = watchedQty * watchedRate
-  const workerDebt = totalWorkerCost - watchedPaid
+  const workerDebt = Math.max(0, watchedOldDebt + totalWorkerCost - watchedPaid)
 
   const oldDebtMutation = useMutation({
     mutationFn: ({ date, amount }: { date: string; amount: number }) =>
@@ -154,6 +150,7 @@ export default function InventoryPage() {
     setValue('date', item.date)
     setValue('workerRatePerBrick', Number(item.workerRatePerBrick ?? 0) || undefined)
     setValue('workerPaidAmount', Number(item.workerPaidAmount ?? 0) || undefined)
+    setValue('workerOldDebt', Number(item.workerOldDebt ?? 0) || undefined)
     setDialogOpen(true)
   }
 
@@ -251,8 +248,7 @@ export default function InventoryPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatsCard title="Ombordagi g'isht" value={stock?.quantity ?? 0} icon={PackagePlus} color="blue" format="number" suffix="dona" />
+      <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
         <StatsCard title="Jami kirimlar" value={data?.meta?.total ?? 0} icon={PackagePlus} color="emerald" format="number" suffix="ta" />
       </div>
 
@@ -331,7 +327,11 @@ export default function InventoryPage() {
 
             <div className="rounded-lg border border-dashed p-3 space-y-3">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (ixtiyoriy)</p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label>Oldingi qarz (so&apos;m)</Label>
+                  <Input {...register('workerOldDebt')} type="number" placeholder="0" />
+                </div>
                 <div className="space-y-2">
                   <Label>1 dona uchun narx (so&apos;m)</Label>
                   <Input {...register('workerRatePerBrick')} type="number" placeholder="30" />
@@ -341,10 +341,16 @@ export default function InventoryPage() {
                   <Input {...register('workerPaidAmount')} type="number" placeholder="0" />
                 </div>
               </div>
-              {totalWorkerCost > 0 && (
-                <div className="grid grid-cols-3 gap-2 text-sm">
-                  <div className="rounded-md bg-muted px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Jami ishchi puli</div>
+              {(totalWorkerCost > 0 || watchedOldDebt > 0) && (
+                <div className="grid grid-cols-4 gap-2 text-sm">
+                  {watchedOldDebt > 0 && (
+                    <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Oldingi qarz</div>
+                      <div className="font-semibold text-amber-700 dark:text-amber-400">{formatCurrency(watchedOldDebt)}</div>
+                    </div>
+                  )}
+                  <div className={`rounded-md bg-muted px-3 py-2 text-center ${watchedOldDebt > 0 ? '' : 'col-span-2'}`}>
+                    <div className="text-xs text-muted-foreground">Bugungi ish</div>
                     <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
                   </div>
                   <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
@@ -352,8 +358,8 @@ export default function InventoryPage() {
                     <div className="font-semibold text-emerald-600">{formatCurrency(watchedPaid)}</div>
                   </div>
                   <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Zavod qarzi</div>
-                    <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, workerDebt))}</div>
+                    <div className="text-xs text-muted-foreground">Jami qarz</div>
+                    <div className="font-semibold text-red-500">{formatCurrency(workerDebt)}</div>
                   </div>
                 </div>
               )}

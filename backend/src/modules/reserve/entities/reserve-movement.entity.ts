@@ -50,6 +50,9 @@ export class ReserveMovement {
   @Column({ name: 'worker_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
   workerDebt: number;
 
+  @Column({ name: 'worker_old_debt', type: 'decimal', precision: 14, scale: 2, nullable: true, default: 0 })
+  workerOldDebt: number;
+
   @Column({ type: 'date' })
   date: string;
 
