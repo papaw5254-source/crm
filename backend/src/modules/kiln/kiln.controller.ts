@@ -42,15 +42,6 @@ export class KilnController {
     return this.kilnService.findAll(paginationDto);
   }
 
-  @Get('baked-output')
-  @ApiOperation({ summary: 'Berilgan sana va xumbuz uchun pishgan g\'isht sonini olish' })
-  getBakedOutput(
-    @Query('date') date: string,
-    @Query('kilnName') kilnName: string,
-  ) {
-    return this.kilnService.getBakedOutput(date, kilnName);
-  }
-
   @Get('report')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Humbuz hisoboti (Admin only)' })

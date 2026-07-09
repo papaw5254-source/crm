@@ -40,8 +40,10 @@ export const kilnService = {
   },
 
   async getBakedOutput(date: string, kilnName: string): Promise<number> {
-    const res = await api.get('/kilns/baked-output', { params: { date, kilnName } })
-    return Number(res.data?.data?.data ?? res.data?.data ?? res.data ?? 0)
+    const res = await api.get('/kilns/operations', { params: { dateFrom: date, dateTo: date, limit: 100 } })
+    const raw = res.data?.data?.data ?? res.data?.data ?? res.data
+    const arr: KilnOperation[] = Array.isArray(raw) ? raw : (raw?.data ?? [])
+    return arr.filter((op) => op.kilnName === kilnName).reduce((s, op) => s + Number(op.bakedBricksOutput || 0), 0)
   },
 
   async getReport(params?: { dateFrom?: string; dateTo?: string; kilnName?: string }) {

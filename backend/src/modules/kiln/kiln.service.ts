@@ -319,16 +319,6 @@ export class KilnService {
     });
   }
 
-  async getBakedOutput(date: string, kilnName: string): Promise<number> {
-    const result = await this.kilnOperationRepository
-      .createQueryBuilder('op')
-      .select('COALESCE(SUM(op.bakedBricksOutput), 0)', 'total')
-      .where('op.date = :date', { date })
-      .andWhere('op.kilnName = :kilnName', { kilnName })
-      .getRawOne();
-    return Number(result?.total ?? 0);
-  }
-
   async getReport(dateFrom?: string, dateTo?: string) {
     const qb = this.kilnOperationRepository.createQueryBuilder('op');
     if (dateFrom) qb.andWhere('op.date >= :dateFrom', { dateFrom });
