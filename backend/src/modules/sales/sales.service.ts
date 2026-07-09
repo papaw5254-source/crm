@@ -301,14 +301,17 @@ export class SalesService {
 
   async getFirmSales(firmName: string, paymentType: PaymentType): Promise<Sale[]> {
     const isUnknown = firmName === "Noma'lum";
-    return this.saleRepository.find({
-      where: {
-        paymentType,
-        customerName: isUnknown ? IsNull() : firmName,
-      },
-      order: { date: 'DESC' },
-      relations: ['createdBy'],
-    });
+    return this.saleRepository
+      .createQueryBuilder('sale')
+      .where('sale.paymentType = :paymentType', { paymentType })
+      .andWhere(
+        isUnknown
+          ? 'sale.customerName IS NULL'
+          : 'sale.customerName = :customerName',
+        isUnknown ? {} : { customerName: firmName },
+      )
+      .orderBy('sale.date', 'DESC')
+      .getMany();
   }
 
   async getFirmNames(): Promise<string[]> {
