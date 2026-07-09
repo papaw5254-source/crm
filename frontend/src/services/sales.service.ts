@@ -180,21 +180,32 @@ export const salesService = {
   async getRegular(params?: SaleQuery): Promise<PaginatedSales> {
     try {
       const response = await api.get('/sales/regular', { params })
-      return asPaginatedSales(response.data)
-    } catch {
-      const response = await api.get('/sales', { params })
       const payload = asPaginatedSales(response.data)
-      const rows = payload.data.filter((sale) => sale?.isReserveSale !== true && String((sale as any)?.isReserveSale) !== 'true')
-      return {
-        ...payload,
-        data: rows,
-        meta: {
-          ...payload.meta,
-          total: rows.length,
-          totalAmount: rows.reduce((sum, sale) => sum + Number(sale.totalAmount || 0), 0),
-          totalQuantity: rows.reduce((sum, sale) => sum + Number(sale.quantity || 0), 0),
-        },
+      if ((payload.meta?.total ?? payload.data.length) > 0 || payload.data.length > 0) {
+        return payload
       }
+    } catch {
+      // Older backend builds may not have /sales/regular yet.
+    }
+
+    const response = await api.get('/sales', {
+      params: {
+        ...params,
+        page: 1,
+        limit: Math.max(Number(params?.limit ?? 20), 500),
+      },
+    })
+    const payload = asPaginatedSales(response.data)
+    const rows = payload.data.filter((sale) => sale?.isReserveSale !== true && String((sale as any)?.isReserveSale) !== 'true')
+    return {
+      ...payload,
+      data: rows,
+      meta: {
+        ...payload.meta,
+        total: rows.length,
+        totalAmount: rows.reduce((sum, sale) => sum + Number(sale.totalAmount || 0), 0),
+        totalQuantity: rows.reduce((sum, sale) => sum + Number(sale.quantity || 0), 0),
+      },
     }
   },
 
