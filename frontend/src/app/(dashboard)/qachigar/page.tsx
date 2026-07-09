@@ -107,8 +107,6 @@ export default function QachigarPage() {
         amount: bakedCount * d.ratePerBrick,
         paidAmount: d.paidAmount,
         date: d.date,
-        month: new Date(d.date).getMonth() + 1,
-        year: new Date(d.date).getFullYear(),
         description: `Qachigar: ${bakedCount} dona pishgan g'isht (${d.ratePerBrick} so'm/dona) - ${kilnNameLabel(d.kilnName)}`,
       }),
     onSuccess: () => {
@@ -155,8 +153,6 @@ export default function QachigarPage() {
         paidAmount: 0,
         debtFromPreviousMonth: amount,
         date,
-        month: new Date(date).getMonth() + 1,
-        year: new Date(date).getFullYear(),
         description: `Eski qarz: ${formatCurrency(amount)}`,
       }),
     onSuccess: () => {
