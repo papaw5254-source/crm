@@ -178,8 +178,24 @@ export const salesService = {
   },
 
   async getRegular(params?: SaleQuery): Promise<PaginatedSales> {
-    const response = await api.get('/sales/regular', { params })
-    return asPaginatedSales(response.data)
+    try {
+      const response = await api.get('/sales/regular', { params })
+      return asPaginatedSales(response.data)
+    } catch {
+      const response = await api.get('/sales', { params })
+      const payload = asPaginatedSales(response.data)
+      const rows = payload.data.filter((sale) => sale?.isReserveSale !== true && String((sale as any)?.isReserveSale) !== 'true')
+      return {
+        ...payload,
+        data: rows,
+        meta: {
+          ...payload.meta,
+          total: rows.length,
+          totalAmount: rows.reduce((sum, sale) => sum + Number(sale.totalAmount || 0), 0),
+          totalQuantity: rows.reduce((sum, sale) => sum + Number(sale.quantity || 0), 0),
+        },
+      }
+    }
   },
 
   async getSales(params?: SaleQuery): Promise<PaginatedSales> {

@@ -72,6 +72,7 @@ export default function SalesPage() {
   const createMutation = useMutation({
     mutationFn: (data: FormData) => salesService.create(data),
     onSuccess: () => {
+      setPage(1)
       queryClient.invalidateQueries({ queryKey: ['sales'] })
       queryClient.refetchQueries({ queryKey: ['sales'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
@@ -165,7 +166,7 @@ export default function SalesPage() {
 
   const totalSales = Number(salesMeta?.total ?? salesRows.length)
   const totalAmount = Number(salesMeta?.totalAmount ?? salesRows.reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0))
-  const totalQty = Number(salesMeta?.totalQuantity ?? salesRows.reduce((s: number, x: Sale) => s + x.quantity, 0))
+  const totalQty = Number(salesMeta?.totalQuantity ?? salesRows.reduce((s: number, x: Sale) => s + Number(x.quantity || 0), 0))
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: Sale) => <span className="font-medium">{formatDate(r.date)}</span> },
