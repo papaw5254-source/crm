@@ -31,20 +31,6 @@ export class InventoryService {
       totalWorkerCost = createDto.quantity * createDto.workerRatePerBrick;
       const paid = createDto.workerPaidAmount || 0;
       workerDebt = totalWorkerCost - paid;
-
-      await this.workerPaymentRepository.save(
-        this.workerPaymentRepository.create({
-          workerName: 'Ishchilar (press)',
-          category: WorkerPaymentCategory.PRESS,
-          amount: totalWorkerCost,
-          paidAmount: paid,
-          remainingDebt: workerDebt,
-          month: createDto.date.slice(0, 7),
-          date: createDto.date,
-          description: `${createDto.quantity} dona xom g'isht (${createDto.workerRatePerBrick} so'm/dona)`,
-          createdById: userId,
-        }),
-      );
     }
 
     const income = this.inventoryIncomeRepository.create({
@@ -56,6 +42,25 @@ export class InventoryService {
       createdById: userId,
     });
     const saved = await this.inventoryIncomeRepository.save(income);
+
+    if (createDto.workerRatePerBrick && totalWorkerCost !== null) {
+      const paid = createDto.workerPaidAmount || 0;
+      await this.workerPaymentRepository.save(
+        this.workerPaymentRepository.create({
+          workerName: 'Ishchilar (press)',
+          category: WorkerPaymentCategory.PRESS,
+          amount: totalWorkerCost,
+          paidAmount: paid,
+          remainingDebt: workerDebt!,
+          month: createDto.date.slice(0, 7),
+          date: createDto.date,
+          description: `${createDto.quantity} dona xom g'isht (${createDto.workerRatePerBrick} so'm/dona)`,
+          sourceType: 'INVENTORY_INCOME',
+          sourceId: saved.id,
+          createdById: userId,
+        }),
+      );
+    }
 
     await this.stockService.increaseStock(
       createDto.quantity,
@@ -125,7 +130,28 @@ export class InventoryService {
       income.totalWorkerCost = rate > 0 ? income.quantity * rate : null;
       income.workerPaidAmount = paid;
       income.workerDebt = income.totalWorkerCost !== null ? Math.max(0, Number(income.totalWorkerCost) - paid) : null;
+
+      // Sync linked WorkerPayment record
+      await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME', sourceId: id });
+      if (rate > 0 && income.totalWorkerCost !== null) {
+        await this.workerPaymentRepository.save(
+          this.workerPaymentRepository.create({
+            workerName: 'Ishchilar (press)',
+            category: WorkerPaymentCategory.PRESS,
+            amount: income.totalWorkerCost,
+            paidAmount: paid,
+            remainingDebt: income.workerDebt!,
+            month: income.date.slice(0, 7),
+            date: income.date,
+            description: `${income.quantity} dona xom g'isht (${rate} so'm/dona)`,
+            sourceType: 'INVENTORY_INCOME',
+            sourceId: id,
+            createdById: userId,
+          }),
+        );
+      }
     }
+
     const saved = await this.inventoryIncomeRepository.save(income);
 
     if (updateDto.quantity !== undefined && updateDto.quantity !== oldQuantity) {
@@ -143,6 +169,7 @@ export class InventoryService {
   async remove(id: string, userId: string): Promise<void> {
     const income = await this.findOne(id);
     const brickType = income.brickType || BrickType.BAKED_BRICK;
+    await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME', sourceId: id });
     await this.stockService.decreaseStockBestEffort(
       income.quantity,
       StockMovementType.INCOME_CANCEL,

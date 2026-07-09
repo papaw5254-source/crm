@@ -77,12 +77,18 @@ export default function InventoryPage() {
   const totalWorkerCost = watchedQty * watchedRate
   const workerDebt = totalWorkerCost - watchedPaid
 
+  const invalidateWorkerPayments = () => {
+    queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+    queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+  }
+
   const createMutation = useMutation({
     mutationFn: (data: FormData) => inventoryService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      invalidateWorkerPayments()
       toast.success("Kirim muvaffaqiyatli qo'shildi")
       setDialogOpen(false)
       reset({ date: new Date().toISOString().split('T')[0] })
@@ -95,6 +101,7 @@ export default function InventoryPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
+      invalidateWorkerPayments()
       toast.success('Kirim yangilandi')
       setEditItem(null)
       setDialogOpen(false)
@@ -108,6 +115,7 @@ export default function InventoryPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
+      invalidateWorkerPayments()
       toast.success("Kirim o'chirildi")
       setDeleteId(null)
     },
@@ -119,6 +127,8 @@ export default function InventoryPage() {
     setValue('quantity', item.quantity)
     setValue('description', item.description || '')
     setValue('date', item.date)
+    setValue('workerRatePerBrick', Number(item.workerRatePerBrick ?? 0) || undefined)
+    setValue('workerPaidAmount', Number(item.workerPaidAmount ?? 0) || undefined)
     setDialogOpen(true)
   }
 
@@ -255,7 +265,7 @@ export default function InventoryPage() {
                 data={data?.data ?? []}
                 loading={isLoading}
               />
-              {data && (
+              {data?.meta && (
                 <Pagination
                   page={page}
                   totalPages={data.meta.totalPages}
