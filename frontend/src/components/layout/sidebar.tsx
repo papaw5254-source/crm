@@ -16,6 +16,7 @@ import {
   Warehouse,
   Wallet,
   DollarSign,
+  HardHat,
   Receipt,
   ChevronDown,
   ChevronRight,
