@@ -42,6 +42,8 @@ const schema = z.object({
   rawWorkerPaidAmount: z.coerce.number().min(0).optional(),
   bakedWorkerRatePerBrick: z.coerce.number().min(0).optional(),
   bakedWorkerPaidAmount: z.coerce.number().min(0).optional(),
+  qachigarRatePerBrick: z.coerce.number().min(0).optional(),
+  qachigarPaidAmount: z.coerce.number().min(0).optional(),
 })
 type FormData = z.infer<typeof schema>
 
@@ -94,8 +96,12 @@ export default function HumbuzPage() {
   const rawWorkerPaid = watch('rawWorkerPaidAmount') || 0
   const bakedWorkerRate = watch('bakedWorkerRatePerBrick') || 0
   const bakedWorkerPaid = watch('bakedWorkerPaidAmount') || 0
+  const qachigarRate = watch('qachigarRatePerBrick') || 0
+  const qachigarPaid = watch('qachigarPaidAmount') || 0
   const rawWorkerCost = rawBricksEntered * rawWorkerRate
   const bakedWorkerCost = bakedBricksOutput * bakedWorkerRate
+  const qachigarCost = bakedBricksOutput * qachigarRate
+  const qachigarDebt = Math.max(0, qachigarCost - qachigarPaid)
   const totalWorkerCost = rawWorkerCost + bakedWorkerCost
   const totalWorkerPaid = rawWorkerPaid
   const workerDebt = Math.max(0, totalWorkerCost - totalWorkerPaid - bakedWorkerPaid)
@@ -173,6 +179,8 @@ export default function HumbuzPage() {
     setValue('rawWorkerPaidAmount', Number(item.rawWorkerPaidAmount ?? item.workerPaidAmount ?? 0))
     setValue('bakedWorkerRatePerBrick', Number(item.bakedWorkerRatePerBrick ?? item.workerRatePerBrick ?? 0))
     setValue('bakedWorkerPaidAmount', 0)
+    setValue('qachigarRatePerBrick', Number(item.qachigarRatePerBrick ?? 0))
+    setValue('qachigarPaidAmount', Number(item.qachigarPaidAmount ?? 0))
     setDialogOpen(true)
   }
 
@@ -262,7 +270,7 @@ export default function HumbuzPage() {
     {
       key: 'workerCost',
       header: 'Ishchi puli',
-      cell: (r: KilnOperation) => Number(r.totalWorkerCost ?? 0) > 0 ? (
+      cell: (r: KilnOperation) => Number(r.totalWorkerCost ?? 0) > 0 || Number(r.qachigarTotalCost ?? 0) > 0 ? (
         <div className="text-sm">
           {Number(r.totalWorkerCost ?? 0) > 0 && <div className="font-medium">{formatCurrency(Number(r.totalWorkerCost))}</div>}
           <div className="space-y-0.5 text-xs text-muted-foreground">
@@ -277,7 +285,14 @@ export default function HumbuzPage() {
                 Chiqdi: {formatCurrency(Number(r.bakedWorkerTotalCost))}
               </p>
             )}
+            {Number(r.qachigarTotalCost ?? 0) > 0 && (
+              <p>
+                Qachigar: {formatCurrency(Number(r.qachigarTotalCost))}
+                <span className="text-emerald-600 ml-1">Berildi: {formatCurrency(Number(r.qachigarPaidAmount ?? 0))}</span>
+              </p>
+            )}
             {Number(r.workerDebt) > 0 && <p className="text-red-500">Qarz: {formatCurrency(Number(r.workerDebt))}</p>}
+            {Number(r.qachigarDebt ?? 0) > 0 && <p className="text-red-500">Qachigar qarz: {formatCurrency(Number(r.qachigarDebt))}</p>}
           </div>
         </div>
       ) : <span className="text-muted-foreground text-xs">—</span>,
@@ -337,6 +352,7 @@ export default function HumbuzPage() {
       </div>
 
       <WorkerPaymentsPanel title="Ishchi puli (Humbuz)" categories={['HUMBUZ_KIRDI_CHIQDI']} />
+      <WorkerPaymentsPanel title="Ishchi puli (Qachigar)" categories={['QACHIGAR']} />
 
       {/* Kiln tabs */}
       <Tabs value={kilnFilter} onValueChange={(v: string) => { setKilnFilter(v as KilnName | 'ALL'); setPage(1) }}>
@@ -487,6 +503,40 @@ export default function HumbuzPage() {
               </div>
 
             </div>
+
+            {Number(bakedBricksOutput) > 0 && (
+              <div className="rounded-lg border border-dashed p-3 space-y-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Qachigar puli (faqat pishgan chiqdi)
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>1 dona narxi</Label>
+                    <Input {...register('qachigarRatePerBrick')} type="number" placeholder="10" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Berildi</Label>
+                    <Input {...register('qachigarPaidAmount')} type="number" placeholder="0" />
+                  </div>
+                </div>
+                {qachigarCost > 0 && (
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="rounded-md bg-muted px-3 py-2 text-center">
+                      <div className="text-muted-foreground">Hisoblandi</div>
+                      <div className="font-semibold">{formatCurrency(qachigarCost)}</div>
+                    </div>
+                    <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
+                      <div className="text-muted-foreground">Berildi</div>
+                      <div className="font-semibold text-emerald-600">{formatCurrency(qachigarPaid)}</div>
+                    </div>
+                    <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
+                      <div className="text-muted-foreground">Qarz</div>
+                      <div className="font-semibold text-red-500">{formatCurrency(qachigarDebt)}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <DialogFooter className="sticky bottom-0 -mx-4 mt-2 border-t bg-background px-4 py-2.5">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Bekor qilish</Button>
