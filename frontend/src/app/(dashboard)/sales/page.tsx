@@ -53,8 +53,8 @@ export default function SalesPage() {
   const debouncedSearch = useDebounce(search)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['sales', page, limit, debouncedSearch],
-    queryFn: () => salesService.getRegular({ page, limit, search: debouncedSearch }),
+    queryKey: ['sales', debouncedSearch],
+    queryFn: () => salesService.getAll({ page: 1, limit: 500, search: debouncedSearch }),
   })
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -159,14 +159,15 @@ export default function SalesPage() {
         ? data.data.data
         : []
   const salesRows = allSalesRows.filter((s: Sale) => s?.isReserveSale !== true && String((s as any)?.isReserveSale) !== 'true')
-  const salesMeta = data?.meta ?? data?.data?.meta
   const filteredData = paymentTypeFilter === 'ALL'
     ? salesRows
     : salesRows.filter((s: Sale) => s.paymentType === paymentTypeFilter)
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / limit))
+  const pagedData = filteredData.slice((page - 1) * limit, page * limit)
 
-  const totalSales = Number(salesMeta?.total ?? salesRows.length)
-  const totalAmount = Number(salesMeta?.totalAmount ?? salesRows.reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0))
-  const totalQty = Number(salesMeta?.totalQuantity ?? salesRows.reduce((s: number, x: Sale) => s + Number(x.quantity || 0), 0))
+  const totalSales = filteredData.length
+  const totalAmount = filteredData.reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0)
+  const totalQty = filteredData.reduce((s: number, x: Sale) => s + Number(x.quantity || 0), 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: Sale) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -250,7 +251,7 @@ export default function SalesPage() {
                   key={type}
                   variant={paymentTypeFilter === type ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setPaymentTypeFilter(type)}
+                  onClick={() => { setPaymentTypeFilter(type); setPage(1) }}
                 >
                   {type === 'ALL' ? 'Barchasi' : paymentTypeLabel(type)}
                 </Button>
@@ -262,8 +263,8 @@ export default function SalesPage() {
             <EmptyState icon={ShoppingCart} title="Sotuv yo'q" description="Birinchi sotuvni qo'shing" action={<Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />Sotuv qo&apos;shish</Button>} />
           ) : (
             <>
-              <DataTable columns={columns} data={filteredData} loading={isLoading} />
-                {salesMeta && <Pagination page={page} totalPages={salesMeta.totalPages ?? 1} total={salesMeta.total ?? filteredData.length} limit={limit} onPageChange={setPage} />}
+              <DataTable columns={columns} data={pagedData} loading={isLoading} />
+              <Pagination page={page} totalPages={totalPages} total={filteredData.length} limit={limit} onPageChange={setPage} />
             </>
           )}
         </CardContent>
