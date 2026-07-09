@@ -1,4 +1,4 @@
-import { api, getApiPayload } from './api'
+import { api } from './api'
 import type { BrickType, InventoryIncome, PaginatedResponse, PaginationParams } from '@/types'
 
 type InventoryParams = PaginationParams & {
@@ -14,25 +14,35 @@ type InventoryPayload = {
   brickType?: BrickType
 }
 
+function unwrap<T>(value: any): T {
+  let current = value
+  for (let i = 0; i < 4; i += 1) {
+    if (current?.meta && Array.isArray(current?.data)) break
+    if (current?.data !== undefined) current = current.data
+    else break
+  }
+  return current as T
+}
+
 export const inventoryService = {
   async getAll(params?: InventoryParams): Promise<PaginatedResponse<InventoryIncome>> {
     const res = await api.get('/inventory/income', { params })
-    return getApiPayload<PaginatedResponse<InventoryIncome>>(res.data)
+    return unwrap<PaginatedResponse<InventoryIncome>>(res.data)
   },
 
   async getOne(id: string): Promise<InventoryIncome> {
     const res = await api.get(`/inventory/income/${id}`)
-    return getApiPayload<InventoryIncome>(res.data)
+    return unwrap<InventoryIncome>(res.data)
   },
 
   async create(data: InventoryPayload): Promise<InventoryIncome> {
     const res = await api.post('/inventory/income', { ...data, brickType: data.brickType ?? 'RAW_BRICK' })
-    return getApiPayload<InventoryIncome>(res.data)
+    return unwrap<InventoryIncome>(res.data)
   },
 
   async update(id: string, data: Partial<InventoryPayload>): Promise<InventoryIncome> {
     const res = await api.patch(`/inventory/income/${id}`, data)
-    return getApiPayload<InventoryIncome>(res.data)
+    return unwrap<InventoryIncome>(res.data)
   },
 
   async delete(id: string): Promise<void> {

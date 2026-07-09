@@ -1,4 +1,4 @@
-import api, { getApiPayload } from './api'
+import api from './api'
 
 export type PaymentType = 'CASH' | 'BANK_TRANSFER' | 'DEBT' | string
 export type BrickType = 'RAW_BRICK' | 'BAKED_BRICK' | string
@@ -80,8 +80,24 @@ export type SalesResponse = PaginatedSales
 export type SalesQuery = SaleQuery
 export type SalesQueryParams = SaleQuery
 
+function unwrapPayload<T = any>(value: any): T {
+  if (value?.meta && Array.isArray(value?.data)) return value as T
+
+  let current = value
+  for (let i = 0; i < 4; i += 1) {
+    if (current?.meta && Array.isArray(current?.data)) return current as T
+    if (current?.data !== undefined) {
+      current = current.data
+      continue
+    }
+    break
+  }
+
+  return current as T
+}
+
 function asPaginatedSales(value: any): PaginatedSales {
-  const payload = getApiPayload<any>(value)
+  const payload = unwrapPayload<any>(value)
 
   if (payload?.meta && Array.isArray(payload?.data)) {
     return payload
@@ -152,7 +168,7 @@ async function deleteSaleById(id: string) {
   }
 
   const response = await api.delete(`/sales/${id}`)
-  return getApiPayload(response.data)
+  return unwrapPayload(response.data)
 }
 
 export const salesService = {
@@ -199,7 +215,7 @@ export const salesService = {
 
   async getOne(id: string): Promise<Sale> {
     const response = await api.get(`/sales/${id}`)
-    return getApiPayload<Sale>(response.data)
+    return unwrapPayload<Sale>(response.data)
   },
 
   async getById(id: string): Promise<Sale> {
@@ -208,7 +224,7 @@ export const salesService = {
 
   async create(data: CreateSaleDto): Promise<Sale> {
     const response = await api.post('/sales', normalizeSalePayload(data))
-    return getApiPayload<Sale>(response.data)
+    return unwrapPayload<Sale>(response.data)
   },
 
   async createSale(data: CreateSaleDto): Promise<Sale> {
@@ -217,7 +233,7 @@ export const salesService = {
 
   async update(id: string, data: UpdateSaleDto): Promise<Sale> {
     const response = await api.patch(`/sales/${id}`, normalizeSalePayload(data))
-    return getApiPayload<Sale>(response.data)
+    return unwrapPayload<Sale>(response.data)
   },
 
   async updateSale(id: string, data: UpdateSaleDto): Promise<Sale> {
@@ -238,12 +254,12 @@ export const salesService = {
 
   async getStats(params?: SaleQuery) {
     const response = await api.get('/sales/stats', { params })
-    return getApiPayload(response.data)
+    return unwrapPayload(response.data)
   },
 
   async getBankTransferFirms(): Promise<string[]> {
     const response = await api.get('/sales/bank-transfer/firms')
-    const payload = getApiPayload<any>(response.data)
+    const payload = unwrapPayload<any>(response.data)
     if (Array.isArray(payload)) return payload
     if (Array.isArray(payload?.data)) return payload.data
     return []
@@ -251,7 +267,7 @@ export const salesService = {
 
   async getDebtFirms(): Promise<string[]> {
     const response = await api.get('/sales/debt/firms')
-    const payload = getApiPayload<any>(response.data)
+    const payload = unwrapPayload<any>(response.data)
     if (Array.isArray(payload)) return payload
     if (Array.isArray(payload?.data)) return payload.data
     return []
@@ -259,7 +275,7 @@ export const salesService = {
 
   async getFirmNames(): Promise<string[]> {
     const response = await api.get('/sales/firm-names')
-    const payload = getApiPayload<any>(response.data)
+    const payload = unwrapPayload<any>(response.data)
     if (Array.isArray(payload)) return payload
     if (Array.isArray(payload?.data)) return payload.data
     return []
