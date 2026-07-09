@@ -363,6 +363,8 @@ export interface MonthlyReport {
   cashReceived: number
   debtSalesAmount: number
   totalExpenses: number
+  workerAccrued: number
+  workerPaid: number
   netProfit: number
   paperProfit: number
   groupedByDay: Record<string, DayData>
@@ -379,6 +381,8 @@ export interface YearlyReport {
   cashReceived: number
   debtSalesAmount: number
   totalExpenses: number
+  workerAccrued: number
+  workerPaid: number
   netProfit: number
   paperProfit: number
   groupedByMonth: Record<string, MonthData>
@@ -392,12 +396,19 @@ export interface DayData {
   soldBricks: number
   addedBricks: number
   expenses: number
+  workerAccrued: number
+  cashReceived: number
+  profit: number
 }
 
 export interface MonthData {
   salesAmount: number
   soldBricks: number
+  addedBricks: number
   expenses: number
+  workerAccrued: number
+  cashReceived: number
+  profit: number
 }
 
 export interface DebtReport {

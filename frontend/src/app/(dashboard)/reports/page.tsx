@@ -86,8 +86,8 @@ export default function ReportsPage() {
     ? (Object.entries(monthly.groupedByDay) as [string, DayData][]).map(([date, d]) => ({
         date: formatDate(date, 'dd.MM'),
         savdo: Number(d.salesAmount),
-        xarajat: Number(d.expenses),
-        foyda: Number(d.salesAmount) - Number(d.expenses),
+        xarajat: Number(d.expenses) + Number(d.workerAccrued ?? 0),
+        foyda: Number(d.profit ?? (Number(d.cashReceived ?? 0) - Number(d.expenses) - Number(d.workerAccrued ?? 0))),
       }))
     : []
 
@@ -95,8 +95,8 @@ export default function ReportsPage() {
     ? (Object.entries(yearly.groupedByMonth) as [string, MonthData][]).map(([key, m]) => ({
         oy: `${key.split('-')[1]}-oy`,
         savdo: Number(m.salesAmount),
-        xarajat: Number(m.expenses),
-        foyda: Number(m.salesAmount) - Number(m.expenses),
+        xarajat: Number(m.expenses) + Number(m.workerAccrued ?? 0),
+        foyda: Number(m.profit ?? (Number(m.cashReceived ?? 0) - Number(m.expenses) - Number(m.workerAccrued ?? 0))),
       }))
     : []
 
@@ -214,12 +214,28 @@ export default function ReportsPage() {
           {monthlyLoading ? (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}</div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatsCard title="Jami sotuv" value={Number(monthly?.totalSalesAmount ?? 0)} icon={TrendingUp} color="emerald" />
-              <StatsCard title="Naqd tushum" value={Number(monthly?.cashReceived ?? 0)} icon={Banknote} color="blue" />
-              <StatsCard title="Xarajatlar" value={Number(monthly?.totalExpenses ?? 0)} icon={TrendingDown} color="red" />
-              <StatsCard title="Sof foyda" value={Number(monthly?.netProfit ?? 0)} icon={BarChart3} color={Number(monthly?.netProfit ?? 0) >= 0 ? 'emerald' : 'red'} />
-            </div>
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatsCard title="Jami sotuv" value={Number(monthly?.totalSalesAmount ?? 0)} icon={TrendingUp} color="emerald" />
+                <StatsCard title="Naqd tushum" value={Number(monthly?.cashReceived ?? 0)} icon={Banknote} color="blue" />
+                <StatsCard title="Xarajatlar" value={Number(monthly?.totalExpenses ?? 0)} icon={TrendingDown} color="red" />
+                <StatsCard title="Sof foyda" value={Number(monthly?.netProfit ?? 0)} icon={BarChart3} color={Number(monthly?.netProfit ?? 0) >= 0 ? 'emerald' : 'red'} />
+              </div>
+              {monthly && (
+                <Card>
+                  <CardContent className="p-4 divide-y divide-border">
+                    <StatRow label="Jami sotuv (qog'oz)" value={formatCurrency(Number(monthly.totalSalesAmount))} />
+                    <StatRow label="Nasiya sotuvlar" value={formatCurrency(Number(monthly.debtSalesAmount))} highlight="red" />
+                    <StatRow label="Naqd tushum" value={formatCurrency(Number(monthly.cashReceived))} highlight="green" />
+                    <StatRow label="Xarajatlar" value={formatCurrency(Number(monthly.totalExpenses))} highlight="red" />
+                    <StatRow label="Ishchi puli (hisoblangan)" value={formatCurrency(Number(monthly.workerAccrued ?? 0))} highlight="red" />
+                    <StatRow label="Ishchi puli (to'langan)" value={formatCurrency(Number(monthly.workerPaid ?? 0))} highlight="green" />
+                    <StatRow label="Qog'oziy foyda" value={formatCurrency(Number(monthly.paperProfit ?? 0))} />
+                    <StatRow label="Sof foyda" value={formatCurrency(Number(monthly.netProfit))} highlight={Number(monthly.netProfit) >= 0 ? 'green' : 'red'} />
+                  </CardContent>
+                </Card>
+              )}
+            </>
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -282,12 +298,28 @@ export default function ReportsPage() {
             {yearlyLoading ? (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}</div>
             ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatsCard title="Jami sotuv" value={Number(yearly?.totalSalesAmount ?? 0)} icon={TrendingUp} color="emerald" />
-                <StatsCard title="Naqd tushum" value={Number(yearly?.cashReceived ?? 0)} icon={Banknote} color="blue" />
-                <StatsCard title="Xarajatlar" value={Number(yearly?.totalExpenses ?? 0)} icon={TrendingDown} color="red" />
-                <StatsCard title="Sof foyda" value={Number(yearly?.netProfit ?? 0)} icon={BarChart3} color={Number(yearly?.netProfit ?? 0) >= 0 ? 'emerald' : 'red'} />
-              </div>
+              <>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatsCard title="Jami sotuv" value={Number(yearly?.totalSalesAmount ?? 0)} icon={TrendingUp} color="emerald" />
+                  <StatsCard title="Naqd tushum" value={Number(yearly?.cashReceived ?? 0)} icon={Banknote} color="blue" />
+                  <StatsCard title="Xarajatlar" value={Number(yearly?.totalExpenses ?? 0)} icon={TrendingDown} color="red" />
+                  <StatsCard title="Sof foyda" value={Number(yearly?.netProfit ?? 0)} icon={BarChart3} color={Number(yearly?.netProfit ?? 0) >= 0 ? 'emerald' : 'red'} />
+                </div>
+                {yearly && (
+                  <Card>
+                    <CardContent className="p-4 divide-y divide-border">
+                      <StatRow label="Jami sotuv (qog'oz)" value={formatCurrency(Number(yearly.totalSalesAmount))} />
+                      <StatRow label="Nasiya sotuvlar" value={formatCurrency(Number(yearly.debtSalesAmount))} highlight="red" />
+                      <StatRow label="Naqd tushum" value={formatCurrency(Number(yearly.cashReceived))} highlight="green" />
+                      <StatRow label="Xarajatlar" value={formatCurrency(Number(yearly.totalExpenses))} highlight="red" />
+                      <StatRow label="Ishchi puli (hisoblangan)" value={formatCurrency(Number(yearly.workerAccrued ?? 0))} highlight="red" />
+                      <StatRow label="Ishchi puli (to'langan)" value={formatCurrency(Number(yearly.workerPaid ?? 0))} highlight="green" />
+                      <StatRow label="Qog'oziy foyda" value={formatCurrency(Number(yearly.paperProfit ?? 0))} />
+                      <StatRow label="Sof foyda" value={formatCurrency(Number(yearly.netProfit))} highlight={Number(yearly.netProfit) >= 0 ? 'green' : 'red'} />
+                    </CardContent>
+                  </Card>
+                )}
+              </>
             )}
 
             <Card>
