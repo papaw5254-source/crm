@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, HardHat, Pencil, Trash2 } from 'lucide-react'
+import { Plus, HardHat, Pencil, Trash2, Info } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -61,18 +61,30 @@ export default function QachigarPage() {
   const watchedKiln = watch('kilnName')
   const watchedRate = watch('ratePerBrick') || 0
   const watchedPaid = watch('paidAmount') || 0
-  const totalCost = bakedCount !== null ? bakedCount * watchedRate : 0
-  const remainingDebt = Math.max(0, totalCost - watchedPaid)
+  const todayCost = bakedCount !== null ? bakedCount * watchedRate : 0
 
-  // Auto-fetch baked output when date or kiln changes (only for new payments)
+  // Fetch all previous QACHIGAR debts
+  const { data: prevDebtsData } = useQuery({
+    queryKey: ['qachigar-prev-debts'],
+    queryFn: () => workerPaymentsService.getAll({ category: 'QACHIGAR', debtOnly: true, limit: 500 } as Parameters<typeof workerPaymentsService.getAll>[0]),
+    enabled: dialogOpen && !editItem,
+  })
+  const totalPrevDebt = (prevDebtsData?.data ?? []).reduce((s, p) => s + Number(p.remainingDebt), 0)
+
+  const totalOwed = todayCost + totalPrevDebt
+  const remainingAfterPayment = Math.max(0, totalOwed - watchedPaid)
+  const overpayment = Math.max(0, watchedPaid - todayCost)
+
+  // Auto-fetch baked output when date or kiln changes
+  // NOTE: kilnName is NOT in PaginationDto so we fetch all ops for the date and filter client-side
   useEffect(() => {
     if (!watchedDate || !watchedKiln || editItem) return
     setLoadingBaked(true)
     setBakedCount(null)
     kilnService
-      .getAll({ kilnName: watchedKiln, dateFrom: watchedDate, dateTo: watchedDate, limit: 50 })
+      .getAll({ dateFrom: watchedDate, dateTo: watchedDate, limit: 50 })
       .then((res) => {
-        const ops = res.data ?? []
+        const ops = (res.data ?? []).filter((op) => op.kilnName === watchedKiln)
         const total = ops.reduce((s, op) => s + Number(op.bakedBricksOutput || 0), 0)
         setBakedCount(total)
       })
@@ -82,11 +94,11 @@ export default function QachigarPage() {
 
   const { data: payments, isLoading } = useQuery({
     queryKey: ['worker-payments-qachigar', page, limit],
-    queryFn: () => workerPaymentsService.getAll({ category: 'QACHIGAR', page, limit }),
+    queryFn: () => workerPaymentsService.getAll({ category: 'QACHIGAR', page, limit } as Parameters<typeof workerPaymentsService.getAll>[0]),
   })
 
   const { data: report } = useQuery({
-    queryKey: ['worker-payments-report-qachigar'],
+    queryKey: ['worker-payments-report'],
     queryFn: () => workerPaymentsService.getReport(),
   })
   const qachigarStats = report?.byCategory?.QACHIGAR ?? { amount: 0, paid: 0, debt: 0 }
@@ -107,7 +119,8 @@ export default function QachigarPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['worker-payments-qachigar'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-report-qachigar'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.invalidateQueries({ queryKey: ['qachigar-prev-debts'] })
       toast.success("Qachigar to'lovi qo'shildi")
       setDialogOpen(false)
       reset({ date: new Date().toISOString().split('T')[0], kilnName: 'HUMBUZ_1', paidAmount: 0 })
@@ -124,7 +137,8 @@ export default function QachigarPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['worker-payments-qachigar'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-report-qachigar'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.invalidateQueries({ queryKey: ['qachigar-prev-debts'] })
       toast.success("Qachigar to'lovi yangilandi")
       setEditItem(null)
       setDialogOpen(false)
@@ -137,7 +151,8 @@ export default function QachigarPage() {
     mutationFn: (id: string) => workerPaymentsService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['worker-payments-qachigar'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-report-qachigar'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.invalidateQueries({ queryKey: ['qachigar-prev-debts'] })
       toast.success("To'lov o'chirildi")
       setDeleteId(null)
     },
@@ -173,11 +188,11 @@ export default function QachigarPage() {
       cell: (r: WorkerPayment) => {
         const desc = r.description || ''
         const kilnMatch = desc.match(/HUMBUZ_\d/)
-        const bricksMatch = desc.match(/(\d[\d\s,]*) dona/)
+        const bricksMatch = desc.match(/(\d[\d\s,.]*) dona/)
         return (
           <div>
             {kilnMatch && (
-              <Badge variant="secondary" className="mb-1 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-xs">
+              <Badge className="mb-1 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-0 text-xs">
                 {kilnNameLabel(kilnMatch[0] as KilnName)}
               </Badge>
             )}
@@ -209,7 +224,7 @@ export default function QachigarPage() {
         Number(r.remainingDebt) > 0 ? (
           <span className="font-semibold text-red-500">{formatCurrency(Number(r.remainingDebt))}</span>
         ) : (
-          <span className="text-emerald-600 text-sm">To'liq to'landi</span>
+          <span className="text-emerald-600 text-sm">✓ To'liq</span>
         ),
     },
     {
@@ -294,101 +309,137 @@ export default function QachigarPage() {
             onSubmit={handleSubmit((d) => (editItem ? updateMutation.mutate(d) : createMutation.mutate(d)))}
             className="space-y-4"
           >
-            {!editItem && (
-              <div className="grid grid-cols-2 gap-4">
+            {/* Edit mode */}
+            {editItem && (
+              <>
                 <div className="space-y-2">
-                  <Label>Sana *</Label>
+                  <Label>Sana</Label>
                   <Input {...register('date')} type="date" />
-                  {errors.date && <p className="text-destructive text-xs">{errors.date.message}</p>}
+                </div>
+                <div className="rounded-lg bg-muted/50 border p-3">
+                  <p className="text-xs text-muted-foreground mb-1">To&apos;lov ma&apos;lumoti:</p>
+                  <p className="text-sm font-medium">{editItem.description}</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                    <div>Hisoblangan: <strong>{formatCurrency(Number(editItem.amount))}</strong></div>
+                    <div className="text-red-500">Qarz: <strong>{formatCurrency(Number(editItem.remainingDebt))}</strong></div>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Xumbuz *</Label>
-                  <Select
-                    defaultValue="HUMBUZ_1"
-                    onValueChange={(v) => setValue('kilnName', v as KilnName)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {KILNS.map((k) => (
-                        <SelectItem key={k} value={k}>
-                          {kilnNameLabel(k)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>To&apos;langan summa (so&apos;m)</Label>
+                  <Input {...register('paidAmount')} type="number" placeholder="0" />
                 </div>
-              </div>
+              </>
             )}
 
-            {editItem && (
-              <div className="space-y-2">
-                <Label>Sana</Label>
-                <Input {...register('date')} type="date" />
-              </div>
-            )}
-
+            {/* Create mode */}
             {!editItem && (
-              <div className="rounded-lg bg-muted/50 border p-3 space-y-1">
-                <p className="text-xs text-muted-foreground font-medium">Shu sanada pishgan g&apos;isht:</p>
-                {loadingBaked ? (
-                  <p className="text-sm text-muted-foreground">Yuklanmoqda...</p>
-                ) : bakedCount !== null ? (
-                  bakedCount > 0 ? (
-                    <p className="text-lg font-bold text-emerald-600">
-                      {formatNumber(bakedCount)} dona
-                    </p>
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Sana *</Label>
+                    <Input {...register('date')} type="date" />
+                    {errors.date && <p className="text-destructive text-xs">{errors.date.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Xumbuz *</Label>
+                    <Select
+                      defaultValue="HUMBUZ_1"
+                      onValueChange={(v) => setValue('kilnName', v as KilnName)}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {KILNS.map((k) => (
+                          <SelectItem key={k} value={k}>{kilnNameLabel(k)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Baked bricks lookup result */}
+                <div className="rounded-lg bg-muted/50 border p-3 space-y-1">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                    Shu sanada pishgan g&apos;isht:
+                  </p>
+                  {loadingBaked ? (
+                    <p className="text-sm text-muted-foreground">Yuklanmoqda...</p>
+                  ) : bakedCount !== null ? (
+                    bakedCount > 0 ? (
+                      <p className="text-2xl font-bold text-emerald-600">
+                        {formatNumber(bakedCount)} dona
+                      </p>
+                    ) : (
+                      <p className="text-sm text-amber-600">
+                        Bu sanada {kilnNameLabel(watchedKiln)} da pishgan g&apos;isht topilmadi
+                      </p>
+                    )
                   ) : (
-                    <p className="text-sm text-amber-600">Shu sanada humbuz operatsiyasi topilmadi</p>
-                  )
-                ) : (
-                  <p className="text-sm text-muted-foreground">Sana va xumbuzni tanlang</p>
+                    <p className="text-sm text-muted-foreground">Sana va xumbuzni tanlang</p>
+                  )}
+                </div>
+
+                {/* Previous debt info */}
+                {totalPrevDebt > 0 && (
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 flex gap-2">
+                    <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-amber-800 dark:text-amber-300">
+                        Oldingi qarz: {formatCurrency(totalPrevDebt)}
+                      </p>
+                      <p className="text-amber-700 dark:text-amber-400 text-xs mt-0.5">
+                        Bugungi ishdan ko&apos;proq to&apos;lasangiz, oldingi qarzdan ayriladi
+                      </p>
+                    </div>
+                  </div>
                 )}
-              </div>
-            )}
 
-            {editItem && (
-              <div className="rounded-lg bg-muted/50 border p-3">
-                <p className="text-xs text-muted-foreground mb-1">Joriy to&apos;lov:</p>
-                <p className="text-sm font-medium">{editItem.description}</p>
-                <div className="mt-1 flex gap-3 text-sm">
-                  <span>Jami: <strong>{formatCurrency(Number(editItem.amount))}</strong></span>
-                  <span className="text-red-500">Qarz: <strong>{formatCurrency(Number(editItem.remainingDebt))}</strong></span>
+                <div className="space-y-2">
+                  <Label>1 dona uchun narx (so&apos;m) *</Label>
+                  <Input {...register('ratePerBrick')} type="number" placeholder="Masalan: 25" />
+                  {errors.ratePerBrick && (
+                    <p className="text-destructive text-xs">{errors.ratePerBrick.message}</p>
+                  )}
                 </div>
-              </div>
-            )}
 
-            {!editItem && (
-              <div className="space-y-2">
-                <Label>1 dona uchun narx (so&apos;m) *</Label>
-                <Input {...register('ratePerBrick')} type="number" placeholder="Masalan: 25" />
-                {errors.ratePerBrick && (
-                  <p className="text-destructive text-xs">{errors.ratePerBrick.message}</p>
+                <div className="space-y-2">
+                  <Label>Bugun to&apos;langan (so&apos;m)</Label>
+                  <Input {...register('paidAmount')} type="number" placeholder="0" />
+                </div>
+
+                {/* Summary calculation */}
+                {bakedCount !== null && bakedCount > 0 && watchedRate > 0 && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="rounded-md bg-muted px-3 py-2">
+                        <div className="text-xs text-muted-foreground">Bugungi ish</div>
+                        <div className="font-semibold">{formatCurrency(todayCost)}</div>
+                        <div className="text-xs text-muted-foreground">{formatNumber(bakedCount)} × {formatNumber(watchedRate)}</div>
+                      </div>
+                      {totalPrevDebt > 0 && (
+                        <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 px-3 py-2">
+                          <div className="text-xs text-muted-foreground">Oldingi qarz</div>
+                          <div className="font-semibold text-amber-700 dark:text-amber-400">{formatCurrency(totalPrevDebt)}</div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2">
+                        <div className="text-xs text-muted-foreground">To&apos;landi</div>
+                        <div className="font-semibold text-emerald-600">{formatCurrency(watchedPaid)}</div>
+                        {overpayment > 0 && totalPrevDebt > 0 && (
+                          <div className="text-xs text-emerald-500">
+                            +{formatCurrency(Math.min(overpayment, totalPrevDebt))} qarzdan
+                          </div>
+                        )}
+                      </div>
+                      <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2">
+                        <div className="text-xs text-muted-foreground">Qolgan qarz</div>
+                        <div className="font-semibold text-red-500">{formatCurrency(remainingAfterPayment)}</div>
+                      </div>
+                    </div>
+                  </div>
                 )}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label>Bugun to&apos;langan (so&apos;m)</Label>
-              <Input {...register('paidAmount')} type="number" placeholder="0" />
-            </div>
-
-            {!editItem && bakedCount !== null && bakedCount > 0 && watchedRate > 0 && (
-              <div className="grid grid-cols-3 gap-2 text-sm">
-                <div className="rounded-md bg-muted px-3 py-2 text-center">
-                  <div className="text-xs text-muted-foreground">Jami hisoblangan</div>
-                  <div className="font-semibold">{formatCurrency(totalCost)}</div>
-                </div>
-                <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
-                  <div className="text-xs text-muted-foreground">To&apos;landi</div>
-                  <div className="font-semibold text-emerald-600">{formatCurrency(watchedPaid)}</div>
-                </div>
-                <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
-                  <div className="text-xs text-muted-foreground">Qarz</div>
-                  <div className="font-semibold text-red-500">{formatCurrency(remainingDebt)}</div>
-                </div>
-              </div>
+              </>
             )}
 
             <DialogFooter>
