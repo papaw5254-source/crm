@@ -49,12 +49,18 @@ export default function SalesPage() {
   const [editItem, setEditItem] = useState<Sale | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<PaymentType | 'ALL'>('ALL')
+  const [filterDate, setFilterDate] = useState('')
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['sales', debouncedSearch],
-    queryFn: () => salesService.getAll({ page: 1, limit: 500, search: debouncedSearch }),
+    queryKey: ['sales', page, limit, debouncedSearch, filterDate],
+    queryFn: () => salesService.getAll({
+      page: filterDate ? 1 : page,
+      limit: filterDate ? 500 : limit,
+      search: debouncedSearch,
+      ...(filterDate ? { dateFrom: filterDate, dateTo: filterDate } : {}),
+    }),
   })
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -65,23 +71,14 @@ export default function SalesPage() {
   const qty = watch('quantity')
   const price = watch('pricePerBrick')
   const total = (qty || 0) * (price || 0)
-  const workerPaid = 0
-  const totalWorkerCost = 0
-  const workerDebt = 0
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => salesService.create(data),
     onSuccess: () => {
-      setPage(1)
       queryClient.invalidateQueries({ queryKey: ['sales'] })
-      queryClient.refetchQueries({ queryKey: ['sales'] })
       queryClient.invalidateQueries({ queryKey: ['stock'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['debtors'] })
-      queryClient.refetchQueries({ queryKey: ['debtors'] })
-      queryClient.invalidateQueries({ queryKey: ['bank-transfer-firms'] })
-      queryClient.invalidateQueries({ queryKey: ['debt-firms'] })
-      queryClient.invalidateQueries({ queryKey: ['firm-names'] })
       toast.success('Sotuv muvaffaqiyatli qo\'shildi')
       setDialogOpen(false)
       reset({ date: new Date().toISOString().split('T')[0], paymentType: 'CASH', brickType: 'BAKED_BRICK' })
@@ -91,16 +88,10 @@ export default function SalesPage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: FormData) => salesService.update(editItem!.id, data),
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['sales'] })
-        queryClient.refetchQueries({ queryKey: ['sales'] })
-        queryClient.invalidateQueries({ queryKey: ['stock'] })
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-        queryClient.invalidateQueries({ queryKey: ['debtors'] })
-        queryClient.invalidateQueries({ queryKey: ['bank-transfer-firms'] })
-        queryClient.invalidateQueries({ queryKey: ['debt-firms'] })
-        queryClient.invalidateQueries({ queryKey: ['firm-names'] })
-        toast.success('Sotuv yangilandi')
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales'] })
+      queryClient.invalidateQueries({ queryKey: ['stock'] })
+      toast.success('Sotuv yangilandi')
       setEditItem(null)
       setDialogOpen(false)
       reset()
@@ -110,16 +101,10 @@ export default function SalesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => salesService.delete(id),
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['sales'] })
-        queryClient.refetchQueries({ queryKey: ['sales'] })
-        queryClient.invalidateQueries({ queryKey: ['stock'] })
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-        queryClient.invalidateQueries({ queryKey: ['debtors'] })
-        queryClient.invalidateQueries({ queryKey: ['bank-transfer-firms'] })
-        queryClient.invalidateQueries({ queryKey: ['debt-firms'] })
-        queryClient.invalidateQueries({ queryKey: ['firm-names'] })
-        toast.success('Sotuv o\'chirildi')
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales'] })
+      queryClient.invalidateQueries({ queryKey: ['stock'] })
+      toast.success('Sotuv o\'chirildi')
       setDeleteId(null)
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
@@ -139,35 +124,20 @@ export default function SalesPage() {
   }
 
   const onSubmit = (data: FormData) => {
-    const payload = {
-      ...data,
-      isReserveSale: false,
-      paymentType: data.paymentType,
-      customerName: data.customerName?.trim() || undefined,
-      customerPhone: data.customerPhone?.trim() || undefined,
-      description: data.description?.trim() || undefined,
-    }
-    if (editItem) updateMutation.mutate(payload)
-    else createMutation.mutate(payload)
+    if (editItem) updateMutation.mutate(data)
+    else createMutation.mutate(data)
   }
 
-  const allSalesRows = Array.isArray(data)
-    ? data
-    : Array.isArray(data?.data)
-      ? data.data
-      : Array.isArray(data?.data?.data)
-        ? data.data.data
-        : []
-  const salesRows = allSalesRows.filter((s: Sale) => s?.isReserveSale !== true && String((s as any)?.isReserveSale) !== 'true')
-  const filteredData = paymentTypeFilter === 'ALL'
-    ? salesRows
-    : salesRows.filter((s: Sale) => s.paymentType === paymentTypeFilter)
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / limit))
-  const pagedData = filteredData.slice((page - 1) * limit, page * limit)
+  const allRows = data?.data ?? []
 
-  const totalSales = filteredData.length
-  const totalAmount = filteredData.reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0)
-  const totalQty = filteredData.reduce((s: number, x: Sale) => s + Number(x.quantity || 0), 0)
+  const filteredData = paymentTypeFilter === 'ALL'
+    ? allRows
+    : allRows.filter((s: Sale) => s.paymentType === paymentTypeFilter)
+
+  const totalAmount = allRows.reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0)
+  const totalQty = allRows.reduce((s: number, x: Sale) => s + x.quantity, 0)
+  const rawQty = allRows.filter((s: Sale) => s.brickType === 'RAW_BRICK').reduce((s: number, x: Sale) => s + x.quantity, 0)
+  const bakedQty = allRows.filter((s: Sale) => s.brickType === 'BAKED_BRICK' || !s.brickType).reduce((s: number, x: Sale) => s + x.quantity, 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: Sale) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -184,19 +154,6 @@ export default function SalesPage() {
     { key: 'qty', header: 'Miqdor', cell: (r: Sale) => <span className="font-medium">{r.quantity.toLocaleString()} dona</span> },
     { key: 'price', header: 'Narx', cell: (r: Sale) => <span>{formatCurrency(Number(r.pricePerBrick))}</span> },
     { key: 'total', header: 'Jami', cell: (r: Sale) => <span className="font-semibold text-primary">{formatCurrency(Number(r.totalAmount))}</span> },
-    {
-      key: 'workerCost',
-      header: 'Ishchi puli',
-      cell: (r: Sale) => r.totalWorkerCost ? (
-        <div className="text-sm">
-          <div className="font-medium">{formatCurrency(Number(r.totalWorkerCost))}</div>
-          <div className="text-xs text-muted-foreground">
-            <span className="text-emerald-600">Berildi: {formatCurrency(Number(r.workerPaidAmount ?? 0))}</span>
-            {Number(r.workerDebt) > 0 && <span className="text-red-500 ml-1">Qarz: {formatCurrency(Number(r.workerDebt))}</span>}
-          </div>
-        </div>
-      ) : <span className="text-muted-foreground text-xs">—</span>,
-    },
     {
       key: 'type',
       header: "To'lov turi",
@@ -220,7 +177,7 @@ export default function SalesPage() {
         </div>
       ),
     },
-  ].filter((column) => column.key !== 'workerCost')
+  ]
 
   return (
     <div className="space-y-6">
@@ -234,24 +191,45 @@ export default function SalesPage() {
         }
       />
 
+      {filterDate ? (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <StatsCard title="Jami sotuvlar" value={allRows.length} icon={ShoppingCart} color="emerald" format="number" suffix="ta" />
+          <StatsCard title="Jami summa" value={totalAmount} icon={ShoppingCart} color="blue" />
+          <StatsCard title={`Pishgan g'isht`} value={bakedQty} icon={ShoppingCart} color="amber" format="number" suffix="dona" />
+          <StatsCard title="Xom g'isht" value={rawQty} icon={ShoppingCart} color="purple" format="number" suffix="dona" />
+        </div>
+      ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatsCard title="Jami sotuvlar" value={totalSales} icon={ShoppingCart} color="emerald" format="number" suffix="ta" />
-        <StatsCard title="Jami summa" value={totalAmount} icon={ShoppingCart} color="blue" />
-        <StatsCard title="Jami miqdor" value={totalQty} icon={ShoppingCart} color="purple" format="number" suffix="dona" />
-      </div>
-
+          <StatsCard title="Jami sotuvlar" value={data?.meta?.total ?? 0} icon={ShoppingCart} color="emerald" format="number" suffix="ta" />
+          <StatsCard title="Jami summa" value={totalAmount} icon={ShoppingCart} color="blue" />
+          <StatsCard title="Jami miqdor" value={totalQty} icon={ShoppingCart} color="purple" format="number" suffix="dona" />
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-4 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Mijoz nomi bo'yicha..." className="sm:max-w-sm" />
+          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+            <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Mijoz nomi bo'yicha..." className="sm:max-w-xs" />
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={filterDate}
+                onChange={(e) => { setFilterDate(e.target.value); setPage(1) }}
+                className="w-40"
+              />
+              {filterDate && (
+                <Button variant="outline" size="sm" onClick={() => { setFilterDate(''); setPage(1) }}>
+                  ✕ Tozalash
+                </Button>
+              )}
+            </div>
             <div className="flex gap-2 flex-wrap">
               {(['ALL', 'CASH', 'CARD', 'DEBT', 'BANK_TRANSFER'] as const).map((type) => (
                 <Button
                   key={type}
                   variant={paymentTypeFilter === type ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => { setPaymentTypeFilter(type); setPage(1) }}
+                  onClick={() => setPaymentTypeFilter(type)}
                 >
                   {type === 'ALL' ? 'Barchasi' : paymentTypeLabel(type)}
                 </Button>
@@ -263,19 +241,19 @@ export default function SalesPage() {
             <EmptyState icon={ShoppingCart} title="Sotuv yo'q" description="Birinchi sotuvni qo'shing" action={<Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />Sotuv qo&apos;shish</Button>} />
           ) : (
             <>
-              <DataTable columns={columns} data={pagedData} loading={isLoading} />
-              <Pagination page={page} totalPages={totalPages} total={filteredData.length} limit={limit} onPageChange={setPage} />
+              <DataTable columns={columns} data={filteredData} loading={isLoading} />
+              {!filterDate && data?.meta && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
             </>
           )}
         </CardContent>
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-[500px] max-h-[88vh] overflow-hidden p-0">
-          <DialogHeader className="px-4 pt-4 pb-2">
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
             <DialogTitle>{editItem ? 'Sotuvni tahrirlash' : "Sotuv qo'shish"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit(onSubmit)} className="max-h-[calc(88vh-68px)] overflow-y-auto px-4 pb-0 space-y-3 text-sm">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label>G&apos;isht turi *</Label>
               <Select
@@ -290,7 +268,7 @@ export default function SalesPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Miqdor (dona) *</Label>
                 <Input {...register('quantity')} type="number" placeholder="1000" />
@@ -304,41 +282,11 @@ export default function SalesPage() {
             </div>
 
             {total > 0 && (
-              <div className="rounded-lg bg-primary/10 p-2.5 text-sm">
+              <div className="rounded-xl bg-primary/10 p-3 text-sm">
                 <span className="text-muted-foreground">Jami summa: </span>
                 <span className="font-bold text-primary">{formatCurrency(total)}</span>
               </div>
             )}
-
-            <div className="rounded-lg border border-dashed p-3 space-y-2">
-              <p data-sales-worker-payment="true" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (sotuv/yuklash)</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>1 dona uchun narx (so&apos;m)</Label>
-                  <Input {...register('workerRatePerBrick')} type="number" placeholder="20" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Berildi (so&apos;m)</Label>
-                  <Input {...register('workerPaidAmount')} type="number" placeholder="0" />
-                </div>
-              </div>
-              {totalWorkerCost > 0 && (
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="rounded-md bg-muted px-2 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Hisoblandi</div>
-                    <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
-                  </div>
-                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-2 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Berildi</div>
-                    <div className="font-semibold text-emerald-600">{formatCurrency(workerPaid)}</div>
-                  </div>
-                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-2 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Qarz</div>
-                    <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, workerDebt))}</div>
-                  </div>
-                </div>
-              )}
-            </div>
 
             <div className="space-y-2">
               <Label>To&apos;lov turi *</Label>
@@ -358,7 +306,7 @@ export default function SalesPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{watch('paymentType') === 'BANK_TRANSFER' ? 'Firma nomi' : 'Mijoz ismi'}</Label>
                 <Input {...register('customerName')} placeholder={watch('paymentType') === 'BANK_TRANSFER' ? 'OOO Firm nomi' : 'Ahmadjon'} />
@@ -379,10 +327,10 @@ export default function SalesPage() {
               <Input {...register('description')} placeholder="Qo'shimcha ma'lumot..." />
             </div>
 
-            <DialogFooter className="sticky bottom-0 -mx-4 mt-2 border-t bg-background px-4 py-2.5">
+            <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Bekor qilish</Button>
-              <Button type="submit" disabled={isSubmitting || createMutation.isPending || updateMutation.isPending}>
-                {isSubmitting || createMutation.isPending || updateMutation.isPending ? 'Saqlanmoqda...' : editItem ? 'Saqlash' : "Qo'shish"}
+              <Button type="submit" loading={isSubmitting || createMutation.isPending || updateMutation.isPending}>
+                {editItem ? 'Saqlash' : "Qo'shish"}
               </Button>
             </DialogFooter>
           </form>
