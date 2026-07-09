@@ -2,18 +2,17 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Warehouse, ArrowUp, ArrowDown, ShoppingCart, Trash2, HardHat } from 'lucide-react'
+import { Plus, Warehouse, ArrowUp, ArrowDown, ShoppingCart, Trash2, Pencil } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import Link from 'next/link'
 import { reserveService } from '@/services/reserve.service'
-import { workerPaymentsService } from '@/services/worker-payments.service'
 import { salesService } from '@/services/sales.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
+import { WorkerPaymentsPanel } from '@/components/shared/worker-payments-panel'
 import { Pagination } from '@/components/shared/pagination'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Button } from '@/components/ui/button'
@@ -49,6 +48,8 @@ const saleSchema = z.object({
   customerPhone: z.string().optional(),
   description: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
+  workerRatePerBrick: z.coerce.number().min(0).optional(),
+  workerPaidAmount: z.coerce.number().min(0).optional(),
 })
 type SaleForm = z.infer<typeof saleSchema>
 
@@ -60,6 +61,7 @@ export default function ZaxiraPage() {
   // movement tab state
   const [brickTypeFilter, setBrickTypeFilter] = useState<BrickType | 'ALL'>('ALL')
   const [movementDialogOpen, setMovementDialogOpen] = useState(false)
+  const [editMovement, setEditMovement] = useState<ReserveMovement | null>(null)
   const { page: movPage, limit: movLimit, setPage: setMovPage } = usePagination()
 
   // sale tab state
@@ -79,26 +81,13 @@ export default function ZaxiraPage() {
       reserveService.getAll({
         page: movPage,
         limit: movLimit,
-        brickType: brickTypeFilter !== 'ALL' ? brickTypeFilter : undefined,
       }),
   })
 
   const { data: reserveSales, isLoading: salesLoading } = useQuery({
-    queryKey: ['reserve-sales', salePage, saleLimit],
+    queryKey: ['reserve-sales', salePage, saleLimit, true],
     queryFn: () => salesService.getAll({ page: salePage, limit: saleLimit, isReserveSale: true }),
   })
-
-  const { data: wpReport } = useQuery({
-    queryKey: ['worker-payments-report'],
-    queryFn: () => workerPaymentsService.getReport(),
-  })
-  const rawStats = wpReport?.byCategory?.RESERVE_RAW_LOADING ?? { amount: 0, paid: 0, debt: 0 }
-  const bakedStats = wpReport?.byCategory?.RESERVE_BAKED_LOADING ?? { amount: 0, paid: 0, debt: 0 }
-  const reserveWpStats = {
-    amount: Number(rawStats.amount) + Number(bakedStats.amount),
-    paid: Number(rawStats.paid) + Number(bakedStats.paid),
-    debt: Number(rawStats.debt) + Number(bakedStats.debt),
-  }
 
   // ─── Movement form ─────────────────────────────────────────────────────────
   const movForm = useForm<MovementForm>({
@@ -107,15 +96,20 @@ export default function ZaxiraPage() {
   })
 
   const movMutation = useMutation({
-    mutationFn: (d: MovementForm) => reserveService.create(d),
+    mutationFn: (d: MovementForm) =>
+      editMovement
+        ? reserveService.update(editMovement.id, { ...d, movementType: 'ADD' })
+        : reserveService.create({ ...d, movementType: 'ADD' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
       queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
       queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
       queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      toast.success("Zaxira harakati qo'shildi")
+      toast.success(editMovement ? 'Zaxira harakati yangilandi' : "Zaxira harakati qo'shildi")
       setMovementDialogOpen(false)
+      setEditMovement(null)
       movForm.reset({ date: new Date().toISOString().split('T')[0], brickType: 'RAW_BRICK', movementType: 'ADD' })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
@@ -129,21 +123,74 @@ export default function ZaxiraPage() {
   const watchedSaleQty = saleForm.watch('quantity') || 0
   const watchedSalePrice = saleForm.watch('pricePerBrick') || 0
   const totalAmount = watchedSaleQty * watchedSalePrice
+  const watchedSaleWorkerRate = saleForm.watch('workerRatePerBrick') || 0
+  const watchedSaleWorkerPaid = saleForm.watch('workerPaidAmount') || 0
+  const totalSaleWorkerCost = watchedSaleQty * watchedSaleWorkerRate
+  const saleWorkerDebt = totalSaleWorkerCost - watchedSaleWorkerPaid
 
   const watchedMovRate = movForm.watch('workerRatePerBrick') || 0
   const watchedMovPaid = movForm.watch('workerPaidAmount') || 0
   const watchedMovQty = movForm.watch('quantity') || 0
   const totalMovWorkerCost = watchedMovQty * watchedMovRate
   const movWorkerDebt = totalMovWorkerCost - watchedMovPaid
+  const rawReserveBalance = Number(balance?.rawBrick ?? balance?.RAW_BRICK ?? 0)
+  const bakedReserveBalance = Number(balance?.bakedBrick ?? balance?.BAKED_BRICK ?? 0)
+  const movementRowsAll = Array.isArray(movements?.data) ? movements.data : []
+  const movementRows = brickTypeFilter === 'ALL'
+    ? movementRowsAll
+    : movementRowsAll.filter((movement: ReserveMovement) => movement?.brickType === brickTypeFilter)
+  const movementTotal = Number(movements?.meta?.total ?? movementRows.length ?? 0)
+  const reserveSalesData = reserveSales as any
+  const reserveSalesInner = reserveSalesData?.data
+  const reserveSaleRowsAll = Array.isArray(reserveSalesData)
+    ? reserveSalesData
+    : Array.isArray(reserveSalesInner)
+      ? reserveSalesInner
+      : Array.isArray(reserveSalesInner?.data)
+        ? reserveSalesInner.data
+        : []
+  const reserveSaleRows = reserveSaleRowsAll.filter((sale: Sale) => sale?.isReserveSale === true || String((sale as any)?.isReserveSale) === 'true')
+  const reserveSaleMeta = reserveSalesData?.meta ?? reserveSalesInner?.meta
+
+  const openMovementCreate = () => {
+    setEditMovement(null)
+    movForm.reset({ date: new Date().toISOString().split('T')[0], brickType: 'RAW_BRICK', movementType: 'ADD' })
+    setMovementDialogOpen(true)
+  }
+
+  const openMovementEdit = (movement: ReserveMovement) => {
+    setEditMovement(movement)
+    movForm.reset({
+      date: movement.date,
+      brickType: movement.brickType,
+      movementType: 'ADD',
+      quantity: Number(movement.quantity),
+      reason: movement.reason || '',
+      workerRatePerBrick: Number(movement.workerRatePerBrick || 0),
+      workerPaidAmount: Number(movement.workerPaidAmount || 0),
+    })
+    setMovementDialogOpen(true)
+  }
 
   const saleMutation = useMutation({
     mutationFn: (d: SaleForm) =>
-      salesService.create({ ...d, isReserveSale: true }),
+      salesService.create({
+        ...d,
+        customerName: d.customerName?.trim() || undefined,
+        customerPhone: d.customerPhone?.trim() || undefined,
+        description: d.description?.trim() || undefined,
+        isReserveSale: true,
+      }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reserve-sales'] })
-      queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
-      queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
+        queryClient.invalidateQueries({ queryKey: ['reserve-sales'] })
+        queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
+        queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
+        queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+        queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['bank-transfer-firms'] })
+      queryClient.invalidateQueries({ queryKey: ['debt-firms'] })
+      queryClient.invalidateQueries({ queryKey: ['firm-names'] })
       toast.success('Sotuv qo\'shildi')
       setSaleDialogOpen(false)
       saleForm.reset({ date: new Date().toISOString().split('T')[0], brickType: 'BAKED_BRICK', paymentType: 'CASH' })
@@ -168,9 +215,15 @@ export default function ZaxiraPage() {
   const deleteSaleMutation = useMutation({
     mutationFn: (id: string) => salesService.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reserve-sales'] })
-      queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
-      queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
+        queryClient.invalidateQueries({ queryKey: ['reserve-sales'] })
+        queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
+        queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
+        queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+        queryClient.invalidateQueries({ queryKey: ['worker-payments-panel'] })
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+        queryClient.invalidateQueries({ queryKey: ['bank-transfer-firms'] })
+        queryClient.invalidateQueries({ queryKey: ['debt-firms'] })
+        queryClient.invalidateQueries({ queryKey: ['firm-names'] })
       toast.success('Sotuv o\'chirildi')
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
@@ -214,14 +267,21 @@ export default function ZaxiraPage() {
       key: 'actions',
       header: '',
       cell: (r: ReserveMovement) => (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-destructive hover:text-destructive"
-          onClick={() => { if (confirm("Harakatni o'chirishni tasdiqlaysizmi?")) deleteMovementMutation.mutate(r.id) }}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <div className="flex justify-end gap-1">
+          {r.movementType === 'ADD' && (
+            <Button size="sm" variant="ghost" onClick={() => openMovementEdit(r)}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            onClick={() => { if (confirm("Harakatni o'chirishni tasdiqlaysizmi?")) deleteMovementMutation.mutate(r.id) }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ]
@@ -284,7 +344,7 @@ export default function ZaxiraPage() {
               <div className="h-8 w-32 bg-muted animate-pulse rounded" />
             ) : (
               <>
-                <p className="text-3xl font-bold">{formatNumber(balance?.rawBrick ?? 0)}</p>
+                  <p className="text-3xl font-bold">{formatNumber(rawReserveBalance)}</p>
                 <p className="text-sm text-muted-foreground mt-0.5">dona</p>
               </>
             )}
@@ -303,7 +363,7 @@ export default function ZaxiraPage() {
               <div className="h-8 w-32 bg-muted animate-pulse rounded" />
             ) : (
               <>
-                <p className="text-3xl font-bold">{formatNumber(balance?.bakedBrick ?? 0)}</p>
+                  <p className="text-3xl font-bold">{formatNumber(bakedReserveBalance)}</p>
                 <p className="text-sm text-muted-foreground mt-0.5">dona</p>
               </>
             )}
@@ -314,21 +374,10 @@ export default function ZaxiraPage() {
         </Card>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <HardHat className="h-4 w-4" /> Ishchi puli (Zaxira)
-          </h3>
-          <Link href="/ishchilar" className="text-sm text-primary hover:underline font-medium">
-            Barchasini ko&apos;rish →
-          </Link>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <Link href="/ishchilar"><StatsCard title="Hisoblangan" value={reserveWpStats.amount} icon={HardHat} color="amber" /></Link>
-          <Link href="/ishchilar"><StatsCard title="To'langan" value={reserveWpStats.paid} icon={HardHat} color="emerald" /></Link>
-          <Link href="/ishchilar"><StatsCard title="Qarz" value={reserveWpStats.debt} icon={HardHat} color="red" /></Link>
-        </div>
-      </div>
+      <WorkerPaymentsPanel
+        title="Ishchi puli (Zaxira)"
+          categories={['RESERVE_RAW_LOADING', 'RESERVE_BAKED_LOADING', 'ROAD_PAYMENT']}
+      />
 
       {/* Main Tabs */}
       <Tabs defaultValue="harakatlar">
@@ -340,16 +389,15 @@ export default function ZaxiraPage() {
         {/* ── Harakatlar tab ─────────────────────────────────────────────────── */}
         <TabsContent value="harakatlar" className="mt-4 space-y-4">
           <div className="flex items-center justify-between">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
-              <StatsCard title="Jami harakatlar" value={movements?.meta.total ?? 0} icon={Warehouse} color="blue" format="number" suffix="ta" />
-              <StatsCard title="Jami zaxira" value={(balance?.rawBrick ?? 0) + (balance?.bakedBrick ?? 0)} icon={Warehouse} color="emerald" format="number" suffix="dona" />
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 flex-1">
+                <StatsCard title="Jami harakatlar" value={movementTotal} icon={Warehouse} color="blue" format="number" suffix="ta" />
+                <StatsCard title="Jami zaxira" value={rawReserveBalance + bakedReserveBalance} icon={Warehouse} color="emerald" format="number" suffix="dona" />
+                <StatsCard title="Xom g'isht" value={rawReserveBalance} icon={Warehouse} color="amber" format="number" suffix="dona" />
+                <StatsCard title="Pishgan g'isht" value={bakedReserveBalance} icon={Warehouse} color="red" format="number" suffix="dona" />
+              </div>
             <Button
               className="ml-4 shrink-0"
-              onClick={() => {
-                movForm.reset({ date: new Date().toISOString().split('T')[0], brickType: 'RAW_BRICK', movementType: 'ADD' })
-                setMovementDialogOpen(true)
-              }}
+              onClick={openMovementCreate}
             >
               <Plus className="h-4 w-4 mr-1" /> Harakat qo&apos;shish
             </Button>
@@ -364,17 +412,17 @@ export default function ZaxiraPage() {
             <TabsContent value={brickTypeFilter} className="mt-4">
               <Card>
                 <CardContent className="p-4">
-                  {(movements?.data ?? []).length === 0 && !movLoading ? (
+                    {movementRows.length === 0 && !movLoading ? (
                     <EmptyState
-                      icon={Warehouse}
-                      title="Harakat yo'q"
-                      description="Birinchi zaxira harakatini qo'shing"
-                      action={<Button onClick={() => setMovementDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />Harakat qo&apos;shish</Button>}
-                    />
+                        icon={Warehouse}
+                        title="Harakat yo'q"
+                        description="Birinchi zaxira harakatini qo'shing"
+                        action={<Button onClick={openMovementCreate}><Plus className="h-4 w-4 mr-1" />Harakat qo&apos;shish</Button>}
+                      />
                   ) : (
                     <>
-                      <DataTable columns={movColumns} data={movements?.data ?? []} loading={movLoading} />
-                      {movements && <Pagination page={movPage} totalPages={movements.meta.totalPages} total={movements.meta.total} limit={movLimit} onPageChange={setMovPage} />}
+                        <DataTable columns={movColumns} data={movementRows} loading={movLoading} />
+                        {movements && <Pagination page={movPage} totalPages={movements.meta?.totalPages ?? 1} total={movementTotal} limit={movLimit} onPageChange={setMovPage} />}
                     </>
                   )}
                 </CardContent>
@@ -386,11 +434,11 @@ export default function ZaxiraPage() {
         {/* ── Sotuv tab ──────────────────────────────────────────────────────── */}
         <TabsContent value="sotuv" className="mt-4 space-y-4">
           <div className="flex items-center justify-between">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
-              <StatsCard title="Jami sotuvlar" value={reserveSales?.meta.total ?? 0} icon={ShoppingCart} color="emerald" format="number" suffix="ta" />
-              <StatsCard
-                title="Jami summa"
-                value={(reserveSales?.data ?? []).reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0)}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+                <StatsCard title="Jami sotuvlar" value={reserveSaleMeta?.total ?? reserveSaleRows.length} icon={ShoppingCart} color="emerald" format="number" suffix="ta" />
+                <StatsCard
+                  title="Jami summa"
+                  value={reserveSaleRows.reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0)}
                 icon={ShoppingCart}
                 color="blue"
                 format="currency"
@@ -410,7 +458,7 @@ export default function ZaxiraPage() {
 
           <Card>
             <CardContent className="p-4">
-              {(reserveSales?.data ?? []).length === 0 && !salesLoading ? (
+                {reserveSaleRows.length === 0 && !salesLoading ? (
                 <EmptyState
                   icon={ShoppingCart}
                   title="Sotuv yo'q"
@@ -419,8 +467,8 @@ export default function ZaxiraPage() {
                 />
               ) : (
                 <>
-                  <DataTable columns={saleColumns} data={reserveSales?.data ?? []} loading={salesLoading} />
-                  {reserveSales && <Pagination page={salePage} totalPages={reserveSales.meta.totalPages} total={reserveSales.meta.total} limit={saleLimit} onPageChange={setSalePage} />}
+                    <DataTable columns={saleColumns} data={reserveSaleRows} loading={salesLoading} />
+                    {reserveSaleMeta && <Pagination page={salePage} totalPages={reserveSaleMeta.totalPages ?? 1} total={reserveSaleMeta.total ?? reserveSaleRows.length} limit={saleLimit} onPageChange={setSalePage} />}
                 </>
               )}
             </CardContent>
@@ -429,16 +477,16 @@ export default function ZaxiraPage() {
       </Tabs>
 
       {/* ── Movement Dialog ─────────────────────────────────────────────────── */}
-      <Dialog open={movementDialogOpen} onOpenChange={setMovementDialogOpen}>
+      <Dialog open={movementDialogOpen} onOpenChange={(open) => { setMovementDialogOpen(open); if (!open) setEditMovement(null) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Zaxira harakati qo&apos;shish</DialogTitle>
+            <DialogTitle>{editMovement ? 'Zaxira harakatini tahrirlash' : "Zaxira harakati qo'shish"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={movForm.handleSubmit((d) => movMutation.mutate(d))} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>G&apos;isht turi *</Label>
-                <Select defaultValue="RAW_BRICK" onValueChange={(v: string) => movForm.setValue('brickType', v as BrickType)}>
+                <Select value={movForm.watch('brickType') || 'RAW_BRICK'} onValueChange={(v: string) => movForm.setValue('brickType', v as BrickType)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="RAW_BRICK">Xom g&apos;isht</SelectItem>
@@ -446,8 +494,8 @@ export default function ZaxiraPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Harakat turi *</Label>
+                <div className="hidden">
+                  <Label>Harakat turi *</Label>
                 <Select defaultValue="ADD" onValueChange={(v: string) => movForm.setValue('movementType', v as ReserveMovementType)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -503,9 +551,9 @@ export default function ZaxiraPage() {
               )}
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setMovementDialogOpen(false)}>Bekor qilish</Button>
+              <Button type="button" variant="outline" onClick={() => { setMovementDialogOpen(false); setEditMovement(null) }}>Bekor qilish</Button>
               <Button type="submit" disabled={movMutation.isPending}>
-                {movMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+                {movMutation.isPending ? 'Saqlanmoqda...' : editMovement ? 'Saqlash' : "Qo'shish"}
               </Button>
             </DialogFooter>
           </form>
@@ -557,14 +605,44 @@ export default function ZaxiraPage() {
               </div>
             </div>
 
-            {totalAmount > 0 && (
-              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 text-sm">
-                <span className="text-muted-foreground">Jami summa: </span>
-                <span className="font-bold text-emerald-700 dark:text-emerald-400">{formatNumber(totalAmount)} so&apos;m</span>
-              </div>
-            )}
+              {totalAmount > 0 && (
+                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 text-sm">
+                  <span className="text-muted-foreground">Jami summa: </span>
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400">{formatNumber(totalAmount)} so&apos;m</span>
+                </div>
+              )}
 
-            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-lg border border-dashed p-3 space-y-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (zaxira sotuv)</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>1 dona uchun narx (so&apos;m)</Label>
+                    <Input {...saleForm.register('workerRatePerBrick')} type="number" placeholder="25" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Bugun berildi (so&apos;m)</Label>
+                    <Input {...saleForm.register('workerPaidAmount')} type="number" placeholder="0" />
+                  </div>
+                </div>
+                {totalSaleWorkerCost > 0 && (
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div className="rounded-md bg-muted px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Jami ishchi puli</div>
+                      <div className="font-semibold">{formatCurrency(totalSaleWorkerCost)}</div>
+                    </div>
+                    <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Berildi</div>
+                      <div className="font-semibold text-emerald-600">{formatCurrency(watchedSaleWorkerPaid)}</div>
+                    </div>
+                    <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
+                      <div className="text-xs text-muted-foreground">Zavod qarzi</div>
+                      <div className="font-semibold text-red-500">{formatCurrency(Math.max(0, saleWorkerDebt))}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{saleForm.watch('paymentType') === 'BANK_TRANSFER' ? 'Firma nomi' : 'Xaridor ismi'}</Label>
                 <Input {...saleForm.register('customerName')} placeholder="Ahmadjon Toshmatov" />
