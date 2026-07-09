@@ -1,6 +1,6 @@
 import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { BrickType } from '../../common/enums/brick-type.enum';
 import { PaymentType } from '../../common/enums/payment-type.enum';
@@ -36,7 +36,8 @@ export class SalesService {
     const workerRate = Number(createDto.workerRatePerBrick || 0);
     const totalWorkerCost = workerRate > 0 ? createDto.quantity * workerRate : 0;
     const workerPaidAmount = Number(createDto.workerPaidAmount || 0);
-    const workerDebt = Math.max(0, totalWorkerCost - workerPaidAmount);
+    const workerOldDebt = brickType === BrickType.RAW_BRICK ? Number(createDto.workerOldDebt || 0) : 0;
+    const workerDebt = brickType === BrickType.RAW_BRICK ? Math.max(0, workerOldDebt + totalWorkerCost - workerPaidAmount) : 0;
 
     if (createDto.isReserveSale) {
       await this.reserveService.createMovement(
@@ -64,30 +65,32 @@ export class SalesService {
       brickType,
       pricePerBrick,
       totalAmount,
-      totalWorkerCost,
-      workerPaidAmount,
+      totalWorkerCost: brickType === BrickType.RAW_BRICK ? totalWorkerCost : 0,
+      workerPaidAmount: brickType === BrickType.RAW_BRICK ? workerPaidAmount : 0,
+      workerOldDebt,
       workerDebt,
       createdById: userId,
     });
     const saved = await this.saleRepository.save(sale);
 
-      if (totalWorkerCost > 0) {
-        await this.workerPaymentRepository.save(
-          this.workerPaymentRepository.create({
-            workerName: 'Ishchilar (sotuv)',
-            category: WorkerPaymentCategory.ROAD_PAYMENT,
-            amount: totalWorkerCost,
-            paidAmount: workerPaidAmount,
-            remainingDebt: workerDebt,
-            month: createDto.date.slice(0, 7),
-            date: createDto.date,
-            description: `Sotuv: ${createDto.quantity} dona (${workerRate} so'm/dona)`,
-            sourceType: 'SALE',
-            sourceId: saved.id,
-            createdById: userId,
-          }),
-        );
-      }
+    if (brickType === BrickType.RAW_BRICK && (totalWorkerCost > 0 || workerOldDebt > 0)) {
+      await this.workerPaymentRepository.save(
+        this.workerPaymentRepository.create({
+          workerName: "Ishchilar (xom g'isht yuklash)",
+          category: WorkerPaymentCategory.FIELD_RAW_LOADING,
+          amount: totalWorkerCost,
+          paidAmount: workerPaidAmount,
+          debtFromPreviousMonth: workerOldDebt,
+          remainingDebt: workerDebt,
+          month: createDto.date.slice(0, 7),
+          date: createDto.date,
+          description: `Sotuv: ${createDto.quantity} dona (${workerRate} so'm/dona)`,
+          sourceType: 'SALE',
+          sourceId: saved.id,
+          createdById: userId,
+        }),
+      );
+    }
 
     if (saved.paymentType === PaymentType.DEBT) {
       await this.debtorsService.createOrUpdateDebt({
@@ -180,14 +183,17 @@ export class SalesService {
     if (
       updateDto.quantity !== undefined ||
       updateDto.workerRatePerBrick !== undefined ||
-      updateDto.workerPaidAmount !== undefined
+      updateDto.workerPaidAmount !== undefined ||
+      updateDto.workerOldDebt !== undefined
     ) {
       const qty = updateDto.quantity ?? sale.quantity;
       const workerRate = Number(updateDto.workerRatePerBrick ?? sale.workerRatePerBrick ?? 0);
       const workerPaid = Number(updateDto.workerPaidAmount ?? sale.workerPaidAmount ?? 0);
-      sale.totalWorkerCost = workerRate > 0 ? qty * workerRate : 0;
+      const workerOld = sale.brickType === BrickType.RAW_BRICK ? Number(updateDto.workerOldDebt ?? sale.workerOldDebt ?? 0) : 0;
+      sale.totalWorkerCost = sale.brickType === BrickType.RAW_BRICK && workerRate > 0 ? qty * workerRate : 0;
       sale.workerPaidAmount = workerPaid;
-      sale.workerDebt = Math.max(0, Number(sale.totalWorkerCost) - workerPaid);
+      sale.workerOldDebt = workerOld;
+      sale.workerDebt = sale.brickType === BrickType.RAW_BRICK ? Math.max(0, workerOld + Number(sale.totalWorkerCost) - workerPaid) : 0;
     }
 
     if (updateDto.quantity !== undefined && updateDto.quantity !== oldQuantity) {
@@ -219,38 +225,35 @@ export class SalesService {
       );
       }
     await this.workerPaymentRepository.delete({ sourceType: 'SALE', sourceId: sale.id });
-    const workerCost = Number(sale.totalWorkerCost || 0);
-    if (workerCost > 0) {
-      await this.workerPaymentRepository.delete({
-        category: WorkerPaymentCategory.ROAD_PAYMENT,
-        date: sale.date,
-        amount: sale.totalWorkerCost,
-      });
-    }
     await this.saleRepository.remove(sale);
   }
 
   private async syncWorkerPayment(sale: Sale, userId: string): Promise<void> {
     await this.workerPaymentRepository.delete({ sourceType: 'SALE', sourceId: sale.id });
 
+    if (sale.brickType !== BrickType.RAW_BRICK) return;
+
     const workerRate = Number(sale.workerRatePerBrick || 0);
     const totalWorkerCost = workerRate > 0 ? sale.quantity * workerRate : 0;
     const workerPaidAmount = Number(sale.workerPaidAmount || 0);
-    const workerDebt = Math.max(0, totalWorkerCost - workerPaidAmount);
+    const workerOldDebt = Number(sale.workerOldDebt || 0);
+    const workerDebt = Math.max(0, workerOldDebt + totalWorkerCost - workerPaidAmount);
 
     sale.totalWorkerCost = totalWorkerCost;
     sale.workerPaidAmount = workerPaidAmount;
+    sale.workerOldDebt = workerOldDebt;
     sale.workerDebt = workerDebt;
     await this.saleRepository.save(sale);
 
-    if (totalWorkerCost <= 0) return;
+    if (totalWorkerCost <= 0 && workerOldDebt <= 0) return;
 
     await this.workerPaymentRepository.save(
       this.workerPaymentRepository.create({
-        workerName: 'Ishchilar (sotuv)',
-        category: WorkerPaymentCategory.ROAD_PAYMENT,
+        workerName: "Ishchilar (xom g'isht yuklash)",
+        category: WorkerPaymentCategory.FIELD_RAW_LOADING,
         amount: totalWorkerCost,
         paidAmount: workerPaidAmount,
+        debtFromPreviousMonth: workerOldDebt,
         remainingDebt: workerDebt,
         month: sale.date.slice(0, 7),
         date: sale.date,

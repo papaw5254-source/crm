@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { salesService } from '@/services/sales.service'
+import { workerPaymentService } from '@/services/worker-payment.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
@@ -36,9 +37,19 @@ const schema = z.object({
   customerPhone: z.string().optional(),
   description: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
+  workerRatePerBrick: z.coerce.number().min(0).optional(),
+  workerPaidAmount: z.coerce.number().min(0).optional(),
+  workerOldDebt: z.coerce.number().min(0).optional(),
 })
 
 type FormData = z.infer<typeof schema>
+
+const eskiQarzSchema = z.object({
+  amount: z.coerce.number().min(0),
+  paidAmount: z.coerce.number().min(0),
+  date: z.string().min(1),
+})
+type EskiQarzForm = z.infer<typeof eskiQarzSchema>
 
 export default function SalesPage() {
   const { user } = useAuth()
@@ -50,6 +61,7 @@ export default function SalesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<PaymentType | 'ALL'>('ALL')
   const [filterDate, setFilterDate] = useState('')
+  const [eskiQarzOpen, setEskiQarzOpen] = useState(false)
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
 
@@ -68,17 +80,33 @@ export default function SalesPage() {
     defaultValues: { date: new Date().toISOString().split('T')[0], paymentType: 'CASH', brickType: 'BAKED_BRICK' },
   })
 
+  const eskiQarzForm = useForm<EskiQarzForm>({
+    resolver: zodResolver(eskiQarzSchema),
+    defaultValues: { amount: 0, paidAmount: 0, date: new Date().toISOString().split('T')[0] },
+  })
+
+  const brickType = watch('brickType')
   const qty = watch('quantity')
   const price = watch('pricePerBrick')
+  const workerRate = watch('workerRatePerBrick') || 0
+  const workerPaid = watch('workerPaidAmount') || 0
+  const workerOld = watch('workerOldDebt') || 0
   const total = (qty || 0) * (price || 0)
+  const totalWorkerCost = brickType === 'RAW_BRICK' && workerRate > 0 ? (qty || 0) * workerRate : 0
+  const saleWorkerDebt = brickType === 'RAW_BRICK' ? Math.max(0, workerOld + totalWorkerCost - workerPaid) : 0
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['sales'] })
+    queryClient.invalidateQueries({ queryKey: ['stock'] })
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    queryClient.invalidateQueries({ queryKey: ['debtors'] })
+    queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+  }
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => salesService.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales'] })
-      queryClient.invalidateQueries({ queryKey: ['stock'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      queryClient.invalidateQueries({ queryKey: ['debtors'] })
+      invalidateAll()
       toast.success('Sotuv muvaffaqiyatli qo\'shildi')
       setDialogOpen(false)
       reset({ date: new Date().toISOString().split('T')[0], paymentType: 'CASH', brickType: 'BAKED_BRICK' })
@@ -89,8 +117,7 @@ export default function SalesPage() {
   const updateMutation = useMutation({
     mutationFn: (data: FormData) => salesService.update(editItem!.id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales'] })
-      queryClient.invalidateQueries({ queryKey: ['stock'] })
+      invalidateAll()
       toast.success('Sotuv yangilandi')
       setEditItem(null)
       setDialogOpen(false)
@@ -102,10 +129,28 @@ export default function SalesPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => salesService.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sales'] })
-      queryClient.invalidateQueries({ queryKey: ['stock'] })
+      invalidateAll()
       toast.success('Sotuv o\'chirildi')
       setDeleteId(null)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const eskiQarzMutation = useMutation({
+    mutationFn: (d: EskiQarzForm) => workerPaymentService.create({
+      workerName: "Ishchilar (xom g'isht yuklash)",
+      category: 'FIELD_RAW_LOADING',
+      amount: d.amount,
+      paidAmount: d.paidAmount,
+      remainingDebt: Math.max(0, d.amount - d.paidAmount),
+      month: d.date.slice(0, 7),
+      date: d.date,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+      toast.success('Eski qarz qo\'shildi')
+      setEskiQarzOpen(false)
+      eskiQarzForm.reset({ amount: 0, paidAmount: 0, date: new Date().toISOString().split('T')[0] })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -120,6 +165,11 @@ export default function SalesPage() {
     setValue('customerPhone', item.customerPhone || '')
     setValue('description', item.description || '')
     setValue('date', item.date)
+    if (item.brickType === 'RAW_BRICK') {
+      setValue('workerRatePerBrick', Number(item.workerRatePerBrick || 0))
+      setValue('workerPaidAmount', Number(item.workerPaidAmount || 0))
+      setValue('workerOldDebt', Number(item.workerOldDebt || 0))
+    }
     setDialogOpen(true)
   }
 
@@ -138,6 +188,7 @@ export default function SalesPage() {
   const totalQty = allRows.reduce((s: number, x: Sale) => s + x.quantity, 0)
   const rawQty = allRows.filter((s: Sale) => s.brickType === 'RAW_BRICK').reduce((s: number, x: Sale) => s + x.quantity, 0)
   const bakedQty = allRows.filter((s: Sale) => s.brickType === 'BAKED_BRICK' || !s.brickType).reduce((s: number, x: Sale) => s + x.quantity, 0)
+  const totalWorkerDebt = allRows.filter((s: Sale) => s.brickType === 'RAW_BRICK').reduce((s: number, x: Sale) => s + Number(x.workerDebt || 0), 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: Sale) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -154,6 +205,13 @@ export default function SalesPage() {
     { key: 'qty', header: 'Miqdor', cell: (r: Sale) => <span className="font-medium">{r.quantity.toLocaleString()} dona</span> },
     { key: 'price', header: 'Narx', cell: (r: Sale) => <span>{formatCurrency(Number(r.pricePerBrick))}</span> },
     { key: 'total', header: 'Jami', cell: (r: Sale) => <span className="font-semibold text-primary">{formatCurrency(Number(r.totalAmount))}</span> },
+    {
+      key: 'workerCost',
+      header: 'Ishchi puli',
+      cell: (r: Sale) => r.brickType === 'RAW_BRICK' && Number(r.totalWorkerCost) > 0
+        ? <span className="text-orange-600 font-medium">{formatCurrency(Number(r.totalWorkerCost))}</span>
+        : <span className="text-muted-foreground text-xs">—</span>,
+    },
     {
       key: 'type',
       header: "To'lov turi",
@@ -185,9 +243,14 @@ export default function SalesPage() {
         title="Chiqim (Sotuvlar)"
         description="G'isht sotuvlari boshqaruvi"
         actions={
-          <Button onClick={() => { setEditItem(null); reset({ date: new Date().toISOString().split('T')[0], paymentType: 'CASH', brickType: 'BAKED_BRICK' }); setDialogOpen(true) }}>
-            <Plus className="h-4 w-4 mr-1" /> Sotuv qo&apos;shish
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => setEskiQarzOpen(true)}>
+              Yuklagchi eski qarz
+            </Button>
+            <Button onClick={() => { setEditItem(null); reset({ date: new Date().toISOString().split('T')[0], paymentType: 'CASH', brickType: 'BAKED_BRICK' }); setDialogOpen(true) }}>
+              <Plus className="h-4 w-4 mr-1" /> Sotuv qo&apos;shish
+            </Button>
+          </div>
         }
       />
 
@@ -199,10 +262,11 @@ export default function SalesPage() {
           <StatsCard title="Xom g'isht" value={rawQty} icon={ShoppingCart} color="purple" format="number" suffix="dona" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <StatsCard title="Jami sotuvlar" value={data?.meta?.total ?? 0} icon={ShoppingCart} color="emerald" format="number" suffix="ta" />
           <StatsCard title="Jami summa" value={totalAmount} icon={ShoppingCart} color="blue" />
           <StatsCard title="Jami miqdor" value={totalQty} icon={ShoppingCart} color="purple" format="number" suffix="dona" />
+          <StatsCard title="Yuklagchi qarzi" value={totalWorkerDebt} icon={ShoppingCart} color="red" />
         </div>
       )}
 
@@ -248,6 +312,7 @@ export default function SalesPage() {
         </CardContent>
       </Card>
 
+      {/* Sale dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -327,11 +392,77 @@ export default function SalesPage() {
               <Input {...register('description')} placeholder="Qo'shimcha ma'lumot..." />
             </div>
 
+            {/* Worker payment section — only for xom g'isht */}
+            {brickType === 'RAW_BRICK' && (
+              <div className="rounded-xl border-2 border-dashed border-orange-400 p-4 space-y-3">
+                <p className="text-sm font-semibold text-orange-600">Yuklagchi (xom g&apos;isht) ishchi puli</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Oldingi qarz</Label>
+                    <Input {...register('workerOldDebt')} type="number" step="1" placeholder="0" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">1 dona narx</Label>
+                    <Input {...register('workerRatePerBrick')} type="number" step="0.01" placeholder="20" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Berildi</Label>
+                    <Input {...register('workerPaidAmount')} type="number" step="1" placeholder="0" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-2 rounded-lg bg-orange-50 dark:bg-orange-950/20 p-2 text-xs text-center">
+                  <div>
+                    <div className="text-muted-foreground">Oldingi qarz</div>
+                    <div className="font-semibold text-amber-600">{formatCurrency(workerOld)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Bugungi ish</div>
+                    <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Berildi</div>
+                    <div className="font-semibold text-green-600">{formatCurrency(workerPaid)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Jami qarz</div>
+                    <div className={`font-bold ${saleWorkerDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(saleWorkerDebt)}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Bekor qilish</Button>
               <Button type="submit" loading={isSubmitting || createMutation.isPending || updateMutation.isPending}>
                 {editItem ? 'Saqlash' : "Qo'shish"}
               </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Eski qarz dialog */}
+      <Dialog open={eskiQarzOpen} onOpenChange={setEskiQarzOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Yuklagchi eski qarz</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={eskiQarzForm.handleSubmit((d) => eskiQarzMutation.mutate(d))} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Qarz miqdori</Label>
+              <Input {...eskiQarzForm.register('amount')} type="number" step="1" placeholder="0" />
+            </div>
+            <div className="space-y-2">
+              <Label>Berildi</Label>
+              <Input {...eskiQarzForm.register('paidAmount')} type="number" step="1" placeholder="0" />
+            </div>
+            <div className="space-y-2">
+              <Label>Sana</Label>
+              <Input {...eskiQarzForm.register('date')} type="date" />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEskiQarzOpen(false)}>Bekor qilish</Button>
+              <Button type="submit" loading={eskiQarzMutation.isPending}>Saqlash</Button>
             </DialogFooter>
           </form>
         </DialogContent>

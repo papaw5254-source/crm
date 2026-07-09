@@ -92,4 +92,10 @@ export class CreateSaleDto {
   @IsNumber()
   @Min(0)
   workerPaidAmount?: number;
+
+  @ApiPropertyOptional({ example: 500000, description: 'Oldingi oydan qolgan yuklagchi qarzi' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  workerOldDebt?: number;
 }

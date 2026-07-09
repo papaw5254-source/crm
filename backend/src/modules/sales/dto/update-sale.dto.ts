@@ -59,4 +59,10 @@ export class UpdateSaleDto {
   @IsNumber()
   @Min(0)
   workerPaidAmount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  workerOldDebt?: number;
 }

@@ -101,6 +101,12 @@ export interface Sale {
   customerPhone?: string
   description?: string
   date: string
+  workerRatePerBrick?: number
+  totalWorkerCost?: number
+  workerPaidAmount?: number
+  workerOldDebt?: number
+  workerDebt?: number
+  isReserveSale?: boolean
   createdById?: string
   createdBy?: User
   createdAt: string
