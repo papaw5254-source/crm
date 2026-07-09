@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -11,6 +12,10 @@ import { PaymentType } from '../../../common/enums/payment-type.enum';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('sales')
+@Index('idx_sales_payment_type', ['paymentType'])
+@Index('idx_sales_date', ['date'])
+@Index('idx_sales_customer_name', ['customerName'])
+@Index('idx_sales_payment_date', ['paymentType', 'date'])
 export class Sale {
   @PrimaryGeneratedColumn('uuid')
   id: string;

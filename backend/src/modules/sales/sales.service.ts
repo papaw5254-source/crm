@@ -1,6 +1,6 @@
 import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { BrickType } from '../../common/enums/brick-type.enum';
 import { PaymentType } from '../../common/enums/payment-type.enum';
@@ -270,50 +270,45 @@ export class SalesService {
       .getMany();
   }
 
+  private async getGroupedFirms(paymentType: PaymentType) {
+    const rows = await this.saleRepository
+      .createQueryBuilder('sale')
+      .select('sale.customerName', 'firmName')
+      .addSelect('COUNT(*)', 'totalSales')
+      .addSelect('COALESCE(SUM(sale.quantity), 0)', 'totalQuantity')
+      .addSelect('COALESCE(SUM(sale.totalAmount), 0)', 'totalAmount')
+      .where('sale.paymentType = :type', { type: paymentType })
+      .groupBy('sale.customerName')
+      .orderBy('SUM(sale.totalAmount)', 'DESC')
+      .getRawMany();
+
+    return rows.map((r) => ({
+      firmName: (r.firmName as string) || "Noma'lum",
+      totalSales: Number(r.totalSales),
+      totalQuantity: Number(r.totalQuantity),
+      totalAmount: Number(r.totalAmount),
+      sales: [] as Sale[],
+    }));
+  }
+
   async getBankTransferFirms() {
-    const sales = await this.saleRepository.find({
-      where: { paymentType: PaymentType.BANK_TRANSFER },
-      order: { date: 'DESC' },
-      relations: ['createdBy'],
-    });
-
-    const grouped: Record<string, { firmName: string; totalSales: number; totalQuantity: number; totalAmount: number; sales: Sale[] }> = {};
-
-    for (const sale of sales) {
-      const key = sale.customerName || "Noma'lum";
-      if (!grouped[key]) {
-        grouped[key] = { firmName: key, totalSales: 0, totalQuantity: 0, totalAmount: 0, sales: [] };
-      }
-      grouped[key].totalSales++;
-      grouped[key].totalQuantity += sale.quantity;
-      grouped[key].totalAmount += Number(sale.totalAmount);
-      grouped[key].sales.push(sale);
-    }
-
-    return Object.values(grouped).sort((a, b) => b.totalAmount - a.totalAmount);
+    return this.getGroupedFirms(PaymentType.BANK_TRANSFER);
   }
 
   async getDebtFirms() {
-    const sales = await this.saleRepository.find({
-      where: { paymentType: PaymentType.DEBT },
+    return this.getGroupedFirms(PaymentType.DEBT);
+  }
+
+  async getFirmSales(firmName: string, paymentType: PaymentType): Promise<Sale[]> {
+    const isUnknown = firmName === "Noma'lum";
+    return this.saleRepository.find({
+      where: {
+        paymentType,
+        customerName: isUnknown ? IsNull() : firmName,
+      },
       order: { date: 'DESC' },
       relations: ['createdBy'],
     });
-
-    const grouped: Record<string, { firmName: string; totalSales: number; totalQuantity: number; totalAmount: number; sales: Sale[] }> = {};
-
-    for (const sale of sales) {
-      const key = sale.customerName || "Noma'lum";
-      if (!grouped[key]) {
-        grouped[key] = { firmName: key, totalSales: 0, totalQuantity: 0, totalAmount: 0, sales: [] };
-      }
-      grouped[key].totalSales++;
-      grouped[key].totalQuantity += sale.quantity;
-      grouped[key].totalAmount += Number(sale.totalAmount);
-      grouped[key].sales.push(sale);
-    }
-
-    return Object.values(grouped).sort((a, b) => b.totalAmount - a.totalAmount);
   }
 
   async getFirmNames(): Promise<string[]> {

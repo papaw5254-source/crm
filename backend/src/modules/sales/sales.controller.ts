@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { PaymentType } from '../../common/enums/payment-type.enum';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -73,6 +74,15 @@ export class SalesController {
   @ApiOperation({ summary: 'Get unique firm names for autocomplete' })
   getFirmNames() {
     return this.salesService.getFirmNames();
+  }
+
+  @Get('firm-sales')
+  @ApiOperation({ summary: 'Get individual sales for a specific firm' })
+  getFirmSales(
+    @Query('firmName') firmName: string,
+    @Query('paymentType') paymentType: PaymentType,
+  ) {
+    return this.salesService.getFirmSales(firmName, paymentType);
   }
 
   @Get('firms')
