@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpException,
   Param,
   Patch,
   Post,
@@ -78,11 +79,15 @@ export class SalesController {
 
   @Get('firm-sales')
   @ApiOperation({ summary: 'Get individual sales for a specific firm' })
-  getFirmSales(
+  async getFirmSales(
     @Query('firmName') firmName: string,
     @Query('paymentType') paymentType: PaymentType,
   ) {
-    return this.salesService.getFirmSales(firmName, paymentType);
+    try {
+      return await this.salesService.getFirmSales(firmName, paymentType);
+    } catch (e) {
+      throw new HttpException({ message: (e as Error).message, stack: (e as Error).stack }, 500);
+    }
   }
 
   @Get('firms')
