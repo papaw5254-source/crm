@@ -38,8 +38,6 @@ const schema = z.object({
   description: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
   workerRatePerBrick: z.coerce.number().min(0).optional(),
-  workerPaidAmount: z.coerce.number().min(0).optional(),
-  workerOldDebt: z.coerce.number().min(0).optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -89,11 +87,8 @@ export default function SalesPage() {
   const qty = watch('quantity')
   const price = watch('pricePerBrick')
   const workerRate = watch('workerRatePerBrick') || 0
-  const workerPaid = watch('workerPaidAmount') || 0
-  const workerOld = watch('workerOldDebt') || 0
   const total = (qty || 0) * (price || 0)
   const totalWorkerCost = brickType === 'RAW_BRICK' && workerRate > 0 ? (qty || 0) * workerRate : 0
-  const saleWorkerDebt = brickType === 'RAW_BRICK' ? Math.max(0, workerOld + totalWorkerCost - workerPaid) : 0
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['sales'] })
@@ -166,8 +161,6 @@ export default function SalesPage() {
     setValue('date', item.date)
     if (item.brickType === 'RAW_BRICK') {
       setValue('workerRatePerBrick', Number(item.workerRatePerBrick || 0))
-      setValue('workerPaidAmount', Number(item.workerPaidAmount || 0))
-      setValue('workerOldDebt', Number(item.workerOldDebt || 0))
     }
     setDialogOpen(true)
   }
@@ -313,126 +306,109 @@ export default function SalesPage() {
 
       {/* Sale dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg flex flex-col max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>{editItem ? 'Sotuvni tahrirlash' : "Sotuv qo'shish"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label>G&apos;isht turi *</Label>
-              <Select
-                value={watch('brickType') || 'BAKED_BRICK'}
-                onValueChange={(v: string) => setValue('brickType', v as BrickType)}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="BAKED_BRICK">Pishgan g&apos;isht</SelectItem>
-                  <SelectItem value="RAW_BRICK">Xom g&apos;isht</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Miqdor (dona) *</Label>
-                <Input {...register('quantity')} type="number" placeholder="1000" />
-                {errors.quantity && <p className="text-destructive text-xs">{errors.quantity.message}</p>}
+          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+            <div className="overflow-y-auto flex-1 space-y-3 pr-1">
+              <div className="space-y-1.5">
+                <Label>G&apos;isht turi *</Label>
+                <Select
+                  value={watch('brickType') || 'BAKED_BRICK'}
+                  onValueChange={(v: string) => setValue('brickType', v as BrickType)}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BAKED_BRICK">Pishgan g&apos;isht</SelectItem>
+                    <SelectItem value="RAW_BRICK">Xom g&apos;isht</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Narx (1 dona) *</Label>
-                <Input {...register('pricePerBrick')} type="number" step="0.01" placeholder="450" />
-                {errors.pricePerBrick && <p className="text-destructive text-xs">{errors.pricePerBrick.message}</p>}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Miqdor (dona) *</Label>
+                  <Input {...register('quantity')} type="number" placeholder="1000" />
+                  {errors.quantity && <p className="text-destructive text-xs">{errors.quantity.message}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Narx (1 dona) *</Label>
+                  <Input {...register('pricePerBrick')} type="number" step="0.01" placeholder="450" />
+                  {errors.pricePerBrick && <p className="text-destructive text-xs">{errors.pricePerBrick.message}</p>}
+                </div>
               </div>
-            </div>
 
-            {total > 0 && (
-              <div className="rounded-xl bg-primary/10 p-3 text-sm">
-                <span className="text-muted-foreground">Jami summa: </span>
-                <span className="font-bold text-primary">{formatCurrency(total)}</span>
-              </div>
-            )}
+              {total > 0 && (
+                <div className="rounded-lg bg-primary/10 px-3 py-2 text-sm">
+                  <span className="text-muted-foreground">Jami summa: </span>
+                  <span className="font-bold text-primary">{formatCurrency(total)}</span>
+                </div>
+              )}
 
-            <div className="space-y-2">
-              <Label>To&apos;lov turi *</Label>
-              <Select
-                value={watch('paymentType') || 'CASH'}
-                onValueChange={(v: string) => setValue('paymentType', v as PaymentType)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CASH">Naqd</SelectItem>
-                  <SelectItem value="CARD">Karta</SelectItem>
-                  <SelectItem value="DEBT">Nasiya</SelectItem>
-                  <SelectItem value="BANK_TRANSFER">Perechisleniya</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{watch('paymentType') === 'BANK_TRANSFER' ? 'Firma nomi' : 'Mijoz ismi'}</Label>
-                <Input {...register('customerName')} placeholder={watch('paymentType') === 'BANK_TRANSFER' ? 'OOO Firm nomi' : 'Ahmadjon'} />
-              </div>
-              <div className="space-y-2">
-                <Label>Telefon</Label>
-                <Input {...register('customerPhone')} placeholder="+998901234567" />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Sana *</Label>
-              <Input {...register('date')} type="date" />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Izoh</Label>
-              <Input {...register('description')} placeholder="Qo'shimcha ma'lumot..." />
-            </div>
-
-            {/* Worker payment section — only for xom g'isht */}
-            {brickType === 'RAW_BRICK' && (
-              <div className="rounded-lg border border-dashed border-orange-400 px-3 py-2 space-y-2">
-                <p className="text-xs font-semibold text-orange-600">Yuklagan puli</p>
-                <div className="grid grid-cols-3 gap-2">
+              {/* Worker payment section — only for xom g'isht */}
+              {brickType === 'RAW_BRICK' && (
+                <div className="rounded-lg border border-dashed border-orange-400 px-3 py-2 space-y-2">
+                  <p className="text-xs font-semibold text-orange-600">Yuklagan puli</p>
                   <div className="space-y-0.5">
-                    <Label className="text-xs text-muted-foreground">Oldingi qarz</Label>
-                    <Input {...register('workerOldDebt')} type="number" step="1" placeholder="0" className="h-8 text-sm" />
-                  </div>
-                  <div className="space-y-0.5">
-                    <Label className="text-xs text-muted-foreground">1 dona narx</Label>
+                    <Label className="text-xs text-muted-foreground">1 dona narx (so&apos;m)</Label>
                     <Input {...register('workerRatePerBrick')} type="number" step="0.01" placeholder="20" className="h-8 text-sm" />
                   </div>
-                  <div className="space-y-0.5">
-                    <Label className="text-xs text-muted-foreground">Berildi</Label>
-                    <Input {...register('workerPaidAmount')} type="number" step="1" placeholder="0" className="h-8 text-sm" />
-                  </div>
+                  {totalWorkerCost > 0 && (
+                    <div className="grid grid-cols-2 gap-1 rounded bg-orange-50 dark:bg-orange-950/20 px-2 py-1 text-xs text-center">
+                      <div>
+                        <div className="text-muted-foreground">Hisoblandi</div>
+                        <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Jami qarz</div>
+                        <div className="font-bold text-red-600">{formatCurrency(totalWorkerCost)}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                {(totalWorkerCost > 0 || workerOld > 0 || workerPaid > 0) && (
-                  <div className="grid grid-cols-4 gap-1 rounded bg-orange-50 dark:bg-orange-950/20 px-2 py-1 text-xs text-center">
-                    <div>
-                      <div className="text-muted-foreground">Oldingi qarz</div>
-                      <div className="font-semibold text-amber-600">{formatCurrency(workerOld)}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Bugungi ish</div>
-                      <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Berildi</div>
-                      <div className="font-semibold text-green-600">{formatCurrency(workerPaid)}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Jami qarz</div>
-                      <div className={`font-bold ${saleWorkerDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(saleWorkerDebt)}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+              )}
 
-            <DialogFooter>
+              <div className="space-y-1.5">
+                <Label>To&apos;lov turi *</Label>
+                <Select
+                  value={watch('paymentType') || 'CASH'}
+                  onValueChange={(v: string) => setValue('paymentType', v as PaymentType)}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CASH">Naqd</SelectItem>
+                    <SelectItem value="CARD">Karta</SelectItem>
+                    <SelectItem value="DEBT">Nasiya</SelectItem>
+                    <SelectItem value="BANK_TRANSFER">Perechisleniya</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>{watch('paymentType') === 'BANK_TRANSFER' ? 'Firma nomi' : 'Mijoz ismi'}</Label>
+                  <Input {...register('customerName')} placeholder={watch('paymentType') === 'BANK_TRANSFER' ? 'OOO Firm' : 'Ahmadjon'} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Telefon</Label>
+                  <Input {...register('customerPhone')} placeholder="+998901234567" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Sana *</Label>
+                  <Input {...register('date')} type="date" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Izoh</Label>
+                  <Input {...register('description')} placeholder="Qo'shimcha ma'lumot..." />
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="pt-3 border-t mt-3">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Bekor qilish</Button>
               <Button type="submit" loading={isSubmitting || createMutation.isPending || updateMutation.isPending}>
                 {editItem ? 'Saqlash' : "Qo'shish"}

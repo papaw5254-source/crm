@@ -308,12 +308,13 @@ export default function HumbuzPage() {
 
       {/* Add / Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg flex flex-col max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>{editItem ? 'Operatsiyani tahrirlash' : "Operatsiya qo'shish"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit((d) => editItem ? updateMutation.mutate(d) : createMutation.mutate(d))} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit((d) => editItem ? updateMutation.mutate(d) : createMutation.mutate(d))} className="flex flex-col flex-1 min-h-0">
+            <div className="overflow-y-auto flex-1 space-y-3 pr-1">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Humbuz *</Label>
                 <Select defaultValue="HUMBUZ_1" onValueChange={(v: string) => setValue('kilnName', v as KilnName)}>
@@ -331,19 +332,19 @@ export default function HumbuzPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
                 <Label>Xom g&apos;isht kirdi (dona)</Label>
                 <Input {...register('rawBricksEntered')} type="number" placeholder="0" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Pishgan g&apos;isht chiqdi (dona)</Label>
                 <Input {...register('bakedBricksOutput')} type="number" placeholder="0" />
               </div>
             </div>
 
             {rawBricksEntered > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Xom g&apos;isht manbai</Label>
                 <Select onValueChange={(v: string) => setValue('rawBrickSource', v as 'FIELD' | 'RESERVE')}>
                   <SelectTrigger><SelectValue placeholder="Manbani tanlang" /></SelectTrigger>
@@ -359,12 +360,12 @@ export default function HumbuzPage() {
               </div>
             )}
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Izoh</Label>
               <Input {...register('description')} placeholder="Qo'shimcha ma'lumot..." />
             </div>
 
-            {/* Kirdi ishchi puli — faqat xom g'isht kiritilganda */}
+            {/* Kirdi ishchi puli */}
             {rawBricksEntered > 0 && (
               <div className="rounded-lg border border-dashed border-blue-400 px-3 py-2 space-y-2">
                 <p className="text-xs font-semibold text-blue-600">Kirdi ishchi puli (xom g&apos;isht)</p>
@@ -380,24 +381,15 @@ export default function HumbuzPage() {
                 </div>
                 {rawWorkerCost > 0 && (
                   <div className="grid grid-cols-3 gap-1 bg-blue-50 dark:bg-blue-950/20 rounded px-2 py-1 text-xs text-center">
-                    <div>
-                      <div className="text-muted-foreground">Hisoblandi</div>
-                      <div className="font-semibold">{formatCurrency(rawWorkerCost)}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Berildi</div>
-                      <div className="font-semibold text-green-600">{formatCurrency(watchedRawPaid)}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Qarz</div>
-                      <div className={`font-bold ${rawWorkerDebt > 0 ? 'text-red-500' : 'text-green-600'}`}>{formatCurrency(rawWorkerDebt)}</div>
-                    </div>
+                    <div><div className="text-muted-foreground">Hisoblandi</div><div className="font-semibold">{formatCurrency(rawWorkerCost)}</div></div>
+                    <div><div className="text-muted-foreground">Berildi</div><div className="font-semibold text-green-600">{formatCurrency(watchedRawPaid)}</div></div>
+                    <div><div className="text-muted-foreground">Qarz</div><div className={`font-bold ${rawWorkerDebt > 0 ? 'text-red-500' : 'text-green-600'}`}>{formatCurrency(rawWorkerDebt)}</div></div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Chiqdi ishchi puli — faqat pishgan chiqdi kiritilganda */}
+            {/* Chiqdi ishchi puli */}
             {bakedBricksOutput > 0 && (
               <div className="rounded-lg border border-dashed border-amber-400 px-3 py-2 space-y-2">
                 <p className="text-xs font-semibold text-amber-600">Chiqdi ishchi puli (pishgan g&apos;isht)</p>
@@ -413,27 +405,19 @@ export default function HumbuzPage() {
                 </div>
                 {bakedWorkerCost > 0 && (
                   <div className="grid grid-cols-3 gap-1 bg-amber-50 dark:bg-amber-950/20 rounded px-2 py-1 text-xs text-center">
-                    <div>
-                      <div className="text-muted-foreground">Hisoblandi</div>
-                      <div className="font-semibold">{formatCurrency(bakedWorkerCost)}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Berildi</div>
-                      <div className="font-semibold text-green-600">{formatCurrency(watchedBakedPaid)}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Qarz</div>
-                      <div className={`font-bold ${bakedWorkerDebt > 0 ? 'text-red-500' : 'text-green-600'}`}>{formatCurrency(bakedWorkerDebt)}</div>
-                    </div>
+                    <div><div className="text-muted-foreground">Hisoblandi</div><div className="font-semibold">{formatCurrency(bakedWorkerCost)}</div></div>
+                    <div><div className="text-muted-foreground">Berildi</div><div className="font-semibold text-green-600">{formatCurrency(watchedBakedPaid)}</div></div>
+                    <div><div className="text-muted-foreground">Qarz</div><div className={`font-bold ${bakedWorkerDebt > 0 ? 'text-red-500' : 'text-green-600'}`}>{formatCurrency(bakedWorkerDebt)}</div></div>
                   </div>
                 )}
               </div>
             )}
+            </div>
 
-            <DialogFooter>
+            <DialogFooter className="pt-3 border-t mt-3">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Bekor qilish</Button>
-              <Button type="submit" disabled={isSubmitting || createMutation.isPending || updateMutation.isPending}>
-                {isSubmitting || createMutation.isPending || updateMutation.isPending ? 'Saqlanmoqda...' : editItem ? 'Saqlash' : "Qo'shish"}
+              <Button type="submit" loading={isSubmitting || createMutation.isPending || updateMutation.isPending}>
+                {editItem ? 'Saqlash' : "Qo'shish"}
               </Button>
             </DialogFooter>
           </form>
