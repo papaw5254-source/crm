@@ -26,7 +26,7 @@ import { formatDate, formatCurrency, brickTypeLabel, brickTypeColor, paymentType
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
-import type { Sale, PaymentType, BrickType } from '@/types'
+import type { Sale, PaymentType, BrickType, WorkerPayment } from '@/types'
 
 const schema = z.object({
   brickType: z.enum(['RAW_BRICK', 'BAKED_BRICK']),
@@ -60,6 +60,7 @@ export default function SalesPage() {
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<PaymentType | 'ALL'>('ALL')
   const [filterDate, setFilterDate] = useState('')
   const [eskiQarzOpen, setEskiQarzOpen] = useState(false)
+  const [deleteEskiQarzId, setDeleteEskiQarzId] = useState<string | null>(null)
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
 
@@ -73,6 +74,12 @@ export default function SalesPage() {
   })
   const emptyStats = { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
   const yuklagchiStats = wpReport?.byCategory?.FIELD_RAW_LOADING ?? emptyStats
+
+  const { data: eskiQarzData } = useQuery({
+    queryKey: ['worker-payments-eski-qarz'],
+    queryFn: () => workerPaymentsService.getAll({ category: 'FIELD_RAW_LOADING', limit: 200 }),
+  })
+  const eskiQarzList = (eskiQarzData?.data ?? []).filter((r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0)
 
   const { data, isLoading } = useQuery({
     queryKey: ['sales', page, limit, debouncedSearch, filterDate],
@@ -144,6 +151,17 @@ export default function SalesPage() {
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
+  const deleteEskiQarzMutation = useMutation({
+    mutationFn: (id: string) => workerPaymentsService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-eski-qarz'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      toast.success("Eski qarz o'chirildi")
+      setDeleteEskiQarzId(null)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
   const eskiQarzMutation = useMutation({
     mutationFn: (d: EskiQarzForm) => workerPaymentsService.create({
       workerName: "Ishchilar (xom g'isht yuklash)",
@@ -156,6 +174,8 @@ export default function SalesPage() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-eski-qarz'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
       toast.success('Eski qarz qo\'shildi')
       setEskiQarzOpen(false)
       eskiQarzForm.reset({ oldDebt: 0, date: new Date().toISOString().split('T')[0] })
@@ -287,6 +307,33 @@ export default function SalesPage() {
         <StatsCard title="Oldingi qarz" value={Number(yuklagchiStats.carriedDebt)} icon={HardHat} color="slate" />
         <StatsCard title="Jami qarz" value={Number(yuklagchiStats.debt)} icon={HardHat} color="red" />
       </div>
+
+      {eskiQarzList.length > 0 && (
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs font-semibold text-muted-foreground mb-2">Qo&apos;shilgan eski qarzlar</p>
+            <div className="space-y-1">
+              {eskiQarzList.map((r: WorkerPayment) => (
+                <div key={r.id} className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="text-muted-foreground">{formatDate(r.date)}</span>
+                    <span className="font-semibold text-orange-600">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
+                    {r.description && <span className="text-xs text-muted-foreground">{r.description}</span>}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
+                    onClick={() => setDeleteEskiQarzId(r.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="p-4 space-y-4">
@@ -484,6 +531,15 @@ export default function SalesPage() {
         description="Ombor miqdori tiklanadi."
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
         loading={deleteMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!deleteEskiQarzId}
+        onOpenChange={(o) => !o && setDeleteEskiQarzId(null)}
+        title="Eski qarzni o'chirish"
+        description="Bu yozuv o'chiriladi va oldingi qarz hisoblanmaydi."
+        onConfirm={() => deleteEskiQarzId && deleteEskiQarzMutation.mutate(deleteEskiQarzId)}
+        loading={deleteEskiQarzMutation.isPending}
       />
     </div>
   )

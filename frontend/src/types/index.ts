@@ -303,6 +303,8 @@ export interface WorkerPayment {
   year: number
   date: string
   description?: string
+  sourceType?: string
+  sourceId?: string
   createdBy?: User
   createdAt: string
   updatedAt: string
