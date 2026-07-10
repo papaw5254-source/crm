@@ -591,6 +591,28 @@ export class ReportsService {
     };
   }
 
+  async resetAllData(): Promise<{ message: string }> {
+    await this.saleRepo.query(`
+      TRUNCATE TABLE
+        debt_payments,
+        debtors,
+        prepayment_deliveries,
+        prepayments,
+        sales,
+        expenses,
+        inventory_incomes,
+        worker_payments,
+        kiln_operations,
+        reserve_movements,
+        money_incomes,
+        money_movements,
+        stock_movements
+      RESTART IDENTITY CASCADE
+    `);
+    await this.saleRepo.query(`UPDATE stock SET quantity = 0`);
+    return { message: "Barcha ma'lumotlar tozalandi" };
+  }
+
   async getStockReport() {
     const [stocks, reserveRaw, reserveBaked] = await Promise.all([
       this.stockRepo.find(),

@@ -12,6 +12,5 @@ pm2 restart backend
 echo "=== Restarting frontend ==="
 pm2 restart frontend
 
-pm2 save
 echo "=== Deploy complete ==="
 pm2 list

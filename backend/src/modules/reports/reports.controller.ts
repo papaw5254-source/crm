@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -79,5 +79,12 @@ export class ReportsController {
   @ApiOperation({ summary: 'Savdo hisoboti' })
   getSalesReport(@Query() query: DateRangeDto) {
     return this.reportsService.getSalesReport(query);
+  }
+
+  @Post('admin/reset-data')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Barcha ma\'lumotlarni tozalash (Admin only)' })
+  resetAllData() {
+    return this.reportsService.resetAllData();
   }
 }
