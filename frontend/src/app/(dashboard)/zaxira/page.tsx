@@ -513,7 +513,7 @@ export default function ZaxiraPage() {
       </Tabs>
 
       {/* ── Movement Dialog ─────────────────────────────────────────────────── */}
-      <Dialog open={movementDialogOpen} onOpenChange={(open) => { setMovementDialogOpen(open); if (!open) setEditMovement(null) }}>
+      <Dialog open={movementDialogOpen} onOpenChange={(open: boolean) => { setMovementDialogOpen(open); if (!open) setEditMovement(null) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editMovement ? 'Zaxira harakatini tahrirlash' : "Zaxira harakati qo'shish"}</DialogTitle>
