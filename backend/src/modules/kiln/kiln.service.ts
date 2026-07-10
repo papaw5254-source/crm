@@ -228,7 +228,10 @@ export class KilnService {
     const wpRepo = this.dataSource.getRepository(WorkerPayment);
 
     // Delete worker payments linked to this operation via sourceId
-    await wpRepo.delete({ sourceType: 'KILN_OPERATION', sourceId: op.id });
+    await wpRepo
+      .createQueryBuilder().delete().from(WorkerPayment)
+      .where('source_id = :sourceId', { sourceId: op.id })
+      .execute();
 
     // Also delete standalone qachigar payments for the same date+kiln
     // (created via the Qachigar page — they have no sourceId)

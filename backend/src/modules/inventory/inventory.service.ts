@@ -197,13 +197,10 @@ export class InventoryService {
       income.workerOldDebt = oldDebt;
       income.workerDebt = income.totalWorkerCost !== null ? Math.max(0, oldDebt + Number(income.totalWorkerCost) - paid) : null;
 
-      // Sync linked WorkerPayment record (new records with sourceType, and old orphan records)
-      await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME', sourceId: id });
-      await this.workerPaymentRepository.createQueryBuilder()
-        .delete().from(WorkerPayment)
-        .where('category = :cat', { cat: WorkerPaymentCategory.PRESS })
-        .andWhere('date = :date', { date: income.date })
-        .andWhere('source_type IS NULL')
+      // Sync linked WorkerPayment record
+      await this.workerPaymentRepository
+        .createQueryBuilder().delete().from(WorkerPayment)
+        .where('source_id = :sourceId AND source_type = :sourceType', { sourceId: id, sourceType: 'INVENTORY_INCOME' })
         .execute();
       if (rate > 0 && income.totalWorkerCost !== null) {
         await this.workerPaymentRepository.save(
@@ -234,7 +231,10 @@ export class InventoryService {
       income.kretkachOldDebt = kOld;
       income.kretkachDebt = income.totalKretkachCost !== null ? Math.max(0, kOld + Number(income.totalKretkachCost) - kPaid) : null;
 
-      await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME_KRETKACH', sourceId: id });
+      await this.workerPaymentRepository
+        .createQueryBuilder().delete().from(WorkerPayment)
+        .where('source_id = :sourceId AND source_type = :sourceType', { sourceId: id, sourceType: 'INVENTORY_INCOME_KRETKACH' })
+        .execute();
       if (kRate > 0 && income.totalKretkachCost !== null) {
         await this.workerPaymentRepository.save(
           this.workerPaymentRepository.create({
@@ -264,7 +264,10 @@ export class InventoryService {
       income.eshkiOldDebt = eOld;
       income.eshkiDebt = Math.max(0, eOld + eDaily - ePaid);
 
-      await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME_ESHKI', sourceId: id });
+      await this.workerPaymentRepository
+        .createQueryBuilder().delete().from(WorkerPayment)
+        .where('source_id = :sourceId AND source_type = :sourceType', { sourceId: id, sourceType: 'INVENTORY_INCOME_ESHKI' })
+        .execute();
       if (eDaily > 0 || eOld > 0) {
         await this.workerPaymentRepository.save(
           this.workerPaymentRepository.create({
@@ -302,16 +305,13 @@ export class InventoryService {
   async remove(id: string, userId: string): Promise<void> {
     const income = await this.findOne(id);
     const brickType = income.brickType || BrickType.BAKED_BRICK;
-    // Delete linked payments
-    await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME', sourceId: id });
-    await this.workerPaymentRepository.createQueryBuilder()
-      .delete().from(WorkerPayment)
-      .where('category = :cat', { cat: WorkerPaymentCategory.PRESS })
-      .andWhere('date = :date', { date: income.date })
-      .andWhere('source_type IS NULL')
+    // Delete all linked worker payments by sourceId
+    await this.workerPaymentRepository
+      .createQueryBuilder()
+      .delete()
+      .from(WorkerPayment)
+      .where('source_id = :sourceId', { sourceId: id })
       .execute();
-    await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME_KRETKACH', sourceId: id });
-    await this.workerPaymentRepository.delete({ sourceType: 'INVENTORY_INCOME_ESHKI', sourceId: id });
     await this.stockService.decreaseStockBestEffort(
       income.quantity,
       StockMovementType.INCOME_CANCEL,
