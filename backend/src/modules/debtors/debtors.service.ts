@@ -112,6 +112,26 @@ export class DebtorsService {
     await this.debtorRepository.remove(debtor);
   }
 
+  async removeSaleDebt(customerName: string, phone: string | undefined, amount: number): Promise<void> {
+    let debtor = phone
+      ? await this.debtorRepository.findOne({ where: { phone } })
+      : null;
+    if (!debtor) {
+      debtor = await this.debtorRepository.findOne({ where: { fullName: customerName } });
+    }
+    if (!debtor) return;
+
+    debtor.totalDebt = Math.max(0, Number(debtor.totalDebt) - amount);
+    debtor.remainingDebt = Math.max(0, Number(debtor.totalDebt) - Number(debtor.paidAmount));
+    debtor.isPaid = debtor.remainingDebt <= 0;
+
+    if (Number(debtor.totalDebt) <= 0) {
+      await this.debtorRepository.remove(debtor);
+    } else {
+      await this.debtorRepository.save(debtor);
+    }
+  }
+
   async addPayment(
     id: string,
     createPaymentDto: CreateDebtPaymentDto,

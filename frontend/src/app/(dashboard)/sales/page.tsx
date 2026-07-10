@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, ShoppingCart, Pencil, Trash2 } from 'lucide-react'
+import { Plus, ShoppingCart, Pencil, Trash2, HardHat } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -61,6 +61,17 @@ export default function SalesPage() {
   const [eskiQarzOpen, setEskiQarzOpen] = useState(false)
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
+
+  const now = new Date()
+  const THIS_MONTH = now.getMonth() + 1
+  const THIS_YEAR = now.getFullYear()
+
+  const { data: wpReport } = useQuery({
+    queryKey: ['worker-payments-report', THIS_MONTH, THIS_YEAR],
+    queryFn: () => workerPaymentsService.getReport({ month: THIS_MONTH, year: THIS_YEAR }),
+  })
+  const emptyStats = { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
+  const yuklagchiStats = wpReport?.byCategory?.FIELD_RAW_LOADING ?? emptyStats
 
   const { data, isLoading } = useQuery({
     queryKey: ['sales', page, limit, debouncedSearch, filterDate],
@@ -200,9 +211,15 @@ export default function SalesPage() {
     {
       key: 'workerCost',
       header: 'Ishchi puli',
-      cell: (r: Sale) => r.brickType === 'RAW_BRICK' && Number(r.totalWorkerCost) > 0
-        ? <span className="text-orange-600 font-medium">{formatCurrency(Number(r.totalWorkerCost))}</span>
-        : <span className="text-muted-foreground text-xs">—</span>,
+      cell: (r: Sale) => r.brickType === 'RAW_BRICK' && Number(r.totalWorkerCost) > 0 ? (
+        <div className="text-xs space-y-0.5">
+          <div className="font-semibold text-orange-600">{formatCurrency(Number(r.totalWorkerCost))}</div>
+          <div className="text-muted-foreground">
+            <span className="text-emerald-600">Berildi: {formatCurrency(Number(r.workerPaidAmount ?? 0))}</span>
+            {Number(r.workerDebt) > 0 && <span className="text-red-500 ml-1">Qarz: {formatCurrency(Number(r.workerDebt))}</span>}
+          </div>
+        </div>
+      ) : <span className="text-muted-foreground text-xs">—</span>,
     },
     {
       key: 'type',
@@ -261,6 +278,13 @@ export default function SalesPage() {
           <StatsCard title="Yuklagchi qarzi" value={totalWorkerDebt} icon={ShoppingCart} color="red" />
         </div>
       )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatsCard title="Yuklagchi hisoblangan" value={Number(yuklagchiStats.amount)} icon={HardHat} color="amber" />
+        <StatsCard title="Berildi" value={Number(yuklagchiStats.paid)} icon={HardHat} color="emerald" />
+        <StatsCard title="Oldingi qarz" value={Number(yuklagchiStats.carriedDebt)} icon={HardHat} color="slate" />
+        <StatsCard title="Jami qarz" value={Number(yuklagchiStats.debt)} icon={HardHat} color="red" />
+      </div>
 
       <Card>
         <CardContent className="p-4 space-y-4">

@@ -228,6 +228,13 @@ export class SalesService {
       `DELETE FROM worker_payments WHERE source_id = $1`,
       [sale.id],
     );
+    if (sale.paymentType === PaymentType.DEBT) {
+      await this.debtorsService.removeSaleDebt(
+        (sale.customerName || 'Unknown').trim(),
+        sale.customerPhone?.trim() || undefined,
+        Number(sale.totalAmount),
+      );
+    }
     await this.saleRepository.remove(sale);
   }
 
