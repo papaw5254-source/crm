@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronRight,
   Landmark,
+  Settings,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
@@ -80,6 +81,7 @@ const navGroups: NavGroup[] = [
     label: 'Tizim',
     items: [
       { href: '/users', icon: UserCog, label: 'Foydalanuvchilar', adminOnly: true },
+      { href: '/settings', icon: Settings, label: 'Sozlamalar' },
     ],
   },
 ]
