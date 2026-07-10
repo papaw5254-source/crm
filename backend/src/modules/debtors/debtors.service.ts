@@ -244,6 +244,18 @@ export class DebtorsService {
       groups.set(key, group);
     }
 
+    // Delete orphaned debtors (no remaining debt sales)
+    const allDebtors = await this.debtorRepository.find();
+    for (const debtor of allDebtors) {
+      const phone = debtor.phone?.trim() || undefined;
+      const key = phone
+        ? `phone:${phone}`
+        : `name:${(debtor.fullName || '').toLowerCase()}`;
+      if (!groups.has(key)) {
+        await this.debtorRepository.remove(debtor);
+      }
+    }
+
     for (const group of groups.values()) {
       let debtor = group.phone
         ? await this.debtorRepository.findOne({ where: { phone: group.phone } })
