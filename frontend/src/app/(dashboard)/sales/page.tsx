@@ -191,7 +191,6 @@ export default function SalesPage() {
   const totalQty = allRows.reduce((s: number, x: Sale) => s + x.quantity, 0)
   const rawQty = allRows.filter((s: Sale) => s.brickType === 'RAW_BRICK').reduce((s: number, x: Sale) => s + x.quantity, 0)
   const bakedQty = allRows.filter((s: Sale) => s.brickType === 'BAKED_BRICK' || !s.brickType).reduce((s: number, x: Sale) => s + x.quantity, 0)
-  const totalWorkerDebt = allRows.filter((s: Sale) => s.brickType === 'RAW_BRICK').reduce((s: number, x: Sale) => s + Number(x.workerDebt || 0), 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: Sale) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -271,11 +270,10 @@ export default function SalesPage() {
           <StatsCard title="Xom g'isht" value={rawQty} icon={ShoppingCart} color="purple" format="number" suffix="dona" />
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatsCard title="Jami sotuvlar" value={data?.meta?.total ?? 0} icon={ShoppingCart} color="emerald" format="number" suffix="ta" />
           <StatsCard title="Jami summa" value={totalAmount} icon={ShoppingCart} color="blue" />
           <StatsCard title="Jami miqdor" value={totalQty} icon={ShoppingCart} color="purple" format="number" suffix="dona" />
-          <StatsCard title="Yuklagchi qarzi" value={totalWorkerDebt} icon={ShoppingCart} color="red" />
         </div>
       )}
 

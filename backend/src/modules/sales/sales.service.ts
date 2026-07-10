@@ -228,14 +228,13 @@ export class SalesService {
       `DELETE FROM worker_payments WHERE source_id = $1`,
       [sale.id],
     );
-    if (!skipDebtorUpdate && sale.paymentType === PaymentType.DEBT) {
-      await this.debtorsService.removeSaleDebt(
-        (sale.customerName || 'Unknown').trim(),
-        sale.customerPhone?.trim() || undefined,
-        Number(sale.totalAmount),
-      );
-    }
+    const wasDebt = !skipDebtorUpdate && sale.paymentType === PaymentType.DEBT;
+    const debtorName = (sale.customerName || 'Unknown').trim();
+    const debtorPhone = sale.customerPhone?.trim() || undefined;
     await this.saleRepository.remove(sale);
+    if (wasDebt) {
+      await this.debtorsService.removeSaleDebt(debtorName, debtorPhone);
+    }
   }
 
   private async syncWorkerPayment(sale: Sale, userId: string): Promise<void> {

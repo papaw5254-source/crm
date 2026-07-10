@@ -124,7 +124,7 @@ export class DebtorsService {
     await this.debtorRepository.remove(debtor);
   }
 
-  async removeSaleDebt(customerName: string, phone: string | undefined, amount: number): Promise<void> {
+  async removeSaleDebt(customerName: string, phone: string | undefined): Promise<void> {
     let debtor = phone
       ? await this.debtorRepository.findOne({ where: { phone } })
       : null;
@@ -133,13 +133,20 @@ export class DebtorsService {
     }
     if (!debtor) return;
 
-    debtor.totalDebt = Math.max(0, Number(debtor.totalDebt) - amount);
-    debtor.remainingDebt = Math.max(0, Number(debtor.totalDebt) - Number(debtor.paidAmount));
-    debtor.isPaid = debtor.remainingDebt <= 0;
+    // Sale is already deleted from DB at this point — count remaining debt sales
+    const remainingSales = await this.saleRepository.find({
+      where: phone
+        ? { paymentType: PaymentType.DEBT, customerPhone: phone }
+        : { paymentType: PaymentType.DEBT, customerName: debtor.fullName },
+    });
 
-    if (Number(debtor.totalDebt) <= 0) {
+    if (remainingSales.length === 0) {
       await this.debtorRepository.remove(debtor);
     } else {
+      const newTotal = remainingSales.reduce((s, sale) => s + Number(sale.totalAmount), 0);
+      debtor.totalDebt = newTotal;
+      debtor.remainingDebt = Math.max(0, newTotal - Number(debtor.paidAmount));
+      debtor.isPaid = debtor.remainingDebt <= 0;
       await this.debtorRepository.save(debtor);
     }
   }
