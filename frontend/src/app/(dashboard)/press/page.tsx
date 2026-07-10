@@ -207,7 +207,7 @@ export default function PressPage() {
       </Card>
 
       {/* To'lov dialog */}
-      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) form.reset({ date: today, ratePerBrick: 0, paid: 0 }) }}>
+      <Dialog open={dialogOpen} onOpenChange={(o: boolean) => { setDialogOpen(o); if (!o) form.reset({ date: today, ratePerBrick: 0, paid: 0 }) }}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Press to&apos;lov qo&apos;shish</DialogTitle></DialogHeader>
           <form onSubmit={form.handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
@@ -288,7 +288,7 @@ export default function PressPage() {
 
       <ConfirmDialog
         open={!!deleteId}
-        onOpenChange={(o) => !o && setDeleteId(null)}
+        onOpenChange={(o: boolean) => !o && setDeleteId(null)}
         title="To'lovni o'chirishni tasdiqlang"
         description="Bu amal orqaga qaytarib bo'lmaydi."
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
