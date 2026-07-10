@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { workerPaymentsService } from '@/services/worker-payments.service'
+import { inventoryService } from '@/services/inventory.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
@@ -17,13 +18,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
-import { formatDate, formatCurrency, getErrorMessage } from '@/lib/utils'
-import type { WorkerPayment } from '@/types'
+import { formatDate, formatCurrency, formatNumber, getErrorMessage } from '@/lib/utils'
+import type { WorkerPayment, InventoryIncome } from '@/types'
 
 const schema = z.object({
-  date: z.string().min(1),
-  quantity: z.coerce.number().min(0).optional(),
-  ratePerBrick: z.coerce.number().min(0).optional(),
+  date: z.string().min(1, 'Sana kiriting'),
+  ratePerBrick: z.coerce.number().min(1, 'Narx kiriting'),
   paid: z.coerce.number().min(0).optional(),
 })
 type FormData = z.infer<typeof schema>
@@ -57,14 +57,26 @@ export default function PressPage() {
     queryFn: () => workerPaymentsService.getAll({ category: 'PRESS', month: THIS_MONTH, year: THIS_YEAR, limit: 100 }),
   })
 
+  const { data: kirimlar } = useQuery({
+    queryKey: ['inventory-all'],
+    queryFn: () => inventoryService.getAll({ page: 1, limit: 200 }),
+  })
+
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { date: today, quantity: undefined, ratePerBrick: undefined, paid: 0 },
+    defaultValues: { date: today, ratePerBrick: 0, paid: 0 },
   })
-  const qty = form.watch('quantity') || 0
+
+  const selectedDate = form.watch('date')
   const rate = form.watch('ratePerBrick') || 0
   const paid = form.watch('paid') || 0
-  const amount = qty > 0 && rate > 0 ? qty * rate : 0
+
+  const matchingKirimlar = (kirimlar?.data ?? []).filter(
+    (k: InventoryIncome) => k.date === selectedDate
+  )
+  const totalQty = matchingKirimlar.reduce((s: number, k: InventoryIncome) => s + Number(k.quantity), 0)
+  const primaryKirim: InventoryIncome | undefined = matchingKirimlar[0]
+  const amount = totalQty > 0 && rate > 0 ? totalQty * rate : 0
   const debt = Math.max(0, amount - paid)
 
   const eskiQarzForm = useForm<EskiQarzForm>({
@@ -82,17 +94,21 @@ export default function PressPage() {
     mutationFn: (d: FormData) => workerPaymentsService.create({
       workerName: "Ishchilar (press)",
       category: 'PRESS',
-      amount,
+      amount: totalQty > 0 ? totalQty * d.ratePerBrick : 0,
       paidAmount: d.paid || 0,
       debtFromPreviousMonth: 0,
       month: d.date.slice(0, 7),
       date: d.date,
+      description: totalQty > 0
+        ? `${formatNumber(totalQty)} dona xom g'isht (${d.ratePerBrick} so'm/dona)`
+        : `Press — ${d.date}`,
+      ...(primaryKirim ? { sourceType: 'INVENTORY_INCOME', sourceId: primaryKirim.id } : {}),
     }),
     onSuccess: () => {
       invalidate()
       toast.success("To'lov qo'shildi")
       setDialogOpen(false)
-      form.reset({ date: today, quantity: undefined, ratePerBrick: undefined, paid: 0 })
+      form.reset({ date: today, ratePerBrick: 0, paid: 0 })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -191,28 +207,48 @@ export default function PressPage() {
       </Card>
 
       {/* To'lov dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) form.reset({ date: today, ratePerBrick: 0, paid: 0 }) }}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Press to&apos;lov qo&apos;shish</DialogTitle></DialogHeader>
           <form onSubmit={form.handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
             <div className="space-y-2">
-              <Label>Sana</Label>
+              <Label>Sana *</Label>
               <Input {...form.register('date')} type="date" />
+              {form.formState.errors.date && (
+                <p className="text-destructive text-xs">{form.formState.errors.date.message}</p>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Miqdor (dona)</Label>
-                <Input {...form.register('quantity')} type="number" placeholder="10000" />
-              </div>
-              <div className="space-y-2">
-                <Label>1 dona narx</Label>
-                <Input {...form.register('ratePerBrick')} type="number" placeholder="30" />
-              </div>
+
+            {/* Kirim topildi/topilmadi */}
+            {selectedDate && (
+              totalQty > 0 ? (
+                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-sm">
+                  <p className="text-emerald-700 dark:text-emerald-400 font-medium">
+                    {formatDate(selectedDate)} — <span className="font-bold">{formatNumber(totalQty)} dona</span> xom g&apos;isht
+                  </p>
+                  {matchingKirimlar.length > 1 && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{matchingKirimlar.length} ta kirim birlashtirildi</p>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-lg bg-muted/50 border p-3 text-sm text-muted-foreground">
+                  Bu sana uchun kirim topilmadi — to&apos;lovni baribir qo&apos;shish mumkin
+                </div>
+              )
+            )}
+
+            <div className="space-y-2">
+              <Label>1 dona narx (so&apos;m) *</Label>
+              <Input {...form.register('ratePerBrick')} type="number" placeholder="30" />
+              {form.formState.errors.ratePerBrick && (
+                <p className="text-destructive text-xs">{form.formState.errors.ratePerBrick.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Berildi</Label>
               <Input {...form.register('paid')} type="number" placeholder="0" />
             </div>
+
             {amount > 0 && (
               <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 p-2 text-xs text-center">
                 <div><div className="text-muted-foreground">Hisoblandi</div><div className="font-semibold">{formatCurrency(amount)}</div></div>
@@ -220,6 +256,7 @@ export default function PressPage() {
                 <div><div className="text-muted-foreground">Jami qarz</div><div className={`font-bold ${debt > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(debt)}</div></div>
               </div>
             )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Bekor qilish</Button>
               <Button type="submit" loading={createMutation.isPending}>Saqlash</Button>
