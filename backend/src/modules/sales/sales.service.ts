@@ -224,18 +224,18 @@ export class SalesService {
         brickType,
       );
       }
-    await this.workerPaymentRepository
-      .createQueryBuilder().delete().from(WorkerPayment)
-      .where('source_id = :sourceId', { sourceId: sale.id })
-      .execute();
+    await this.workerPaymentRepository.query(
+      `DELETE FROM worker_payments WHERE source_id = $1`,
+      [sale.id],
+    );
     await this.saleRepository.remove(sale);
   }
 
   private async syncWorkerPayment(sale: Sale, userId: string): Promise<void> {
-    await this.workerPaymentRepository
-      .createQueryBuilder().delete().from(WorkerPayment)
-      .where('source_id = :sourceId AND source_type = :sourceType', { sourceId: sale.id, sourceType: 'SALE' })
-      .execute();
+    await this.workerPaymentRepository.query(
+      `DELETE FROM worker_payments WHERE source_id = $1 AND source_type = $2`,
+      [sale.id, 'SALE'],
+    );
 
     if (sale.brickType !== BrickType.RAW_BRICK) return;
 

@@ -11,6 +11,8 @@ export interface CreateWorkerPaymentDto {
   year?: number
   date: string
   description?: string
+  sourceType?: string
+  sourceId?: string
 }
 
 export const workerPaymentsService = {

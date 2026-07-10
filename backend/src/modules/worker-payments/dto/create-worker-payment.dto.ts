@@ -41,4 +41,14 @@ export class CreateWorkerPaymentDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ example: 'INVENTORY_INCOME' })
+  @IsOptional()
+  @IsString()
+  sourceType?: string;
+
+  @ApiPropertyOptional({ example: 'uuid-of-source-record' })
+  @IsOptional()
+  @IsString()
+  sourceId?: string;
 }

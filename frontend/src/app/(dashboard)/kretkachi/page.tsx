@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { workerPaymentsService } from '@/services/worker-payments.service'
+import { inventoryService } from '@/services/inventory.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
@@ -17,13 +18,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
-import { formatDate, formatCurrency, getErrorMessage } from '@/lib/utils'
-import type { WorkerPayment } from '@/types'
+import { formatDate, formatCurrency, formatNumber, getErrorMessage } from '@/lib/utils'
+import type { WorkerPayment, InventoryIncome } from '@/types'
 
 const schema = z.object({
-  date: z.string().min(1),
-  quantity: z.coerce.number().min(0).optional(),
-  ratePerBrick: z.coerce.number().min(0).optional(),
+  kirimId: z.string().min(1, 'Kirimni tanlang'),
+  ratePerBrick: z.coerce.number().min(0),
   paid: z.coerce.number().min(0).optional(),
 })
 type FormData = z.infer<typeof schema>
@@ -57,13 +57,22 @@ export default function KretkachPage() {
     queryFn: () => workerPaymentsService.getAll({ category: 'KRETKACHI', month: THIS_MONTH, year: THIS_YEAR, limit: 100 }),
   })
 
+  // Fetch recent kirimlar for selector
+  const { data: kirimlar } = useQuery({
+    queryKey: ['inventory', 1, 100, ''],
+    queryFn: () => inventoryService.getAll({ page: 1, limit: 100 }),
+  })
+
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { date: today, quantity: undefined, ratePerBrick: undefined, paid: 0 },
+    defaultValues: { kirimId: '', ratePerBrick: 0, paid: 0 },
   })
-  const qty = form.watch('quantity') || 0
+
+  const selectedKirimId = form.watch('kirimId')
   const rate = form.watch('ratePerBrick') || 0
   const paid = form.watch('paid') || 0
+  const selectedKirim = kirimlar?.data?.find((k: InventoryIncome) => k.id === selectedKirimId)
+  const qty = selectedKirim?.quantity || 0
   const amount = qty > 0 && rate > 0 ? qty * rate : 0
   const debt = Math.max(0, amount - paid)
 
@@ -79,20 +88,26 @@ export default function KretkachPage() {
   }
 
   const createMutation = useMutation({
-    mutationFn: (d: FormData) => workerPaymentsService.create({
-      workerName: 'Kretkachi',
-      category: 'KRETKACHI',
-      amount,
-      paidAmount: d.paid || 0,
-      debtFromPreviousMonth: 0,
-      month: d.date.slice(0, 7),
-      date: d.date,
-    }),
+    mutationFn: (d: FormData) => {
+      if (!selectedKirim) throw new Error('Kirim tanlanmagan')
+      return workerPaymentsService.create({
+        workerName: 'Kretkachi',
+        category: 'KRETKACHI',
+        amount,
+        paidAmount: d.paid || 0,
+        debtFromPreviousMonth: 0,
+        month: selectedKirim.date.slice(0, 7),
+        date: selectedKirim.date,
+        description: `${formatNumber(qty)} dona xom g'isht (${rate} so'm/dona)`,
+        sourceType: 'INVENTORY_INCOME_KRETKACH',
+        sourceId: selectedKirim.id,
+      })
+    },
     onSuccess: () => {
       invalidate()
       toast.success("To'lov qo'shildi")
       setDialogOpen(false)
-      form.reset({ date: today, quantity: undefined, ratePerBrick: undefined, paid: 0 })
+      form.reset({ kirimId: '', ratePerBrick: 0, paid: 0 })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -196,23 +211,39 @@ export default function KretkachPage() {
           <DialogHeader><DialogTitle>Kretkachi to&apos;lov qo&apos;shish</DialogTitle></DialogHeader>
           <form onSubmit={form.handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
             <div className="space-y-2">
-              <Label>Sana</Label>
-              <Input {...form.register('date')} type="date" />
+              <Label>Kirimni tanlang *</Label>
+              <select
+                {...form.register('kirimId')}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">— Kirimni tanlang —</option>
+                {(kirimlar?.data ?? []).map((k: InventoryIncome) => (
+                  <option key={k.id} value={k.id}>
+                    {formatDate(k.date)} — {formatNumber(k.quantity)} dona
+                  </option>
+                ))}
+              </select>
+              {form.formState.errors.kirimId && (
+                <p className="text-destructive text-xs">{form.formState.errors.kirimId.message}</p>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Miqdor (dona)</Label>
-                <Input {...form.register('quantity')} type="number" placeholder="10000" />
+
+            {selectedKirim && (
+              <div className="rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground">
+                Tanlangan: <span className="font-medium text-foreground">{formatDate(selectedKirim.date)}</span>
+                {' · '}<span className="font-medium text-primary">{formatNumber(selectedKirim.quantity)} dona</span>
               </div>
-              <div className="space-y-2">
-                <Label>1 dona narx</Label>
-                <Input {...form.register('ratePerBrick')} type="number" placeholder="20" />
-              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>1 dona narx (so&apos;m)</Label>
+              <Input {...form.register('ratePerBrick')} type="number" placeholder="20" />
             </div>
             <div className="space-y-2">
               <Label>Berildi</Label>
               <Input {...form.register('paid')} type="number" placeholder="0" />
             </div>
+
             {amount > 0 && (
               <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 p-2 text-xs text-center">
                 <div><div className="text-muted-foreground">Hisoblandi</div><div className="font-semibold">{formatCurrency(amount)}</div></div>
@@ -220,6 +251,7 @@ export default function KretkachPage() {
                 <div><div className="text-muted-foreground">Jami qarz</div><div className={`font-bold ${debt > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(debt)}</div></div>
               </div>
             )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Bekor qilish</Button>
               <Button type="submit" loading={createMutation.isPending}>Saqlash</Button>
