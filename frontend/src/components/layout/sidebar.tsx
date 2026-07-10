@@ -50,6 +50,8 @@ const navGroups: NavGroup[] = [
     label: "G'isht",
     items: [
       { href: '/inventory', icon: PackagePlus, label: "Xom g'isht kirim" },
+      { href: '/kretkachi', icon: HardHat, label: 'Kretkachi' },
+      { href: '/eshikchi', icon: HardHat, label: 'Eshikchi' },
       { href: '/sales', icon: ShoppingCart, label: 'Sotuvlar' },
       { href: '/humbuz', icon: Flame, label: 'Humbuz' },
       { href: '/qachigar', icon: HardHat, label: 'Qachigar' },
@@ -69,6 +71,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Hisobot',
     items: [
+      { href: '/ishchilar', icon: HardHat, label: 'Ishchilar' },
       { href: '/reports', icon: BarChart3, label: 'Hisobotlar' },
     ],
   },

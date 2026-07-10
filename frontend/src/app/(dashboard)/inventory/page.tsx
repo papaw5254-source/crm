@@ -37,23 +37,6 @@ const schema = z.object({
 })
 type FormData = z.infer<typeof schema>
 
-// ── Kretkachi payment form ───────────────────────────────────────────────────
-const kretkachSchema = z.object({
-  date: z.string().min(1),
-  quantity: z.coerce.number().min(0).optional(),
-  ratePerBrick: z.coerce.number().min(0).optional(),
-  paid: z.coerce.number().min(0).optional(),
-})
-type KretkachForm = z.infer<typeof kretkachSchema>
-
-// ── Eshikchi payment form ────────────────────────────────────────────────────
-const eshikchiSchema = z.object({
-  date: z.string().min(1),
-  dailyAmount: z.coerce.number().min(0),
-  paid: z.coerce.number().min(0).optional(),
-})
-type EshikchiForm = z.infer<typeof eshikchiSchema>
-
 // ── Press eski qarz form ─────────────────────────────────────────────────────
 const pressEskiSchema = z.object({
   date: z.string().min(1),
@@ -102,8 +85,6 @@ export default function InventoryPage() {
   const [editItem, setEditItem] = useState<InventoryIncome | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [pressDialogOpen, setPressDialogOpen] = useState(false)
-  const [kretkachDialogOpen, setKretkachDialogOpen] = useState(false)
-  const [eshikchiDialogOpen, setEshikchiDialogOpen] = useState(false)
 
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
@@ -124,8 +105,6 @@ export default function InventoryPage() {
 
   const emptyStats = { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
   const pressStats = wpReport?.byCategory?.PRESS ?? emptyStats
-  const kretkachStats = wpReport?.byCategory?.KRETKACHI ?? emptyStats
-  const eshkiStats = wpReport?.byCategory?.ESHIKCHI ?? emptyStats
 
   // ── Inventory form ──────────────────────────────────────────────────────────
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -138,26 +117,6 @@ export default function InventoryPage() {
   const watchedPaid = watch('workerPaidAmount') || 0
   const totalWorkerCost = watchedQty * watchedRate
   const workerDebt = Math.max(0, totalWorkerCost - watchedPaid)
-
-  // ── Kretkachi form ──────────────────────────────────────────────────────────
-  const kretkachForm = useForm<KretkachForm>({
-    resolver: zodResolver(kretkachSchema),
-    defaultValues: { date: today, quantity: undefined, ratePerBrick: undefined, paid: 0 },
-  })
-  const kQty = kretkachForm.watch('quantity') || 0
-  const kRate = kretkachForm.watch('ratePerBrick') || 0
-  const kPaid = kretkachForm.watch('paid') || 0
-  const kAmount = kQty > 0 && kRate > 0 ? kQty * kRate : 0
-  const kDebt = Math.max(0, kAmount - kPaid)
-
-  // ── Eshikchi form ───────────────────────────────────────────────────────────
-  const eshikchiForm = useForm<EshikchiForm>({
-    resolver: zodResolver(eshikchiSchema),
-    defaultValues: { date: today, dailyAmount: 0, paid: 0 },
-  })
-  const eDaily = eshikchiForm.watch('dailyAmount') || 0
-  const ePaid = eshikchiForm.watch('paid') || 0
-  const eDebt = Math.max(0, eDaily - ePaid)
 
   // ── Press eski qarz form ────────────────────────────────────────────────────
   const pressEskiForm = useForm<PressEskiForm>({
@@ -187,44 +146,6 @@ export default function InventoryPage() {
       toast.success("Eski qarz qo'shildi")
       setPressDialogOpen(false)
       pressEskiForm.reset({ date: today, oldDebt: 0 })
-    },
-    onError: (e: unknown) => toast.error(getErrorMessage(e)),
-  })
-
-  const kretkachMutation = useMutation({
-    mutationFn: (d: KretkachForm) => workerPaymentsService.create({
-      workerName: 'Kretkachi',
-      category: 'KRETKACHI',
-      amount: kAmount,
-      paidAmount: d.paid || 0,
-      debtFromPreviousMonth: 0,
-      month: d.date.slice(0, 7),
-      date: d.date,
-    }),
-    onSuccess: () => {
-      invalidateWorkerPayments()
-      toast.success("Kretkachi to'lovi qo'shildi")
-      setKretkachDialogOpen(false)
-      kretkachForm.reset({ date: today, quantity: undefined, ratePerBrick: undefined, paid: 0 })
-    },
-    onError: (e: unknown) => toast.error(getErrorMessage(e)),
-  })
-
-  const eshikchiMutation = useMutation({
-    mutationFn: (d: EshikchiForm) => workerPaymentsService.create({
-      workerName: 'Eshikchi',
-      category: 'ESHIKCHI',
-      amount: d.dailyAmount,
-      paidAmount: d.paid || 0,
-      debtFromPreviousMonth: 0,
-      month: d.date.slice(0, 7),
-      date: d.date,
-    }),
-    onSuccess: () => {
-      invalidateWorkerPayments()
-      toast.success("Eshikchi to'lovi qo'shildi")
-      setEshikchiDialogOpen(false)
-      eshikchiForm.reset({ date: today, dailyAmount: 0, paid: 0 })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -387,22 +308,6 @@ export default function InventoryPage() {
         addLabel="Eski qarz qo'shish"
       />
 
-      {/* Kretkachi stats */}
-      <WorkerStatsSection
-        title="Ishchi puli — Kretkachi"
-        stats={kretkachStats as { amount: number; paid: number; debt: number; carriedDebt: number }}
-        onAdd={() => setKretkachDialogOpen(true)}
-        addLabel="To'lov qo'shish"
-      />
-
-      {/* Eshikchi stats */}
-      <WorkerStatsSection
-        title="Ishchi puli — Eshikchi"
-        stats={eshkiStats as { amount: number; paid: number; debt: number; carriedDebt: number }}
-        onAdd={() => setEshikchiDialogOpen(true)}
-        addLabel="To'lov qo'shish"
-      />
-
       {/* Kirim table */}
       <Card>
         <CardContent className="p-4 space-y-4">
@@ -499,64 +404,6 @@ export default function InventoryPage() {
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setPressDialogOpen(false)}>Bekor qilish</Button>
               <Button type="submit" loading={pressEskiMutation.isPending}>Saqlash</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Kretkachi payment dialog ─────────────────────────────────────────── */}
-      <Dialog open={kretkachDialogOpen} onOpenChange={setKretkachDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Kretkachi to&apos;lov qo&apos;shish</DialogTitle></DialogHeader>
-          <form onSubmit={kretkachForm.handleSubmit((d) => kretkachMutation.mutate(d))} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Sana</Label>
-              <Input {...kretkachForm.register('date')} type="date" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Miqdor (dona)</Label>
-                <Input {...kretkachForm.register('quantity')} type="number" placeholder="10000" />
-              </div>
-              <div className="space-y-2">
-                <Label>1 dona narx</Label>
-                <Input {...kretkachForm.register('ratePerBrick')} type="number" placeholder="20" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Berildi</Label>
-              <Input {...kretkachForm.register('paid')} type="number" placeholder="0" />
-            </div>
-            {kAmount > 0 && <CalcRow amount={kAmount} paid={kPaid} debt={kDebt} />}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setKretkachDialogOpen(false)}>Bekor qilish</Button>
-              <Button type="submit" loading={kretkachMutation.isPending}>Saqlash</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Eshikchi payment dialog ──────────────────────────────────────────── */}
-      <Dialog open={eshikchiDialogOpen} onOpenChange={setEshikchiDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Eshikchi to&apos;lov qo&apos;shish</DialogTitle></DialogHeader>
-          <form onSubmit={eshikchiForm.handleSubmit((d) => eshikchiMutation.mutate(d))} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Sana</Label>
-              <Input {...eshikchiForm.register('date')} type="date" />
-            </div>
-            <div className="space-y-2">
-              <Label>Kunlik to&apos;lov (so&apos;m)</Label>
-              <Input {...eshikchiForm.register('dailyAmount')} type="number" placeholder="80000" />
-            </div>
-            <div className="space-y-2">
-              <Label>Berildi</Label>
-              <Input {...eshikchiForm.register('paid')} type="number" placeholder="0" />
-            </div>
-            {eDaily > 0 && <CalcRow amount={eDaily} paid={ePaid} debt={eDebt} />}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEshikchiDialogOpen(false)}>Bekor qilish</Button>
-              <Button type="submit" loading={eshikchiMutation.isPending}>Saqlash</Button>
             </DialogFooter>
           </form>
         </DialogContent>
