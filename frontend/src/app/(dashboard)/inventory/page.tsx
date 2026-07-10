@@ -33,6 +33,7 @@ const schema = z.object({
   description: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
   workerRatePerBrick: z.coerce.number().min(0).optional(),
+  workerPaidAmount: z.coerce.number().min(0).optional(),
 })
 type FormData = z.infer<typeof schema>
 
@@ -56,7 +57,7 @@ type EshikchiForm = z.infer<typeof eshikchiSchema>
 // ── Press eski qarz form ─────────────────────────────────────────────────────
 const pressEskiSchema = z.object({
   date: z.string().min(1),
-  paid: z.coerce.number().min(0).optional(),
+  oldDebt: z.coerce.number().min(0),
 })
 type PressEskiForm = z.infer<typeof pressEskiSchema>
 
@@ -134,7 +135,9 @@ export default function InventoryPage() {
 
   const watchedQty = watch('quantity') || 0
   const watchedRate = watch('workerRatePerBrick') || 0
+  const watchedPaid = watch('workerPaidAmount') || 0
   const totalWorkerCost = watchedQty * watchedRate
+  const workerDebt = Math.max(0, totalWorkerCost - watchedPaid)
 
   // ── Kretkachi form ──────────────────────────────────────────────────────────
   const kretkachForm = useForm<KretkachForm>({
@@ -159,7 +162,7 @@ export default function InventoryPage() {
   // ── Press eski qarz form ────────────────────────────────────────────────────
   const pressEskiForm = useForm<PressEskiForm>({
     resolver: zodResolver(pressEskiSchema),
-    defaultValues: { date: today, paid: 0 },
+    defaultValues: { date: today, oldDebt: 0 },
   })
 
   const invalidateWorkerPayments = () => {
@@ -174,16 +177,16 @@ export default function InventoryPage() {
       workerName: 'Ishchilar (press)',
       category: 'PRESS',
       amount: 0,
-      paidAmount: d.paid || 0,
-      debtFromPreviousMonth: 0,
+      paidAmount: 0,
+      debtFromPreviousMonth: d.oldDebt || 0,
       month: d.date.slice(0, 7),
       date: d.date,
     }),
     onSuccess: () => {
       invalidateWorkerPayments()
-      toast.success("Press to'lovi qo'shildi")
+      toast.success("Eski qarz qo'shildi")
       setPressDialogOpen(false)
-      pressEskiForm.reset({ date: today, paid: 0 })
+      pressEskiForm.reset({ date: today, oldDebt: 0 })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -271,6 +274,7 @@ export default function InventoryPage() {
     setValue('description', item.description || '')
     setValue('date', item.date)
     setValue('workerRatePerBrick', Number(item.workerRatePerBrick ?? 0) || undefined)
+    setValue('workerPaidAmount', Number(item.workerPaidAmount ?? 0) || undefined)
     setDialogOpen(true)
   }
 
@@ -380,7 +384,7 @@ export default function InventoryPage() {
         title="Ishchi puli — Press"
         stats={pressStats as { amount: number; paid: number; debt: number; carriedDebt: number }}
         onAdd={() => setPressDialogOpen(true)}
-        addLabel="To'lov qo'shish"
+        addLabel="Eski qarz qo'shish"
       />
 
       {/* Kretkachi stats */}
@@ -443,15 +447,23 @@ export default function InventoryPage() {
                 <Label>1 dona narx</Label>
                 <Input {...register('workerRatePerBrick')} type="number" placeholder="30" />
               </div>
+              <div className="space-y-2">
+                <Label>Berildi</Label>
+                <Input {...register('workerPaidAmount')} type="number" placeholder="0" />
+              </div>
               {totalWorkerCost > 0 && (
-                <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/40 p-2 text-xs text-center">
+                <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 p-2 text-xs text-center">
                   <div>
                     <div className="text-muted-foreground">Hisoblandi</div>
                     <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
                   </div>
                   <div>
+                    <div className="text-muted-foreground">Berildi</div>
+                    <div className="font-semibold text-emerald-600">{formatCurrency(watchedPaid)}</div>
+                  </div>
+                  <div>
                     <div className="text-muted-foreground">Jami qarz</div>
-                    <div className="font-bold text-red-600">{formatCurrency(totalWorkerCost)}</div>
+                    <div className="font-bold text-red-600">{formatCurrency(workerDebt)}</div>
                   </div>
                 </div>
               )}
@@ -471,18 +483,18 @@ export default function InventoryPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Press payment dialog ─────────────────────────────────────────────── */}
+      {/* ── Press eski qarz dialog ───────────────────────────────────────────── */}
       <Dialog open={pressDialogOpen} onOpenChange={setPressDialogOpen}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Press to&apos;lov qo&apos;shish</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Eski qarz qo&apos;shish (Press)</DialogTitle></DialogHeader>
           <form onSubmit={pressEskiForm.handleSubmit((d) => pressEskiMutation.mutate(d))} className="space-y-4">
             <div className="space-y-2">
               <Label>Sana</Label>
               <Input {...pressEskiForm.register('date')} type="date" />
             </div>
             <div className="space-y-2">
-              <Label>Berildi</Label>
-              <Input {...pressEskiForm.register('paid')} type="number" placeholder="0" />
+              <Label>Eski qarz miqdori (so&apos;m)</Label>
+              <Input {...pressEskiForm.register('oldDebt')} type="number" placeholder="0" />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setPressDialogOpen(false)}>Bekor qilish</Button>
