@@ -305,7 +305,8 @@ export interface WorkerPaymentReport {
   totalAmount: number
   totalPaid: number
   totalDebt: number
-  byCategory: Record<string, { count: number; amount: number; paid: number; debt: number }>
+  totalCarriedDebt: number
+  byCategory: Record<string, { count: number; amount: number; paid: number; debt: number; carriedDebt: number }>
 }
 
 // ─── Reports ─────────────────────────────────────────────────────────────────
