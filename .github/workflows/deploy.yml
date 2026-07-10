@@ -64,4 +64,4 @@ jobs:
         run: ssh root@${{ secrets.SERVER_HOST }} "pm2 list && systemctl is-active nginx && echo 'Nginx port:' && ss -tlnp | grep ':80'"
 
       - name: Show backend logs
-        run: ssh root@${{ secrets.SERVER_HOST }} "pm2 logs backend --lines 30 --nostream"
+        run: ssh root@${{ secrets.SERVER_HOST }} "pm2 logs backend --lines 60 --nostream"
