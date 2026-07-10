@@ -46,7 +46,7 @@ jobs:
         run: ssh root@${{ secrets.SERVER_HOST }} "cd /root/crm/backend && npm install --production --prefer-offline 2>&1 | tail -3"
 
       - name: Restart services
-        run: ssh root@${{ secrets.SERVER_HOST }} "pm2 restart backend && pm2 save"
+        run: ssh root@${{ secrets.SERVER_HOST }} "pm2 delete backend 2>/dev/null || true; pm2 start /root/crm/backend/dist/main.js --name backend; pm2 save"
 
       - name: Install nginx if missing
         run: ssh root@${{ secrets.SERVER_HOST }} "which nginx || (apt-get update -y && apt-get install -y nginx)"
