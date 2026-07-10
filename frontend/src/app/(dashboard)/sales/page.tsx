@@ -43,8 +43,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 const eskiQarzSchema = z.object({
-  amount: z.coerce.number().min(0),
-  paidAmount: z.coerce.number().min(0),
+  oldDebt: z.coerce.number().min(0),
   date: z.string().min(1),
 })
 type EskiQarzForm = z.infer<typeof eskiQarzSchema>
@@ -80,7 +79,7 @@ export default function SalesPage() {
 
   const eskiQarzForm = useForm<EskiQarzForm>({
     resolver: zodResolver(eskiQarzSchema),
-    defaultValues: { amount: 0, paidAmount: 0, date: new Date().toISOString().split('T')[0] },
+    defaultValues: { oldDebt: 0, date: new Date().toISOString().split('T')[0] },
   })
 
   const brickType = watch('brickType')
@@ -135,8 +134,9 @@ export default function SalesPage() {
     mutationFn: (d: EskiQarzForm) => workerPaymentsService.create({
       workerName: "Ishchilar (xom g'isht yuklash)",
       category: 'FIELD_RAW_LOADING',
-      amount: d.amount,
-      paidAmount: d.paidAmount,
+      amount: 0,
+      paidAmount: 0,
+      debtFromPreviousMonth: d.oldDebt,
       month: d.date.slice(0, 7),
       date: d.date,
     }),
@@ -144,7 +144,7 @@ export default function SalesPage() {
       queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
       toast.success('Eski qarz qo\'shildi')
       setEskiQarzOpen(false)
-      eskiQarzForm.reset({ amount: 0, paidAmount: 0, date: new Date().toISOString().split('T')[0] })
+      eskiQarzForm.reset({ oldDebt: 0, date: new Date().toISOString().split('T')[0] })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -237,7 +237,7 @@ export default function SalesPage() {
         actions={
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={() => setEskiQarzOpen(true)}>
-              Yuklagchi eski qarz
+              Yuklagan eski qarz
             </Button>
             <Button onClick={() => { setEditItem(null); reset({ date: new Date().toISOString().split('T')[0], paymentType: 'CASH', brickType: 'BAKED_BRICK' }); setDialogOpen(true) }}>
               <Plus className="h-4 w-4 mr-1" /> Sotuv qo&apos;shish
@@ -422,16 +422,12 @@ export default function SalesPage() {
       <Dialog open={eskiQarzOpen} onOpenChange={setEskiQarzOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Yuklagchi eski qarz</DialogTitle>
+            <DialogTitle>Yuklagan puli — eski qarz</DialogTitle>
           </DialogHeader>
           <form onSubmit={eskiQarzForm.handleSubmit((d) => eskiQarzMutation.mutate(d))} className="space-y-4">
             <div className="space-y-2">
-              <Label>Qarz miqdori</Label>
-              <Input {...eskiQarzForm.register('amount')} type="number" step="1" placeholder="0" />
-            </div>
-            <div className="space-y-2">
-              <Label>Berildi</Label>
-              <Input {...eskiQarzForm.register('paidAmount')} type="number" step="1" placeholder="0" />
+              <Label>Eski qarz miqdori (so&apos;m)</Label>
+              <Input {...eskiQarzForm.register('oldDebt')} type="number" step="1" placeholder="0" />
             </div>
             <div className="space-y-2">
               <Label>Sana</Label>
