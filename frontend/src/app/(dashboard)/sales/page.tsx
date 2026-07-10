@@ -38,6 +38,7 @@ const schema = z.object({
   description: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
   workerRatePerBrick: z.coerce.number().min(0).optional(),
+  workerPaidAmount: z.coerce.number().min(0).optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -97,8 +98,10 @@ export default function SalesPage() {
   const qty = watch('quantity')
   const price = watch('pricePerBrick')
   const workerRate = watch('workerRatePerBrick') || 0
+  const workerPaid = watch('workerPaidAmount') || 0
   const total = (qty || 0) * (price || 0)
   const totalWorkerCost = brickType === 'RAW_BRICK' && workerRate > 0 ? (qty || 0) * workerRate : 0
+  const workerDebtCalc = Math.max(0, totalWorkerCost - workerPaid)
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['sales'] })
@@ -172,6 +175,7 @@ export default function SalesPage() {
     setValue('date', item.date)
     if (item.brickType === 'RAW_BRICK') {
       setValue('workerRatePerBrick', Number(item.workerRatePerBrick || 0))
+      setValue('workerPaidAmount', Number(item.workerPaidAmount || 0))
     }
     setDialogOpen(true)
   }
@@ -372,19 +376,29 @@ export default function SalesPage() {
               {brickType === 'RAW_BRICK' && (
                 <div className="rounded-lg border border-dashed border-orange-400 px-3 py-2 space-y-2">
                   <p className="text-xs font-semibold text-orange-600">Yuklagan puli</p>
-                  <div className="space-y-0.5">
-                    <Label className="text-xs text-muted-foreground">1 dona narx (so&apos;m)</Label>
-                    <Input {...register('workerRatePerBrick')} type="number" step="0.01" placeholder="20" className="h-8 text-sm" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs text-muted-foreground">1 dona narx (so&apos;m)</Label>
+                      <Input {...register('workerRatePerBrick')} type="number" step="0.01" placeholder="20" className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <Label className="text-xs text-muted-foreground">Berildi (so&apos;m)</Label>
+                      <Input {...register('workerPaidAmount')} type="number" placeholder="0" className="h-8 text-sm" />
+                    </div>
                   </div>
                   {totalWorkerCost > 0 && (
-                    <div className="grid grid-cols-2 gap-1 rounded bg-orange-50 dark:bg-orange-950/20 px-2 py-1 text-xs text-center">
+                    <div className="grid grid-cols-3 gap-1 rounded bg-orange-50 dark:bg-orange-950/20 px-2 py-1 text-xs text-center">
                       <div>
                         <div className="text-muted-foreground">Hisoblandi</div>
                         <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">Jami qarz</div>
-                        <div className="font-bold text-red-600">{formatCurrency(totalWorkerCost)}</div>
+                        <div className="text-muted-foreground">Berildi</div>
+                        <div className="font-semibold text-emerald-600">{formatCurrency(workerPaid)}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Qarz</div>
+                        <div className="font-bold text-red-600">{formatCurrency(workerDebtCalc)}</div>
                       </div>
                     </div>
                   )}

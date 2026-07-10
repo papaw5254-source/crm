@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Users, Banknote, TrendingDown } from 'lucide-react'
+import { Plus, Users, Banknote, TrendingDown, Trash2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { formatDate, formatCurrency, getErrorMessage } from '@/lib/utils'
 import type { Debtor, DebtPayment } from '@/types'
 
@@ -47,6 +48,8 @@ export default function DebtorsPage() {
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [showActive, setShowActive] = useState(true)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const { data: debtorsResp, isLoading } = useQuery({
     queryKey: ['debtors'],
@@ -68,6 +71,18 @@ export default function DebtorsPage() {
     defaultValues: { date: new Date().toISOString().split('T')[0] },
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => debtorsService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['debtors'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      toast.success("Qarzdor o'chirildi")
+      setDeleteOpen(false)
+      setDeleteId(null)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
   const paymentMutation = useMutation({
     mutationFn: (data: PaymentForm) => debtorsService.addPayment(selectedDebtor!.id, data),
     onSuccess: () => {
@@ -87,10 +102,9 @@ export default function DebtorsPage() {
       (d.phone && d.phone.includes(search))
     )
 
-  const debtStatsRows = debtors.filter((d: Debtor) => Number(d.totalDebt || 0) > 0)
-  const totalDebt = debtStatsRows.reduce((s: number, d: Debtor) => s + Number(d.totalDebt), 0)
-  const totalPaid = debtStatsRows.reduce((s: number, d: Debtor) => s + Number(d.paidAmount), 0)
-  const totalRemaining = debtStatsRows.reduce((s: number, d: Debtor) => s + Number(d.remainingDebt), 0)
+  const totalDebt = debtors.reduce((s: number, d: Debtor) => s + Number(d.totalDebt), 0)
+  const totalPaid = debtors.reduce((s: number, d: Debtor) => s + Number(d.paidAmount), 0)
+  const totalRemaining = debtors.reduce((s: number, d: Debtor) => s + Number(d.remainingDebt), 0)
 
   return (
     <div className="space-y-6">
@@ -183,6 +197,14 @@ export default function DebtorsPage() {
                             To&apos;lov
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs text-destructive hover:text-destructive hover:bg-destructive/10 px-2"
+                          onClick={() => { setDeleteId(debtor.id); setDeleteOpen(true) }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -230,6 +252,15 @@ export default function DebtorsPage() {
         </DialogContent>
       </Dialog>
 
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={(open) => { setDeleteOpen(open); if (!open) setDeleteId(null) }}
+        title="Qarzdorni o'chirish"
+        description="Bu amal barcha bog'liq nasiya sotuvlarni ham o'chiradi. Davom etasizmi?"
+        onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
+        loading={deleteMutation.isPending}
+      />
+
       {/* Payment History Dialog */}
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
         <DialogContent className="max-w-lg">
@@ -244,7 +275,7 @@ export default function DebtorsPage() {
             ) : payments.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">To&apos;lov yo&apos;q</p>
             ) : (
-              payments.filter(Boolean).map((p: DebtPayment) => (
+              payments.map((p: DebtPayment) => (
                 <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
                   <div>
                     <p className="font-medium text-sm text-emerald-600 dark:text-emerald-400">
@@ -252,7 +283,7 @@ export default function DebtorsPage() {
                     </p>
                     <p className="text-xs text-muted-foreground">{p.description || "To'lov"}</p>
                   </div>
-                  <span className="text-xs text-muted-foreground">{formatDate(p.date || '')}</span>
+                  <span className="text-xs text-muted-foreground">{formatDate(p.date)}</span>
                 </div>
               ))
             )}
