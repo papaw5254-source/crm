@@ -452,7 +452,7 @@ export class ReportsService {
         totalRemainingDebt: parseFloat(workerStats?.remaining) || 0,
         debtors: workerDebts,
       },
-      totalRemainingDebt: (parseFloat(customerStats?.remaining) || 0) + (parseFloat(workerStats?.remaining) || 0),
+      totalRemainingDebt: parseFloat(customerStats?.remaining) || 0,
     };
   }
 
