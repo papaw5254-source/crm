@@ -605,7 +605,6 @@ export class ReportsService {
         kiln_operations,
         reserve_movements,
         money_incomes,
-        money_movements,
         stock_movements
       RESTART IDENTITY CASCADE
     `);
