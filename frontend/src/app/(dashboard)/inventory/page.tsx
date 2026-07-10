@@ -21,29 +21,81 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
-import Link from 'next/link'
 import { formatDate, formatNumber, formatCurrency, getErrorMessage } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
 import type { InventoryIncome } from '@/types'
 
+// ── Inventory income form ────────────────────────────────────────────────────
 const schema = z.object({
   quantity: z.coerce.number().min(1, "Miqdor 1 dan katta bo'lishi kerak"),
   description: z.string().optional(),
-  date: z.string().min(1, "Sana kiritilishi shart"),
+  date: z.string().min(1, 'Sana kiritilishi shart'),
   workerRatePerBrick: z.coerce.number().min(0).optional(),
   workerPaidAmount: z.coerce.number().min(0).optional(),
   workerOldDebt: z.coerce.number().min(0).optional(),
-  kretkachRatePerBrick: z.coerce.number().min(0).optional(),
-  kretkachPaidAmount: z.coerce.number().min(0).optional(),
-  kretkachOldDebt: z.coerce.number().min(0).optional(),
-  eshkiDailyAmount: z.coerce.number().min(0).optional(),
-  eshkiPaidAmount: z.coerce.number().min(0).optional(),
-  eshkiOldDebt: z.coerce.number().min(0).optional(),
 })
-
 type FormData = z.infer<typeof schema>
+
+// ── Kretkachi payment form ───────────────────────────────────────────────────
+const kretkachSchema = z.object({
+  date: z.string().min(1),
+  quantity: z.coerce.number().min(0).optional(),
+  ratePerBrick: z.coerce.number().min(0).optional(),
+  oldDebt: z.coerce.number().min(0).optional(),
+  paid: z.coerce.number().min(0).optional(),
+})
+type KretkachForm = z.infer<typeof kretkachSchema>
+
+// ── Eshikchi payment form ────────────────────────────────────────────────────
+const eshikchiSchema = z.object({
+  date: z.string().min(1),
+  dailyAmount: z.coerce.number().min(0),
+  oldDebt: z.coerce.number().min(0).optional(),
+  paid: z.coerce.number().min(0).optional(),
+})
+type EshikchiForm = z.infer<typeof eshikchiSchema>
+
+// ── Press eski qarz form ─────────────────────────────────────────────────────
+const pressEskiSchema = z.object({
+  date: z.string().min(1),
+  oldDebt: z.coerce.number().min(0),
+  paid: z.coerce.number().min(0).optional(),
+})
+type PressEskiForm = z.infer<typeof pressEskiSchema>
+
+// ── Worker section stats ─────────────────────────────────────────────────────
+function WorkerStatsSection({
+  title,
+  stats,
+  onAdd,
+  addLabel,
+}: {
+  title: string
+  stats: { amount: number; paid: number; debt: number; carriedDebt: number }
+  onAdd: () => void
+  addLabel: string
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          <HardHat className="h-4 w-4" /> {title}
+        </h3>
+        <Button variant="outline" size="sm" onClick={onAdd}>
+          <Plus className="h-3.5 w-3.5 mr-1" /> {addLabel}
+        </Button>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatsCard title="Bu oy hisoblangan" value={Number(stats.amount)} icon={HardHat} color="amber" />
+        <StatsCard title="Berildi" value={Number(stats.paid)} icon={HardHat} color="emerald" />
+        <StatsCard title="Oldingi qarz" value={Number(stats.carriedDebt)} icon={HardHat} color="slate" />
+        <StatsCard title="Jami qarz" value={Number(stats.debt)} icon={HardHat} color="red" />
+      </div>
+    </div>
+  )
+}
 
 export default function InventoryPage() {
   const { user } = useAuth()
@@ -53,24 +105,16 @@ export default function InventoryPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<InventoryIncome | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-
-  // press eski qarz
-  const [pressDebtDialogOpen, setPressDebtDialogOpen] = useState(false)
-  const [pressDebtAmountStr, setPressDebtAmountStr] = useState('')
-  const [pressDebtDate, setPressDebtDate] = useState(new Date().toISOString().split('T')[0])
-
-  // kretkachi eski qarz
-  const [kretkachDebtDialogOpen, setKretkachDebtDialogOpen] = useState(false)
-  const [kretkachDebtAmountStr, setKretkachDebtAmountStr] = useState('')
-  const [kretkachDebtDate, setKretkachDebtDate] = useState(new Date().toISOString().split('T')[0])
-
-  // eshki eski qarz
-  const [eshkiDebtDialogOpen, setEshikchiDebtDialogOpen] = useState(false)
-  const [eshkiDebtAmountStr, setEshikchiDebtAmountStr] = useState('')
-  const [eshkiDebtDate, setEshikchiDebtDate] = useState(new Date().toISOString().split('T')[0])
+  const [pressDialogOpen, setPressDialogOpen] = useState(false)
+  const [kretkachDialogOpen, setKretkachDialogOpen] = useState(false)
+  const [eshikchiDialogOpen, setEshikchiDialogOpen] = useState(false)
 
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
+
+  const thisMonth = new Date().getMonth() + 1
+  const thisYear = new Date().getFullYear()
+  const today = new Date().toISOString().split('T')[0]
 
   const { data, isLoading } = useQuery({
     queryKey: ['inventory', page, limit, debouncedSearch],
@@ -78,19 +122,21 @@ export default function InventoryPage() {
   })
 
   const { data: wpReport } = useQuery({
-    queryKey: ['worker-payments-report'],
-    queryFn: () => workerPaymentsService.getReport(),
+    queryKey: ['worker-payments-report', thisMonth, thisYear],
+    queryFn: () => workerPaymentsService.getReport({ month: thisMonth, year: thisYear }),
   })
-  const pressStats = wpReport?.byCategory?.PRESS ?? { amount: 0, paid: 0, debt: 0 }
-  const kretkachStats = wpReport?.byCategory?.KRETKACHI ?? { amount: 0, paid: 0, debt: 0 }
-  const eshkiStats = wpReport?.byCategory?.ESHKI ?? { amount: 0, paid: 0, debt: 0 }
 
+  const emptyStats = { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
+  const pressStats = wpReport?.byCategory?.PRESS ?? emptyStats
+  const kretkachStats = wpReport?.byCategory?.KRETKACHI ?? emptyStats
+  const eshkiStats = wpReport?.byCategory?.ESHIKCHI ?? emptyStats
+
+  // ── Inventory form ──────────────────────────────────────────────────────────
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { date: new Date().toISOString().split('T')[0] },
+    defaultValues: { date: today },
   })
 
-  // Press watches
   const watchedQty = watch('quantity') || 0
   const watchedRate = watch('workerRatePerBrick') || 0
   const watchedPaid = watch('workerPaidAmount') || 0
@@ -98,18 +144,36 @@ export default function InventoryPage() {
   const totalWorkerCost = watchedQty * watchedRate
   const workerDebt = Math.max(0, watchedOldDebt + totalWorkerCost - watchedPaid)
 
-  // Kretkachi watches
-  const watchedKretkachRate = watch('kretkachRatePerBrick') || 0
-  const watchedKretkachPaid = watch('kretkachPaidAmount') || 0
-  const watchedKretkachOldDebt = watch('kretkachOldDebt') || 0
-  const totalKretkachCost = watchedQty * watchedKretkachRate
-  const kretkachDebt = Math.max(0, watchedKretkachOldDebt + totalKretkachCost - watchedKretkachPaid)
+  // ── Kretkachi form ──────────────────────────────────────────────────────────
+  const kretkachForm = useForm<KretkachForm>({
+    resolver: zodResolver(kretkachSchema),
+    defaultValues: { date: today, quantity: undefined, ratePerBrick: undefined, oldDebt: 0, paid: 0 },
+  })
+  const kQty = kretkachForm.watch('quantity') || 0
+  const kRate = kretkachForm.watch('ratePerBrick') || 0
+  const kOld = kretkachForm.watch('oldDebt') || 0
+  const kPaid = kretkachForm.watch('paid') || 0
+  const kAmount = kQty > 0 && kRate > 0 ? kQty * kRate : 0
+  const kDebt = Math.max(0, kOld + kAmount - kPaid)
 
-  // Eshikchi watches
-  const watchedEshikchiDaily = watch('eshkiDailyAmount') || 0
-  const watchedEshikchiPaid = watch('eshkiPaidAmount') || 0
-  const watchedEshikchiOldDebt = watch('eshkiOldDebt') || 0
-  const eshkiDebt = Math.max(0, watchedEshikchiOldDebt + watchedEshikchiDaily - watchedEshikchiPaid)
+  // ── Eshikchi form ───────────────────────────────────────────────────────────
+  const eshikchiForm = useForm<EshikchiForm>({
+    resolver: zodResolver(eshikchiSchema),
+    defaultValues: { date: today, dailyAmount: 0, oldDebt: 0, paid: 0 },
+  })
+  const eDaily = eshikchiForm.watch('dailyAmount') || 0
+  const eOld = eshikchiForm.watch('oldDebt') || 0
+  const ePaid = eshikchiForm.watch('paid') || 0
+  const eDebt = Math.max(0, eOld + eDaily - ePaid)
+
+  // ── Press eski qarz form ────────────────────────────────────────────────────
+  const pressEskiForm = useForm<PressEskiForm>({
+    resolver: zodResolver(pressEskiSchema),
+    defaultValues: { date: today, oldDebt: 0, paid: 0 },
+  })
+  const peOld = pressEskiForm.watch('oldDebt') || 0
+  const pePaid = pressEskiForm.watch('paid') || 0
+  const peDebt = Math.max(0, peOld - pePaid)
 
   const invalidateWorkerPayments = () => {
     queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
@@ -117,65 +181,60 @@ export default function InventoryPage() {
     queryClient.invalidateQueries({ queryKey: ['dashboard'] })
   }
 
-  const pressOldDebtMutation = useMutation({
-    mutationFn: ({ date, amount }: { date: string; amount: number }) =>
-      workerPaymentsService.create({
-        workerName: 'Ishchilar (press)',
-        category: 'PRESS',
-        amount: 0,
-        paidAmount: 0,
-        debtFromPreviousMonth: amount,
-        date,
-        description: `Eski qarz: ${amount.toLocaleString()} so'm`,
-      }),
+  // ── Mutations ───────────────────────────────────────────────────────────────
+  const pressEskiMutation = useMutation({
+    mutationFn: (d: PressEskiForm) => workerPaymentsService.create({
+      workerName: 'Ishchilar (press)',
+      category: 'PRESS',
+      amount: 0,
+      paidAmount: d.paid || 0,
+      debtFromPreviousMonth: d.oldDebt,
+      month: d.date.slice(0, 7),
+      date: d.date,
+    }),
     onSuccess: () => {
       invalidateWorkerPayments()
-      toast.success("Press eski qarz qo'shildi")
-      setPressDebtDialogOpen(false)
-      setPressDebtAmountStr('')
-      setPressDebtDate(new Date().toISOString().split('T')[0])
+      toast.success("Press to'lovi qo'shildi")
+      setPressDialogOpen(false)
+      pressEskiForm.reset({ date: today, oldDebt: 0, paid: 0 })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
-  const kretkachOldDebtMutation = useMutation({
-    mutationFn: ({ date, amount }: { date: string; amount: number }) =>
-      workerPaymentsService.create({
-        workerName: 'Kretkachi',
-        category: 'KRETKACHI',
-        amount: 0,
-        paidAmount: 0,
-        debtFromPreviousMonth: amount,
-        date,
-        description: `Eski qarz: ${amount.toLocaleString()} so'm`,
-      }),
+  const kretkachMutation = useMutation({
+    mutationFn: (d: KretkachForm) => workerPaymentsService.create({
+      workerName: 'Kretkachi',
+      category: 'KRETKACHI',
+      amount: kAmount,
+      paidAmount: d.paid || 0,
+      debtFromPreviousMonth: d.oldDebt || 0,
+      month: d.date.slice(0, 7),
+      date: d.date,
+    }),
     onSuccess: () => {
       invalidateWorkerPayments()
-      toast.success("Kretkachi eski qarz qo'shildi")
-      setKretkachDebtDialogOpen(false)
-      setKretkachDebtAmountStr('')
-      setKretkachDebtDate(new Date().toISOString().split('T')[0])
+      toast.success("Kretkachi to'lovi qo'shildi")
+      setKretkachDialogOpen(false)
+      kretkachForm.reset({ date: today, quantity: undefined, ratePerBrick: undefined, oldDebt: 0, paid: 0 })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
-  const eshkiOldDebtMutation = useMutation({
-    mutationFn: ({ date, amount }: { date: string; amount: number }) =>
-      workerPaymentsService.create({
-        workerName: 'Eshikchi',
-        category: 'ESHIKCHI',
-        amount: 0,
-        paidAmount: 0,
-        debtFromPreviousMonth: amount,
-        date,
-        description: `Eski qarz: ${amount.toLocaleString()} so'm`,
-      }),
+  const eshikchiMutation = useMutation({
+    mutationFn: (d: EshikchiForm) => workerPaymentsService.create({
+      workerName: 'Eshikchi',
+      category: 'ESHIKCHI',
+      amount: d.dailyAmount,
+      paidAmount: d.paid || 0,
+      debtFromPreviousMonth: d.oldDebt || 0,
+      month: d.date.slice(0, 7),
+      date: d.date,
+    }),
     onSuccess: () => {
       invalidateWorkerPayments()
-      toast.success("Eshikchi eski qarz qo'shildi")
-      setEshikchiDebtDialogOpen(false)
-      setEshikchiDebtAmountStr('')
-      setEshikchiDebtDate(new Date().toISOString().split('T')[0])
+      toast.success("Eshikchi to'lovi qo'shildi")
+      setEshikchiDialogOpen(false)
+      eshikchiForm.reset({ date: today, dailyAmount: 0, oldDebt: 0, paid: 0 })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -188,7 +247,7 @@ export default function InventoryPage() {
       invalidateWorkerPayments()
       toast.success("Kirim muvaffaqiyatli qo'shildi")
       setDialogOpen(false)
-      reset({ date: new Date().toISOString().split('T')[0] })
+      reset({ date: today })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -227,18 +286,12 @@ export default function InventoryPage() {
     setValue('workerRatePerBrick', Number(item.workerRatePerBrick ?? 0) || undefined)
     setValue('workerPaidAmount', Number(item.workerPaidAmount ?? 0) || undefined)
     setValue('workerOldDebt', Number(item.workerOldDebt ?? 0) || undefined)
-    setValue('kretkachRatePerBrick', Number(item.kretkachRatePerBrick ?? 0) || undefined)
-    setValue('kretkachPaidAmount', Number(item.kretkachPaidAmount ?? 0) || undefined)
-    setValue('kretkachOldDebt', Number(item.kretkachOldDebt ?? 0) || undefined)
-    setValue('eshkiDailyAmount', Number(item.eshkiDailyAmount ?? 0) || undefined)
-    setValue('eshkiPaidAmount', Number(item.eshkiPaidAmount ?? 0) || undefined)
-    setValue('eshkiOldDebt', Number(item.eshkiOldDebt ?? 0) || undefined)
     setDialogOpen(true)
   }
 
   const openCreate = () => {
     setEditItem(null)
-    reset({ date: new Date().toISOString().split('T')[0] })
+    reset({ date: today })
     setDialogOpen(true)
   }
 
@@ -247,6 +300,7 @@ export default function InventoryPage() {
     else createMutation.mutate(data)
   }
 
+  // ── Table columns ───────────────────────────────────────────────────────────
   const columns = [
     {
       key: 'date',
@@ -272,32 +326,6 @@ export default function InventoryPage() {
       ) : <span className="text-muted-foreground">—</span>,
     },
     {
-      key: 'kretkach',
-      header: 'Kretkachi puli',
-      cell: (row: InventoryIncome) => row.totalKretkachCost ? (
-        <div className="text-sm">
-          <div className="font-medium">{formatCurrency(Number(row.totalKretkachCost))}</div>
-          <div className="text-xs text-muted-foreground">
-            <span className="text-emerald-600">Berildi: {formatCurrency(Number(row.kretkachPaidAmount ?? 0))}</span>
-            {Number(row.kretkachDebt) > 0 && <span className="text-red-500 ml-1">Qarz: {formatCurrency(Number(row.kretkachDebt))}</span>}
-          </div>
-        </div>
-      ) : <span className="text-muted-foreground">—</span>,
-    },
-    {
-      key: 'eshki',
-      header: 'Eshikchi puli',
-      cell: (row: InventoryIncome) => Number(row.eshkiDailyAmount) > 0 || Number(row.eshkiOldDebt) > 0 ? (
-        <div className="text-sm">
-          <div className="font-medium">{formatCurrency(Number(row.eshkiDailyAmount ?? 0))}</div>
-          <div className="text-xs text-muted-foreground">
-            <span className="text-emerald-600">Berildi: {formatCurrency(Number(row.eshkiPaidAmount ?? 0))}</span>
-            {Number(row.eshkiDebt) > 0 && <span className="text-red-500 ml-1">Qarz: {formatCurrency(Number(row.eshkiDebt))}</span>}
-          </div>
-        </div>
-      ) : <span className="text-muted-foreground">—</span>,
-    },
-    {
       key: 'description',
       header: 'Izoh',
       cell: (row: InventoryIncome) => <span className="text-muted-foreground">{row.description || '—'}</span>,
@@ -316,12 +344,7 @@ export default function InventoryPage() {
             <Pencil className="h-3.5 w-3.5" />
           </Button>
           {isAdmin && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="text-destructive hover:text-destructive"
-              onClick={() => setDeleteId(row.id)}
-            >
+            <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteId(row.id)}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           )}
@@ -330,27 +353,40 @@ export default function InventoryPage() {
     },
   ]
 
+  // ── Calculator row helper ────────────────────────────────────────────────────
+  function CalcRow({ old: o, amount: a, paid: p, debt: d }: { old: number; amount: number; paid: number; debt: number }) {
+    return (
+      <div className="grid grid-cols-4 gap-2 rounded-lg bg-muted/40 p-2 text-xs text-center">
+        <div>
+          <div className="text-muted-foreground">Oldingi qarz</div>
+          <div className="font-semibold text-amber-600">{formatCurrency(o)}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Hisoblangan</div>
+          <div className="font-semibold">{formatCurrency(a)}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Berildi</div>
+          <div className="font-semibold text-emerald-600">{formatCurrency(p)}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Jami qarz</div>
+          <div className={`font-bold ${d > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(d)}</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Kirim (Ishlab chiqarish)"
         description="Ombordagi g'isht kirimi boshqaruvi"
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setPressDebtDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Press eski qarz
-            </Button>
-            <Button variant="outline" onClick={() => setKretkachDebtDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Kretkachi eski qarz
-            </Button>
-            <Button variant="outline" onClick={() => setEshikchiDebtDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Eshikchi eski qarz
-            </Button>
-            <Button onClick={openCreate}>
-              <Plus className="h-4 w-4 mr-1" />
-              Kirim qo&apos;shish
-            </Button>
-          </div>
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-1" />
+            Kirim qo&apos;shish
+          </Button>
         }
       />
 
@@ -358,91 +394,48 @@ export default function InventoryPage() {
         <StatsCard title="Jami kirimlar" value={data?.meta?.total ?? 0} icon={PackagePlus} color="emerald" format="number" suffix="ta" />
       </div>
 
-      {/* Press worker stats */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <HardHat className="h-4 w-4" /> Ishchi puli (Press)
-          </h3>
-          <Link href="/ishchilar" className="text-sm text-primary hover:underline font-medium">
-            Barchasini ko&apos;rish →
-          </Link>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <Link href="/ishchilar"><StatsCard title="Hisoblangan" value={Number(pressStats.amount)} icon={HardHat} color="amber" /></Link>
-          <Link href="/ishchilar"><StatsCard title="To'langan" value={Number(pressStats.paid)} icon={HardHat} color="emerald" /></Link>
-          <Link href="/ishchilar"><StatsCard title="Qarz" value={Number(pressStats.debt)} icon={HardHat} color="red" /></Link>
-        </div>
-      </div>
+      {/* Press stats */}
+      <WorkerStatsSection
+        title="Ishchi puli — Press"
+        stats={pressStats as { amount: number; paid: number; debt: number; carriedDebt: number }}
+        onAdd={() => setPressDialogOpen(true)}
+        addLabel="To'lov qo'shish"
+      />
 
-      {/* Kretkachi worker stats */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <HardHat className="h-4 w-4" /> Ishchi puli (Kretkachi)
-          </h3>
-          <Link href="/ishchilar" className="text-sm text-primary hover:underline font-medium">
-            Barchasini ko&apos;rish →
-          </Link>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <Link href="/ishchilar"><StatsCard title="Hisoblangan" value={Number(kretkachStats.amount)} icon={HardHat} color="amber" /></Link>
-          <Link href="/ishchilar"><StatsCard title="To'langan" value={Number(kretkachStats.paid)} icon={HardHat} color="emerald" /></Link>
-          <Link href="/ishchilar"><StatsCard title="Qarz" value={Number(kretkachStats.debt)} icon={HardHat} color="red" /></Link>
-        </div>
-      </div>
+      {/* Kretkachi stats */}
+      <WorkerStatsSection
+        title="Ishchi puli — Kretkachi"
+        stats={kretkachStats as { amount: number; paid: number; debt: number; carriedDebt: number }}
+        onAdd={() => setKretkachDialogOpen(true)}
+        addLabel="To'lov qo'shish"
+      />
 
-      {/* Eshikchi worker stats */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <HardHat className="h-4 w-4" /> Ishchi puli (Eshikchi)
-          </h3>
-          <Link href="/ishchilar" className="text-sm text-primary hover:underline font-medium">
-            Barchasini ko&apos;rish →
-          </Link>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <Link href="/ishchilar"><StatsCard title="Hisoblangan" value={Number(eshkiStats.amount)} icon={HardHat} color="amber" /></Link>
-          <Link href="/ishchilar"><StatsCard title="To'langan" value={Number(eshkiStats.paid)} icon={HardHat} color="emerald" /></Link>
-          <Link href="/ishchilar"><StatsCard title="Qarz" value={Number(eshkiStats.debt)} icon={HardHat} color="red" /></Link>
-        </div>
-      </div>
+      {/* Eshikchi stats */}
+      <WorkerStatsSection
+        title="Ishchi puli — Eshikchi"
+        stats={eshkiStats as { amount: number; paid: number; debt: number; carriedDebt: number }}
+        onAdd={() => setEshikchiDialogOpen(true)}
+        addLabel="To'lov qo'shish"
+      />
 
+      {/* Kirim table */}
       <Card>
         <CardContent className="p-4 space-y-4">
-          <SearchInput
-            value={search}
-            onChange={(v) => { setSearch(v); setPage(1) }}
-            placeholder="Izoh bo'yicha qidirish..."
-            className="max-w-sm"
-          />
-
+          <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Izoh bo'yicha qidirish..." className="max-w-sm" />
           {data?.data.length === 0 && !isLoading ? (
-            <EmptyState
-              icon={PackagePlus}
-              title="Kirim yo'q"
-              description="Birinchi kirimni qo'shing"
+            <EmptyState icon={PackagePlus} title="Kirim yo'q" description="Birinchi kirimni qo'shing"
               action={<Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" />Kirim qo&apos;shish</Button>}
             />
           ) : (
             <>
               <DataTable columns={columns} data={data?.data ?? []} loading={isLoading} />
-              {data?.meta && (
-                <Pagination
-                  page={page}
-                  totalPages={data.meta.totalPages}
-                  total={data.meta.total}
-                  limit={limit}
-                  onPageChange={setPage}
-                />
-              )}
+              {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
             </>
           )}
         </CardContent>
       </Card>
 
-      {/* Create/Edit Dialog */}
+      {/* ── Inventory create/edit dialog ──────────────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -462,126 +455,25 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            {/* Press section */}
+            {/* Press section only */}
             <div className="rounded-lg border border-dashed p-3 space-y-3">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Press ishchi puli (ixtiyoriy)</p>
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-2">
-                  <Label>Oldingi qarz (so&apos;m)</Label>
+                  <Label>Oldingi qarz</Label>
                   <Input {...register('workerOldDebt')} type="number" placeholder="0" />
                 </div>
                 <div className="space-y-2">
-                  <Label>1 dona narx (so&apos;m)</Label>
+                  <Label>1 dona narx</Label>
                   <Input {...register('workerRatePerBrick')} type="number" placeholder="30" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Bugun berildi (so&apos;m)</Label>
+                  <Label>Berildi</Label>
                   <Input {...register('workerPaidAmount')} type="number" placeholder="0" />
                 </div>
               </div>
               {(totalWorkerCost > 0 || watchedOldDebt > 0) && (
-                <div className="grid grid-cols-4 gap-2 text-sm">
-                  {watchedOldDebt > 0 && (
-                    <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-center">
-                      <div className="text-xs text-muted-foreground">Oldingi qarz</div>
-                      <div className="font-semibold text-amber-700 dark:text-amber-400">{formatCurrency(watchedOldDebt)}</div>
-                    </div>
-                  )}
-                  <div className={`rounded-md bg-muted px-3 py-2 text-center ${watchedOldDebt > 0 ? '' : 'col-span-2'}`}>
-                    <div className="text-xs text-muted-foreground">Bugungi ish</div>
-                    <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
-                  </div>
-                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Berildi</div>
-                    <div className="font-semibold text-emerald-600">{formatCurrency(watchedPaid)}</div>
-                  </div>
-                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Jami qarz</div>
-                    <div className="font-semibold text-red-500">{formatCurrency(workerDebt)}</div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Kretkachi section */}
-            <div className="rounded-lg border border-dashed border-orange-300 dark:border-orange-700 p-3 space-y-3">
-              <p className="text-xs font-medium text-orange-600 dark:text-orange-400 uppercase tracking-wide">Kretkachi puli (ixtiyoriy)</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-2">
-                  <Label>Oldingi qarz (so&apos;m)</Label>
-                  <Input {...register('kretkachOldDebt')} type="number" placeholder="0" />
-                </div>
-                <div className="space-y-2">
-                  <Label>1 dona narx (so&apos;m)</Label>
-                  <Input {...register('kretkachRatePerBrick')} type="number" placeholder="20" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Bugun berildi (so&apos;m)</Label>
-                  <Input {...register('kretkachPaidAmount')} type="number" placeholder="0" />
-                </div>
-              </div>
-              {(totalKretkachCost > 0 || watchedKretkachOldDebt > 0) && (
-                <div className="grid grid-cols-4 gap-2 text-sm">
-                  {watchedKretkachOldDebt > 0 && (
-                    <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-center">
-                      <div className="text-xs text-muted-foreground">Oldingi qarz</div>
-                      <div className="font-semibold text-amber-700 dark:text-amber-400">{formatCurrency(watchedKretkachOldDebt)}</div>
-                    </div>
-                  )}
-                  <div className={`rounded-md bg-muted px-3 py-2 text-center ${watchedKretkachOldDebt > 0 ? '' : 'col-span-2'}`}>
-                    <div className="text-xs text-muted-foreground">Bugungi ish</div>
-                    <div className="font-semibold">{formatCurrency(totalKretkachCost)}</div>
-                  </div>
-                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Berildi</div>
-                    <div className="font-semibold text-emerald-600">{formatCurrency(watchedKretkachPaid)}</div>
-                  </div>
-                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Jami qarz</div>
-                    <div className="font-semibold text-red-500">{formatCurrency(kretkachDebt)}</div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Eshikchi section */}
-            <div className="rounded-lg border border-dashed border-blue-300 dark:border-blue-700 p-3 space-y-3">
-              <p className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide">Eshikchi puli — kunlik (ixtiyoriy)</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-2">
-                  <Label>Oldingi qarz (so&apos;m)</Label>
-                  <Input {...register('eshkiOldDebt')} type="number" placeholder="0" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Kunlik to&apos;lov (so&apos;m)</Label>
-                  <Input {...register('eshkiDailyAmount')} type="number" placeholder="80000" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Bugun berildi (so&apos;m)</Label>
-                  <Input {...register('eshkiPaidAmount')} type="number" placeholder="0" />
-                </div>
-              </div>
-              {(watchedEshikchiDaily > 0 || watchedEshikchiOldDebt > 0) && (
-                <div className="grid grid-cols-4 gap-2 text-sm">
-                  {watchedEshikchiOldDebt > 0 && (
-                    <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-center">
-                      <div className="text-xs text-muted-foreground">Oldingi qarz</div>
-                      <div className="font-semibold text-amber-700 dark:text-amber-400">{formatCurrency(watchedEshikchiOldDebt)}</div>
-                    </div>
-                  )}
-                  <div className={`rounded-md bg-muted px-3 py-2 text-center ${watchedEshikchiOldDebt > 0 ? '' : 'col-span-2'}`}>
-                    <div className="text-xs text-muted-foreground">Bugungi ish</div>
-                    <div className="font-semibold">{formatCurrency(watchedEshikchiDaily)}</div>
-                  </div>
-                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Berildi</div>
-                    <div className="font-semibold text-emerald-600">{formatCurrency(watchedEshikchiPaid)}</div>
-                  </div>
-                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Jami qarz</div>
-                    <div className="font-semibold text-red-500">{formatCurrency(eshkiDebt)}</div>
-                  </div>
-                </div>
+                <CalcRow old={watchedOldDebt} amount={totalWorkerCost} paid={watchedPaid} debt={workerDebt} />
               )}
             </div>
 
@@ -590,15 +482,108 @@ export default function InventoryPage() {
               <Input {...register('description')} placeholder="Kunlik ishlab chiqarish..." />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Bekor qilish
-              </Button>
-              <Button
-                type="submit"
-                loading={isSubmitting || createMutation.isPending || updateMutation.isPending}
-              >
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Bekor qilish</Button>
+              <Button type="submit" loading={isSubmitting || createMutation.isPending || updateMutation.isPending}>
                 {editItem ? 'Saqlash' : "Qo'shish"}
               </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Press payment dialog ─────────────────────────────────────────────── */}
+      <Dialog open={pressDialogOpen} onOpenChange={setPressDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Press to&apos;lov qo&apos;shish</DialogTitle></DialogHeader>
+          <form onSubmit={pressEskiForm.handleSubmit((d) => pressEskiMutation.mutate(d))} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Sana</Label>
+              <Input {...pressEskiForm.register('date')} type="date" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Oldingi qarz</Label>
+                <Input {...pressEskiForm.register('oldDebt')} type="number" placeholder="0" />
+              </div>
+              <div className="space-y-2">
+                <Label>Berildi</Label>
+                <Input {...pressEskiForm.register('paid')} type="number" placeholder="0" />
+              </div>
+            </div>
+            {peOld > 0 && <CalcRow old={peOld} amount={0} paid={pePaid} debt={peDebt} />}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setPressDialogOpen(false)}>Bekor qilish</Button>
+              <Button type="submit" loading={pressEskiMutation.isPending}>Saqlash</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Kretkachi payment dialog ─────────────────────────────────────────── */}
+      <Dialog open={kretkachDialogOpen} onOpenChange={setKretkachDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Kretkachi to&apos;lov qo&apos;shish</DialogTitle></DialogHeader>
+          <form onSubmit={kretkachForm.handleSubmit((d) => kretkachMutation.mutate(d))} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Sana</Label>
+              <Input {...kretkachForm.register('date')} type="date" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Miqdor (dona)</Label>
+                <Input {...kretkachForm.register('quantity')} type="number" placeholder="10000" />
+              </div>
+              <div className="space-y-2">
+                <Label>1 dona narx</Label>
+                <Input {...kretkachForm.register('ratePerBrick')} type="number" placeholder="20" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Oldingi qarz</Label>
+                <Input {...kretkachForm.register('oldDebt')} type="number" placeholder="0" />
+              </div>
+              <div className="space-y-2">
+                <Label>Berildi</Label>
+                <Input {...kretkachForm.register('paid')} type="number" placeholder="0" />
+              </div>
+            </div>
+            {(kAmount > 0 || kOld > 0) && <CalcRow old={kOld} amount={kAmount} paid={kPaid} debt={kDebt} />}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setKretkachDialogOpen(false)}>Bekor qilish</Button>
+              <Button type="submit" loading={kretkachMutation.isPending}>Saqlash</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Eshikchi payment dialog ──────────────────────────────────────────── */}
+      <Dialog open={eshikchiDialogOpen} onOpenChange={setEshikchiDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Eshikchi to&apos;lov qo&apos;shish</DialogTitle></DialogHeader>
+          <form onSubmit={eshikchiForm.handleSubmit((d) => eshikchiMutation.mutate(d))} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Sana</Label>
+              <Input {...eshikchiForm.register('date')} type="date" />
+            </div>
+            <div className="space-y-2">
+              <Label>Kunlik to&apos;lov (so&apos;m)</Label>
+              <Input {...eshikchiForm.register('dailyAmount')} type="number" placeholder="80000" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Oldingi qarz</Label>
+                <Input {...eshikchiForm.register('oldDebt')} type="number" placeholder="0" />
+              </div>
+              <div className="space-y-2">
+                <Label>Berildi</Label>
+                <Input {...eshikchiForm.register('paid')} type="number" placeholder="0" />
+              </div>
+            </div>
+            {(eDaily > 0 || eOld > 0) && <CalcRow old={eOld} amount={eDaily} paid={ePaid} debt={eDebt} />}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEshikchiDialogOpen(false)}>Bekor qilish</Button>
+              <Button type="submit" loading={eshikchiMutation.isPending}>Saqlash</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -612,90 +597,6 @@ export default function InventoryPage() {
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
         loading={deleteMutation.isPending}
       />
-
-      {/* Press eski qarz dialog */}
-      <Dialog open={pressDebtDialogOpen} onOpenChange={(o: boolean) => { setPressDebtDialogOpen(o); if (!o) { setPressDebtAmountStr(''); setPressDebtDate(new Date().toISOString().split('T')[0]) } }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Press eski qarz qo&apos;shish</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Sana</Label>
-              <Input type="date" value={pressDebtDate} onChange={(e) => setPressDebtDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Qarz miqdori (so&apos;m)</Label>
-              <Input type="number" placeholder="0" value={pressDebtAmountStr} onChange={(e) => setPressDebtAmountStr(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPressDebtDialogOpen(false)}>Bekor qilish</Button>
-            <Button
-              disabled={!pressDebtAmountStr || Number(pressDebtAmountStr) <= 0 || pressOldDebtMutation.isPending}
-              onClick={() => pressOldDebtMutation.mutate({ date: pressDebtDate, amount: Number(pressDebtAmountStr) })}
-            >
-              {pressOldDebtMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Kretkachi eski qarz dialog */}
-      <Dialog open={kretkachDebtDialogOpen} onOpenChange={(o: boolean) => { setKretkachDebtDialogOpen(o); if (!o) { setKretkachDebtAmountStr(''); setKretkachDebtDate(new Date().toISOString().split('T')[0]) } }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Kretkachi eski qarz qo&apos;shish</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Sana</Label>
-              <Input type="date" value={kretkachDebtDate} onChange={(e) => setKretkachDebtDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Qarz miqdori (so&apos;m)</Label>
-              <Input type="number" placeholder="0" value={kretkachDebtAmountStr} onChange={(e) => setKretkachDebtAmountStr(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setKretkachDebtDialogOpen(false)}>Bekor qilish</Button>
-            <Button
-              disabled={!kretkachDebtAmountStr || Number(kretkachDebtAmountStr) <= 0 || kretkachOldDebtMutation.isPending}
-              onClick={() => kretkachOldDebtMutation.mutate({ date: kretkachDebtDate, amount: Number(kretkachDebtAmountStr) })}
-            >
-              {kretkachOldDebtMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Eshikchi eski qarz dialog */}
-      <Dialog open={eshkiDebtDialogOpen} onOpenChange={(o: boolean) => { setEshikchiDebtDialogOpen(o); if (!o) { setEshikchiDebtAmountStr(''); setEshikchiDebtDate(new Date().toISOString().split('T')[0]) } }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Eshikchi eski qarz qo&apos;shish</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Sana</Label>
-              <Input type="date" value={eshkiDebtDate} onChange={(e) => setEshikchiDebtDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Qarz miqdori (so&apos;m)</Label>
-              <Input type="number" placeholder="0" value={eshkiDebtAmountStr} onChange={(e) => setEshikchiDebtAmountStr(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEshikchiDebtDialogOpen(false)}>Bekor qilish</Button>
-            <Button
-              disabled={!eshkiDebtAmountStr || Number(eshkiDebtAmountStr) <= 0 || eshkiOldDebtMutation.isPending}
-              onClick={() => eshkiOldDebtMutation.mutate({ date: eshkiDebtDate, amount: Number(eshkiDebtAmountStr) })}
-            >
-              {eshkiOldDebtMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

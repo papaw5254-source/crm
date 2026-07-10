@@ -142,7 +142,6 @@ export default function SalesPage() {
       category: 'FIELD_RAW_LOADING',
       amount: d.amount,
       paidAmount: d.paidAmount,
-      remainingDebt: Math.max(0, d.amount - d.paidAmount),
       month: d.date.slice(0, 7),
       date: d.date,
     }),
