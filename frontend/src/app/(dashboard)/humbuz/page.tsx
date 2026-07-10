@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -7,7 +7,6 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import Link from 'next/link'
 import { kilnService } from '@/services/kiln.service'
 import { workerPaymentsService } from '@/services/worker-payments.service'
 import { PageHeader } from '@/components/shared/page-header'
@@ -36,13 +35,18 @@ const schema = z.object({
   responsibleWorker: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
   description: z.string().optional(),
-  workerRatePerBrick: z.coerce.number().min(0).optional(),
-  workerPaidAmount: z.coerce.number().min(0).optional(),
-  workerOldDebt: z.coerce.number().min(0).optional(),
+  rawWorkerRatePerBrick: z.coerce.number().min(0).optional(),
+  rawWorkerPaidAmount: z.coerce.number().min(0).optional(),
+  bakedWorkerRatePerBrick: z.coerce.number().min(0).optional(),
+  bakedWorkerPaidAmount: z.coerce.number().min(0).optional(),
 })
 type FormData = z.infer<typeof schema>
 
+
 const KILNS: KilnName[] = ['HUMBUZ_1', 'HUMBUZ_2', 'HUMBUZ_3']
+const now = new Date()
+const THIS_MONTH = now.getMonth() + 1
+const THIS_YEAR = now.getFullYear()
 
 export default function HumbuzPage() {
   const { user } = useAuth()
@@ -59,41 +63,43 @@ export default function HumbuzPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['kiln-operations', page, limit, kilnFilter],
-    queryFn: () =>
-      kilnService.getAll({
-        page,
-        limit,
-        kilnName: kilnFilter !== 'ALL' ? kilnFilter : undefined,
-      }),
+    queryFn: () => kilnService.getAll({ page, limit, kilnName: kilnFilter !== 'ALL' ? kilnFilter : undefined }),
   })
 
   const { data: wpReport } = useQuery({
-    queryKey: ['worker-payments-report'],
-    queryFn: () => workerPaymentsService.getReport(),
+    queryKey: ['worker-payments-report', THIS_MONTH, THIS_YEAR],
+    queryFn: () => workerPaymentsService.getReport({ month: THIS_MONTH, year: THIS_YEAR }),
   })
-  const humbuzStats = wpReport?.byCategory?.HUMBUZ_KIRDI_CHIQDI ?? { amount: 0, paid: 0, debt: 0 }
+  const humbuzStats = wpReport?.byCategory?.HUMBUZ_KIRDI_CHIQDI ?? { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { date: new Date().toISOString().split('T')[0], kilnName: 'HUMBUZ_1' },
   })
 
-  const rawBricksEntered = watch('rawBricksEntered') ?? 0
-  const watchedRate = watch('workerRatePerBrick') || 0
-  const watchedPaid = watch('workerPaidAmount') || 0
-  const watchedOldDebt = watch('workerOldDebt') || 0
-  const totalBricksForWorker = (watch('rawBricksEntered') || 0) + (watch('bakedBricksOutput') || 0)
-  const totalWorkerCost = totalBricksForWorker * watchedRate
-  const workerDebt = Math.max(0, watchedOldDebt + totalWorkerCost - watchedPaid)
+  const rawBricksEntered = Number(watch('rawBricksEntered') ?? 0)
+  const bakedBricksOutput = Number(watch('bakedBricksOutput') ?? 0)
+  const watchedRawRate = watch('rawWorkerRatePerBrick') || 0
+  const watchedRawPaid = watch('rawWorkerPaidAmount') || 0
+  const watchedBakedRate = watch('bakedWorkerRatePerBrick') || 0
+  const watchedBakedPaid = watch('bakedWorkerPaidAmount') || 0
+  const rawWorkerCost = rawBricksEntered > 0 && watchedRawRate > 0 ? rawBricksEntered * watchedRawRate : 0
+  const bakedWorkerCost = bakedBricksOutput > 0 && watchedBakedRate > 0 ? bakedBricksOutput * watchedBakedRate : 0
+  const rawWorkerDebt = Math.max(0, rawWorkerCost - watchedRawPaid)
+  const bakedWorkerDebt = Math.max(0, bakedWorkerCost - watchedBakedPaid)
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['kiln-operations'] })
+    queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+    queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+    queryClient.invalidateQueries({ queryKey: ['worker-payments-qachigar'] })
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+  }
 
   const createMutation = useMutation({
     mutationFn: (d: FormData) => kilnService.create(d),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kiln-operations'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-qachigar'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      invalidate()
       queryClient.invalidateQueries({ queryKey: ['reserve'] })
       toast.success("Humbuz operatsiyasi qo'shildi")
       setDialogOpen(false)
@@ -105,11 +111,7 @@ export default function HumbuzPage() {
   const updateMutation = useMutation({
     mutationFn: (d: FormData) => kilnService.update(editItem!.id, d),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kiln-operations'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-qachigar'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      invalidate()
       toast.success('Humbuz operatsiyasi yangilandi')
       setEditItem(null)
       setDialogOpen(false)
@@ -121,32 +123,12 @@ export default function HumbuzPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => kilnService.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kiln-operations'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
-      queryClient.invalidateQueries({ queryKey: ['worker-payments-qachigar'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      invalidate()
       toast.success("Operatsiya o'chirildi")
       setDeleteId(null)
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
-
-  const openEdit = (item: KilnOperation) => {
-    setEditItem(item)
-    setValue('kilnName', item.kilnName)
-    setValue('rawBricksEntered', item.rawBricksEntered)
-    setValue('bakedBricksOutput', item.bakedBricksOutput)
-    if (item.rawBrickSource) setValue('rawBrickSource', item.rawBrickSource)
-    setValue('responsibleWorker', item.responsibleWorker || '')
-    setValue('date', item.date)
-    setValue('description', item.description || '')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setValue('workerRatePerBrick', Number((item as any).rawWorkerRatePerBrick ?? (item as any).bakedWorkerRatePerBrick ?? item.workerRatePerBrick ?? 0) || undefined)
-    setValue('workerPaidAmount', Number(item.workerPaidAmount ?? 0) || undefined)
-    setValue('workerOldDebt', Number(item.workerOldDebt ?? 0) || undefined)
-    setDialogOpen(true)
-  }
 
   const oldDebtMutation = useMutation({
     mutationFn: ({ date, amount }: { date: string; amount: number }) =>
@@ -176,7 +158,23 @@ export default function HumbuzPage() {
     setDialogOpen(true)
   }
 
-  const allOps = data?.data ?? []
+  const openEdit = (item: KilnOperation) => {
+    setEditItem(item)
+    setValue('kilnName', item.kilnName)
+    setValue('rawBricksEntered', item.rawBricksEntered)
+    setValue('bakedBricksOutput', item.bakedBricksOutput)
+    if (item.rawBrickSource) setValue('rawBrickSource', item.rawBrickSource)
+    setValue('responsibleWorker', item.responsibleWorker || '')
+    setValue('date', item.date)
+    setValue('description', item.description || '')
+    setValue('rawWorkerRatePerBrick', Number(item.rawWorkerRatePerBrick ?? 0) || undefined)
+    setValue('rawWorkerPaidAmount', Number(item.rawWorkerPaidAmount ?? 0) || undefined)
+    setValue('bakedWorkerRatePerBrick', Number(item.bakedWorkerRatePerBrick ?? 0) || undefined)
+    setValue('bakedWorkerPaidAmount', Number(item.bakedWorkerPaidAmount ?? 0) || undefined)
+    setDialogOpen(true)
+  }
+
+  const allOps = (data?.data ?? []) as KilnOperation[]
   const totalRawIn = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.rawBricksEntered), 0)
   const totalBakedOut = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.bakedBricksOutput), 0)
 
@@ -187,26 +185,23 @@ export default function HumbuzPage() {
       header: 'Humbuz',
       cell: (r: KilnOperation) => (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-          <Flame className="h-3 w-3" />
-          {kilnNameLabel(r.kilnName)}
+          <Flame className="h-3 w-3" />{kilnNameLabel(r.kilnName)}
         </span>
       ),
     },
     {
       key: 'rawIn',
-      header: "Xom kirdi",
+      header: 'Xom kirdi',
       cell: (r: KilnOperation) => (
         <div>
           <span className="font-medium">{r.rawBricksEntered > 0 ? formatNumber(r.rawBricksEntered) + ' dona' : '—'}</span>
-          {r.rawBrickSource && (
-            <p className="text-xs text-muted-foreground">{rawBrickSourceLabel(r.rawBrickSource)}</p>
-          )}
+          {r.rawBrickSource && <p className="text-xs text-muted-foreground">{rawBrickSourceLabel(r.rawBrickSource)}</p>}
         </div>
       ),
     },
     {
       key: 'bakedOut',
-      header: "Pishgan chiqdi",
+      header: 'Pishgan chiqdi',
       cell: (r: KilnOperation) => (
         <span className="font-medium text-emerald-600 dark:text-emerald-400">
           {r.bakedBricksOutput > 0 ? formatNumber(r.bakedBricksOutput) + ' dona' : '—'}
@@ -216,15 +211,18 @@ export default function HumbuzPage() {
     {
       key: 'workerCost',
       header: 'Ishchi puli',
-      cell: (r: KilnOperation) => r.totalWorkerCost ? (
-        <div className="text-sm">
-          <div className="font-medium">{formatCurrency(Number(r.totalWorkerCost))}</div>
-          <div className="text-xs text-muted-foreground">
-            <span className="text-emerald-600">Berildi: {formatCurrency(Number(r.workerPaidAmount ?? 0))}</span>
-            {Number(r.workerDebt) > 0 && <span className="text-red-500 ml-1">Qarz: {formatCurrency(Number(r.workerDebt))}</span>}
+      cell: (r: KilnOperation) => {
+        const raw = Number(r.rawWorkerTotalCost ?? 0)
+        const baked = Number(r.bakedWorkerTotalCost ?? 0)
+        if (!raw && !baked) return <span className="text-muted-foreground text-xs">—</span>
+        return (
+          <div className="text-xs space-y-0.5">
+            {raw > 0 && <div>Kirdi: <span className="font-medium">{formatCurrency(raw)}</span></div>}
+            {baked > 0 && <div>Chiqdi: <span className="font-medium">{formatCurrency(baked)}</span></div>}
+            {Number(r.workerDebt) > 0 && <div className="text-red-500">Qarz: {formatCurrency(Number(r.workerDebt))}</div>}
           </div>
-        </div>
-      ) : <span className="text-muted-foreground text-xs">—</span>,
+        )
+      },
     },
     { key: 'desc', header: 'Izoh', cell: (r: KilnOperation) => <span className="text-sm text-muted-foreground">{r.description || '—'}</span> },
     {
@@ -260,25 +258,23 @@ export default function HumbuzPage() {
         }
       />
 
+      {/* Kiln stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatsCard title="Jami operatsiyalar" value={data?.meta?.total ?? 0} icon={Flame} color="amber" format="number" suffix="ta" />
         <StatsCard title="Jami xom kirdi" value={totalRawIn} icon={Flame} color="red" format="number" suffix="dona" />
         <StatsCard title="Jami pishgan chiqdi" value={totalBakedOut} icon={Flame} color="emerald" format="number" suffix="dona" />
       </div>
 
+      {/* Worker payment stats — 4 cards */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <HardHat className="h-4 w-4" /> Ishchi puli (Humbuz)
-          </h3>
-          <Link href="/ishchilar" className="text-sm text-primary hover:underline font-medium">
-            Barchasini ko&apos;rish →
-          </Link>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <Link href="/ishchilar"><StatsCard title="Hisoblangan" value={Number(humbuzStats.amount)} icon={HardHat} color="amber" /></Link>
-          <Link href="/ishchilar"><StatsCard title="To'langan" value={Number(humbuzStats.paid)} icon={HardHat} color="emerald" /></Link>
-          <Link href="/ishchilar"><StatsCard title="Qarz" value={Number(humbuzStats.debt)} icon={HardHat} color="red" /></Link>
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          <HardHat className="h-4 w-4" /> Ishchi puli (Humbuz) — bu oy
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatsCard title="Bu oy hisoblandi" value={Number(humbuzStats.amount)} icon={HardHat} color="amber" />
+          <StatsCard title="Berildi" value={Number(humbuzStats.paid)} icon={HardHat} color="emerald" />
+          <StatsCard title="Avvalgi qarz" value={Number(humbuzStats.carriedDebt)} icon={HardHat} color="blue" />
+          <StatsCard title="Jami qarz" value={Number(humbuzStats.debt)} icon={HardHat} color="red" />
         </div>
       </div>
 
@@ -286,9 +282,7 @@ export default function HumbuzPage() {
       <Tabs value={kilnFilter} onValueChange={(v: string) => { setKilnFilter(v as KilnName | 'ALL'); setPage(1) }}>
         <TabsList>
           <TabsTrigger value="ALL">Barchasi</TabsTrigger>
-          {KILNS.map((k) => (
-            <TabsTrigger key={k} value={k}>{kilnNameLabel(k)}</TabsTrigger>
-          ))}
+          {KILNS.map((k) => <TabsTrigger key={k} value={k}>{kilnNameLabel(k)}</TabsTrigger>)}
         </TabsList>
 
         <TabsContent value={kilnFilter} className="mt-4">
@@ -312,7 +306,7 @@ export default function HumbuzPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Dialog */}
+      {/* Add / Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -348,7 +342,7 @@ export default function HumbuzPage() {
               </div>
             </div>
 
-            {Number(rawBricksEntered) > 0 && (
+            {rawBricksEntered > 0 && (
               <div className="space-y-2">
                 <Label>Xom g&apos;isht manbai</Label>
                 <Select onValueChange={(v: string) => setValue('rawBrickSource', v as 'FIELD' | 'RESERVE')}>
@@ -370,45 +364,71 @@ export default function HumbuzPage() {
               <Input {...register('description')} placeholder="Qo'shimcha ma'lumot..." />
             </div>
 
-            <div className="rounded-lg border border-dashed p-3 space-y-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (ixtiyoriy)</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-2">
-                  <Label>Oldingi qarz (so&apos;m)</Label>
-                  <Input {...register('workerOldDebt')} type="number" placeholder="0" />
+            {/* Kirdi ishchi puli — faqat xom g'isht kiritilganda */}
+            {rawBricksEntered > 0 && (
+              <div className="rounded-lg border border-dashed border-blue-400 px-3 py-2 space-y-2">
+                <p className="text-xs font-semibold text-blue-600">Kirdi ishchi puli (xom g&apos;isht)</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs text-muted-foreground">1 dona narx (so&apos;m)</Label>
+                    <Input {...register('rawWorkerRatePerBrick')} type="number" placeholder="20" className="h-8 text-sm" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <Label className="text-xs text-muted-foreground">Berildi (so&apos;m)</Label>
+                    <Input {...register('rawWorkerPaidAmount')} type="number" placeholder="0" className="h-8 text-sm" />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>1 dona uchun narx (so&apos;m)</Label>
-                  <Input {...register('workerRatePerBrick')} type="number" placeholder="25" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Bugun berildi (so&apos;m)</Label>
-                  <Input {...register('workerPaidAmount')} type="number" placeholder="0" />
-                </div>
-              </div>
-              {(totalWorkerCost > 0 || watchedOldDebt > 0) && (
-                <div className="grid grid-cols-4 gap-2 text-sm">
-                  {watchedOldDebt > 0 && (
-                    <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-center">
-                      <div className="text-xs text-muted-foreground">Oldingi qarz</div>
-                      <div className="font-semibold text-amber-700 dark:text-amber-400">{formatCurrency(watchedOldDebt)}</div>
+                {rawWorkerCost > 0 && (
+                  <div className="grid grid-cols-3 gap-1 bg-blue-50 dark:bg-blue-950/20 rounded px-2 py-1 text-xs text-center">
+                    <div>
+                      <div className="text-muted-foreground">Hisoblandi</div>
+                      <div className="font-semibold">{formatCurrency(rawWorkerCost)}</div>
                     </div>
-                  )}
-                  <div className={`rounded-md bg-muted px-3 py-2 text-center ${watchedOldDebt > 0 ? '' : 'col-span-2'}`}>
-                    <div className="text-xs text-muted-foreground">Bugungi ish</div>
-                    <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
+                    <div>
+                      <div className="text-muted-foreground">Berildi</div>
+                      <div className="font-semibold text-green-600">{formatCurrency(watchedRawPaid)}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Qarz</div>
+                      <div className={`font-bold ${rawWorkerDebt > 0 ? 'text-red-500' : 'text-green-600'}`}>{formatCurrency(rawWorkerDebt)}</div>
+                    </div>
                   </div>
-                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Berildi</div>
-                    <div className="font-semibold text-emerald-600">{formatCurrency(watchedPaid)}</div>
+                )}
+              </div>
+            )}
+
+            {/* Chiqdi ishchi puli — faqat pishgan chiqdi kiritilganda */}
+            {bakedBricksOutput > 0 && (
+              <div className="rounded-lg border border-dashed border-amber-400 px-3 py-2 space-y-2">
+                <p className="text-xs font-semibold text-amber-600">Chiqdi ishchi puli (pishgan g&apos;isht)</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs text-muted-foreground">1 dona narx (so&apos;m)</Label>
+                    <Input {...register('bakedWorkerRatePerBrick')} type="number" placeholder="30" className="h-8 text-sm" />
                   </div>
-                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 px-3 py-2 text-center">
-                    <div className="text-xs text-muted-foreground">Jami qarz</div>
-                    <div className="font-semibold text-red-500">{formatCurrency(workerDebt)}</div>
+                  <div className="space-y-0.5">
+                    <Label className="text-xs text-muted-foreground">Berildi (so&apos;m)</Label>
+                    <Input {...register('bakedWorkerPaidAmount')} type="number" placeholder="0" className="h-8 text-sm" />
                   </div>
                 </div>
-              )}
-            </div>
+                {bakedWorkerCost > 0 && (
+                  <div className="grid grid-cols-3 gap-1 bg-amber-50 dark:bg-amber-950/20 rounded px-2 py-1 text-xs text-center">
+                    <div>
+                      <div className="text-muted-foreground">Hisoblandi</div>
+                      <div className="font-semibold">{formatCurrency(bakedWorkerCost)}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Berildi</div>
+                      <div className="font-semibold text-green-600">{formatCurrency(watchedBakedPaid)}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Qarz</div>
+                      <div className={`font-bold ${bakedWorkerDebt > 0 ? 'text-red-500' : 'text-green-600'}`}>{formatCurrency(bakedWorkerDebt)}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Bekor qilish</Button>

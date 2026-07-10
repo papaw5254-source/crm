@@ -187,6 +187,14 @@ export interface KilnOperation {
   workerPaidAmount?: number
   workerOldDebt?: number
   workerDebt?: number
+  rawWorkerRatePerBrick?: number
+  rawWorkerTotalCost?: number
+  rawWorkerPaidAmount?: number
+  rawWorkerDebt?: number
+  bakedWorkerRatePerBrick?: number
+  bakedWorkerTotalCost?: number
+  bakedWorkerPaidAmount?: number
+  bakedWorkerDebt?: number
   createdBy?: User
   createdAt: string
   updatedAt: string

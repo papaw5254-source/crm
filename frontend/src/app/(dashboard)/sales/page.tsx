@@ -393,40 +393,42 @@ export default function SalesPage() {
 
             {/* Worker payment section — only for xom g'isht */}
             {brickType === 'RAW_BRICK' && (
-              <div className="rounded-xl border-2 border-dashed border-orange-400 p-4 space-y-3">
-                <p className="text-sm font-semibold text-orange-600">Yuklagchi (xom g&apos;isht) ishchi puli</p>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Oldingi qarz</Label>
-                    <Input {...register('workerOldDebt')} type="number" step="1" placeholder="0" />
+              <div className="rounded-lg border border-dashed border-orange-400 px-3 py-2 space-y-2">
+                <p className="text-xs font-semibold text-orange-600">Yuklagan puli</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs text-muted-foreground">Oldingi qarz</Label>
+                    <Input {...register('workerOldDebt')} type="number" step="1" placeholder="0" className="h-8 text-sm" />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">1 dona narx</Label>
-                    <Input {...register('workerRatePerBrick')} type="number" step="0.01" placeholder="20" />
+                  <div className="space-y-0.5">
+                    <Label className="text-xs text-muted-foreground">1 dona narx</Label>
+                    <Input {...register('workerRatePerBrick')} type="number" step="0.01" placeholder="20" className="h-8 text-sm" />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Berildi</Label>
-                    <Input {...register('workerPaidAmount')} type="number" step="1" placeholder="0" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 gap-2 rounded-lg bg-orange-50 dark:bg-orange-950/20 p-2 text-xs text-center">
-                  <div>
-                    <div className="text-muted-foreground">Oldingi qarz</div>
-                    <div className="font-semibold text-amber-600">{formatCurrency(workerOld)}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground">Bugungi ish</div>
-                    <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground">Berildi</div>
-                    <div className="font-semibold text-green-600">{formatCurrency(workerPaid)}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground">Jami qarz</div>
-                    <div className={`font-bold ${saleWorkerDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(saleWorkerDebt)}</div>
+                  <div className="space-y-0.5">
+                    <Label className="text-xs text-muted-foreground">Berildi</Label>
+                    <Input {...register('workerPaidAmount')} type="number" step="1" placeholder="0" className="h-8 text-sm" />
                   </div>
                 </div>
+                {(totalWorkerCost > 0 || workerOld > 0 || workerPaid > 0) && (
+                  <div className="grid grid-cols-4 gap-1 rounded bg-orange-50 dark:bg-orange-950/20 px-2 py-1 text-xs text-center">
+                    <div>
+                      <div className="text-muted-foreground">Oldingi qarz</div>
+                      <div className="font-semibold text-amber-600">{formatCurrency(workerOld)}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Bugungi ish</div>
+                      <div className="font-semibold">{formatCurrency(totalWorkerCost)}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Berildi</div>
+                      <div className="font-semibold text-green-600">{formatCurrency(workerPaid)}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Jami qarz</div>
+                      <div className={`font-bold ${saleWorkerDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(saleWorkerDebt)}</div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

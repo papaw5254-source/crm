@@ -256,15 +256,14 @@ export class KilnService {
     const rawRate = Number(operation.rawWorkerRatePerBrick || operation.workerRatePerBrick || 0);
     const bakedRate = Number(operation.bakedWorkerRatePerBrick || operation.workerRatePerBrick || 0);
     const rawPaid = Number(operation.rawWorkerPaidAmount || operation.workerPaidAmount || 0);
-    const bakedPaid = 0;
-    const workerOldDebt = Number(operation.workerOldDebt || 0);
+    const bakedPaid = Number(operation.bakedWorkerPaidAmount || 0);
     const qachigarRate = Number(operation.qachigarRatePerBrick || 0);
     const qachigarPaid = Number(operation.qachigarPaidAmount || 0);
     const rawWorkerCost = rawEntered > 0 && rawRate > 0 ? rawEntered * rawRate : 0;
     const bakedWorkerCost = bakedOutput > 0 && bakedRate > 0 ? bakedOutput * bakedRate : 0;
     const qachigarCost = bakedOutput > 0 && qachigarRate > 0 ? bakedOutput * qachigarRate : 0;
-    const totalWorkerCost = rawWorkerCost + bakedWorkerCost;
-    const workerDebt = Math.max(0, workerOldDebt + totalWorkerCost - rawPaid);
+    const rawWorkerDebt = Math.max(0, rawWorkerCost - rawPaid);
+    const bakedWorkerDebt = Math.max(0, bakedWorkerCost - bakedPaid);
     const qachigarDebt = Math.max(0, qachigarCost - qachigarPaid);
 
       await this.dataSource.transaction(async (manager) => {
@@ -279,32 +278,33 @@ export class KilnService {
           category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
           amount: rawWorkerCost,
           paidAmount: rawPaid,
-          debtFromPreviousMonth: workerOldDebt,
-          remainingDebt: workerDebt,
-            month: operation.date.slice(0, 7),
-            date: operation.date,
-            description: `Humbuzga kirdi: ${rawEntered} dona xom g'isht (${rawRate} so'm/dona) - ${operation.kilnName}`,
-            sourceType: 'KILN_OPERATION',
-            sourceId: operation.id,
-            createdById: userId,
-          }));
-        }
+          debtFromPreviousMonth: 0,
+          remainingDebt: rawWorkerDebt,
+          month: operation.date.slice(0, 7),
+          date: operation.date,
+          description: `Humbuzga kirdi: ${rawEntered} dona xom g'isht (${rawRate} so'm/dona) - ${operation.kilnName}`,
+          sourceType: 'KILN_OPERATION',
+          sourceId: operation.id,
+          createdById: userId,
+        }));
+      }
 
       if (bakedWorkerCost > 0) {
         await manager.save(WorkerPayment, manager.create(WorkerPayment, {
           workerName: 'Ishchilar (humbuz chiqdi)',
           category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
           amount: bakedWorkerCost,
-          paidAmount: 0,
-          remainingDebt: 0,
-            month: operation.date.slice(0, 7),
-            date: operation.date,
-            description: `Humbuzdan chiqdi: ${bakedOutput} dona pishgan g'isht (${bakedRate} so'm/dona) - ${operation.kilnName}`,
-            sourceType: 'KILN_OPERATION',
-            sourceId: operation.id,
-            createdById: userId,
-          }));
-        }
+          paidAmount: bakedPaid,
+          debtFromPreviousMonth: 0,
+          remainingDebt: bakedWorkerDebt,
+          month: operation.date.slice(0, 7),
+          date: operation.date,
+          description: `Humbuzdan chiqdi: ${bakedOutput} dona pishgan g'isht (${bakedRate} so'm/dona) - ${operation.kilnName}`,
+          sourceType: 'KILN_OPERATION',
+          sourceId: operation.id,
+          createdById: userId,
+        }));
+      }
 
       if (qachigarCost > 0) {
         await manager.save(WorkerPayment, manager.create(WorkerPayment, {
@@ -324,14 +324,13 @@ export class KilnService {
 
       operation.rawWorkerTotalCost = rawWorkerCost;
       operation.rawWorkerPaidAmount = rawPaid;
-      operation.rawWorkerDebt = workerDebt;
+      operation.rawWorkerDebt = rawWorkerDebt;
       operation.bakedWorkerTotalCost = bakedWorkerCost;
       operation.bakedWorkerPaidAmount = bakedPaid;
-      operation.bakedWorkerDebt = 0;
-      operation.totalWorkerCost = totalWorkerCost;
-      operation.workerPaidAmount = rawPaid;
-      operation.workerDebt = workerDebt;
-      operation.workerOldDebt = workerOldDebt;
+      operation.bakedWorkerDebt = bakedWorkerDebt;
+      operation.totalWorkerCost = rawWorkerCost + bakedWorkerCost;
+      operation.workerPaidAmount = rawPaid + bakedPaid;
+      operation.workerDebt = rawWorkerDebt + bakedWorkerDebt;
       operation.qachigarRatePerBrick = qachigarRate || null;
       operation.qachigarTotalCost = qachigarCost;
       operation.qachigarPaidAmount = qachigarPaid;
