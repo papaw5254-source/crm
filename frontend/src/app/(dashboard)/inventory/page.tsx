@@ -2,13 +2,12 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, PackagePlus, Pencil, Trash2, HardHat } from 'lucide-react'
+import { Plus, PackagePlus, Pencil, Trash2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { inventoryService } from '@/services/inventory.service'
-import { workerPaymentsService } from '@/services/worker-payments.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
@@ -37,45 +36,6 @@ const schema = z.object({
 })
 type FormData = z.infer<typeof schema>
 
-// ── Press eski qarz form ─────────────────────────────────────────────────────
-const pressEskiSchema = z.object({
-  date: z.string().min(1),
-  oldDebt: z.coerce.number().min(0),
-})
-type PressEskiForm = z.infer<typeof pressEskiSchema>
-
-// ── Worker section stats ─────────────────────────────────────────────────────
-function WorkerStatsSection({
-  title,
-  stats,
-  onAdd,
-  addLabel,
-}: {
-  title: string
-  stats: { amount: number; paid: number; debt: number; carriedDebt: number }
-  onAdd: () => void
-  addLabel: string
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-          <HardHat className="h-4 w-4" /> {title}
-        </h3>
-        <Button variant="outline" size="sm" onClick={onAdd}>
-          <Plus className="h-3.5 w-3.5 mr-1" /> {addLabel}
-        </Button>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatsCard title="Bu oy hisoblangan" value={Number(stats.amount)} icon={HardHat} color="amber" />
-        <StatsCard title="Berildi" value={Number(stats.paid)} icon={HardHat} color="emerald" />
-        <StatsCard title="Oldingi qarz" value={Number(stats.carriedDebt)} icon={HardHat} color="slate" />
-        <StatsCard title="Jami qarz" value={Number(stats.debt)} icon={HardHat} color="red" />
-      </div>
-    </div>
-  )
-}
-
 export default function InventoryPage() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
@@ -84,27 +44,15 @@ export default function InventoryPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<InventoryIncome | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [pressDialogOpen, setPressDialogOpen] = useState(false)
-
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
 
-  const thisMonth = new Date().getMonth() + 1
-  const thisYear = new Date().getFullYear()
   const today = new Date().toISOString().split('T')[0]
 
   const { data, isLoading } = useQuery({
     queryKey: ['inventory', page, limit, debouncedSearch],
     queryFn: () => inventoryService.getAll({ page, limit, search: debouncedSearch }),
   })
-
-  const { data: wpReport } = useQuery({
-    queryKey: ['worker-payments-report', thisMonth, thisYear],
-    queryFn: () => workerPaymentsService.getReport({ month: thisMonth, year: thisYear }),
-  })
-
-  const emptyStats = { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
-  const pressStats = wpReport?.byCategory?.PRESS ?? emptyStats
 
   // ── Inventory form ──────────────────────────────────────────────────────────
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -118,12 +66,6 @@ export default function InventoryPage() {
   const totalWorkerCost = watchedQty * watchedRate
   const workerDebt = Math.max(0, totalWorkerCost - watchedPaid)
 
-  // ── Press eski qarz form ────────────────────────────────────────────────────
-  const pressEskiForm = useForm<PressEskiForm>({
-    resolver: zodResolver(pressEskiSchema),
-    defaultValues: { date: today, oldDebt: 0 },
-  })
-
   const invalidateWorkerPayments = () => {
     queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
     queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
@@ -131,25 +73,6 @@ export default function InventoryPage() {
   }
 
   // ── Mutations ───────────────────────────────────────────────────────────────
-  const pressEskiMutation = useMutation({
-    mutationFn: (d: PressEskiForm) => workerPaymentsService.create({
-      workerName: 'Ishchilar (press)',
-      category: 'PRESS',
-      amount: 0,
-      paidAmount: 0,
-      debtFromPreviousMonth: d.oldDebt || 0,
-      month: d.date.slice(0, 7),
-      date: d.date,
-    }),
-    onSuccess: () => {
-      invalidateWorkerPayments()
-      toast.success("Eski qarz qo'shildi")
-      setPressDialogOpen(false)
-      pressEskiForm.reset({ date: today, oldDebt: 0 })
-    },
-    onError: (e: unknown) => toast.error(getErrorMessage(e)),
-  })
-
   const createMutation = useMutation({
     mutationFn: (data: FormData) => inventoryService.create(data),
     onSuccess: () => {
@@ -263,26 +186,6 @@ export default function InventoryPage() {
     },
   ]
 
-  // ── Calculator row helper ────────────────────────────────────────────────────
-  function CalcRow({ amount: a, paid: p, debt: d }: { amount: number; paid: number; debt: number }) {
-    return (
-      <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 p-2 text-xs text-center">
-        <div>
-          <div className="text-muted-foreground">Hisoblangan</div>
-          <div className="font-semibold">{formatCurrency(a)}</div>
-        </div>
-        <div>
-          <div className="text-muted-foreground">Berildi</div>
-          <div className="font-semibold text-emerald-600">{formatCurrency(p)}</div>
-        </div>
-        <div>
-          <div className="text-muted-foreground">Jami qarz</div>
-          <div className={`font-bold ${d > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(d)}</div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -299,14 +202,6 @@ export default function InventoryPage() {
       <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
         <StatsCard title="Jami kirimlar" value={data?.meta?.total ?? 0} icon={PackagePlus} color="emerald" format="number" suffix="ta" />
       </div>
-
-      {/* Press stats */}
-      <WorkerStatsSection
-        title="Ishchi puli — Press"
-        stats={pressStats as { amount: number; paid: number; debt: number; carriedDebt: number }}
-        onAdd={() => setPressDialogOpen(true)}
-        addLabel="Eski qarz qo'shish"
-      />
 
       {/* Kirim table */}
       <Card>
@@ -383,27 +278,6 @@ export default function InventoryPage() {
               <Button type="submit" loading={isSubmitting || createMutation.isPending || updateMutation.isPending}>
                 {editItem ? 'Saqlash' : "Qo'shish"}
               </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Press eski qarz dialog ───────────────────────────────────────────── */}
-      <Dialog open={pressDialogOpen} onOpenChange={setPressDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Eski qarz qo&apos;shish (Press)</DialogTitle></DialogHeader>
-          <form onSubmit={pressEskiForm.handleSubmit((d) => pressEskiMutation.mutate(d))} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Sana</Label>
-              <Input {...pressEskiForm.register('date')} type="date" />
-            </div>
-            <div className="space-y-2">
-              <Label>Eski qarz miqdori (so&apos;m)</Label>
-              <Input {...pressEskiForm.register('oldDebt')} type="number" placeholder="0" />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setPressDialogOpen(false)}>Bekor qilish</Button>
-              <Button type="submit" loading={pressEskiMutation.isPending}>Saqlash</Button>
             </DialogFooter>
           </form>
         </DialogContent>

@@ -50,6 +50,7 @@ const navGroups: NavGroup[] = [
     label: "G'isht",
     items: [
       { href: '/inventory', icon: PackagePlus, label: "Xom g'isht kirim" },
+      { href: '/press', icon: HardHat, label: 'Press' },
       { href: '/kretkachi', icon: HardHat, label: 'Kretkachi' },
       { href: '/eshikchi', icon: HardHat, label: 'Eshikchi' },
       { href: '/sales', icon: ShoppingCart, label: 'Sotuvlar' },
