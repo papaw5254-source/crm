@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { WorkerPaymentCategory } from '../../common/enums/worker-payment-category.enum';
+import { Sale } from '../sales/entities/sale.entity';
 import { CreateWorkerPaymentDto } from './dto/create-worker-payment.dto';
 import { UpdateWorkerPaymentDto } from './dto/update-worker-payment.dto';
 import { WorkerPayment } from './entities/worker-payment.entity';
@@ -12,6 +13,8 @@ export class WorkerPaymentsService {
   constructor(
     @InjectRepository(WorkerPayment)
     private readonly workerPaymentRepository: Repository<WorkerPayment>,
+    @InjectRepository(Sale)
+    private readonly saleRepository: Repository<Sale>,
   ) {}
 
   async create(dto: CreateWorkerPaymentDto, userId: string): Promise<WorkerPayment> {
@@ -106,6 +109,17 @@ export class WorkerPaymentsService {
 
   async remove(id: string): Promise<void> {
     const wp = await this.findOne(id);
+    if (wp.sourceType === 'SALE' && wp.sourceId) {
+      const sale = await this.saleRepository.findOne({ where: { id: wp.sourceId } });
+      if (sale) {
+        sale.workerRatePerBrick = null;
+        sale.totalWorkerCost = null;
+        sale.workerPaidAmount = 0;
+        sale.workerOldDebt = 0;
+        sale.workerDebt = 0;
+        await this.saleRepository.save(sale);
+      }
+    }
     await this.workerPaymentRepository.remove(wp);
   }
 

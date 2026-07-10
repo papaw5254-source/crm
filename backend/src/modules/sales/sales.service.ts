@@ -210,7 +210,7 @@ export class SalesService {
       return saved;
     }
 
-  async remove(id: string, userId: string): Promise<void> {
+  async remove(id: string, userId: string, skipDebtorUpdate = false): Promise<void> {
     const sale = await this.findOne(id);
     const brickType = sale.brickType || BrickType.BAKED_BRICK;
     if (sale.isReserveSale) {
@@ -223,12 +223,12 @@ export class SalesService {
         userId,
         brickType,
       );
-      }
+    }
     await this.workerPaymentRepository.query(
       `DELETE FROM worker_payments WHERE source_id = $1`,
       [sale.id],
     );
-    if (sale.paymentType === PaymentType.DEBT) {
+    if (!skipDebtorUpdate && sale.paymentType === PaymentType.DEBT) {
       await this.debtorsService.removeSaleDebt(
         (sale.customerName || 'Unknown').trim(),
         sale.customerPhone?.trim() || undefined,

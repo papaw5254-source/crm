@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { PaymentType } from '../../common/enums/payment-type.enum';
+import { SalesService } from '../sales/sales.service';
 import { Sale } from '../sales/entities/sale.entity';
 import { CreateDebtPaymentDto } from './dto/create-debt-payment.dto';
 import { CreateDebtorDto } from './dto/create-debtor.dto';
@@ -19,6 +20,8 @@ export class DebtorsService {
     private readonly debtPaymentRepository: Repository<DebtPayment>,
     @InjectRepository(Sale)
     private readonly saleRepository: Repository<Sale>,
+    @Inject(forwardRef(() => SalesService))
+    private readonly salesService: SalesService,
   ) {}
 
   async create(createDebtorDto: CreateDebtorDto): Promise<Debtor> {
@@ -109,6 +112,15 @@ export class DebtorsService {
 
   async remove(id: string): Promise<void> {
     const debtor = await this.findOne(id);
+
+    const where = debtor.phone
+      ? { paymentType: PaymentType.DEBT, customerPhone: debtor.phone }
+      : { paymentType: PaymentType.DEBT, customerName: debtor.fullName };
+    const linkedSales = await this.saleRepository.find({ where });
+    for (const sale of linkedSales) {
+      await this.salesService.remove(sale.id, 'system', true);
+    }
+
     await this.debtorRepository.remove(debtor);
   }
 
