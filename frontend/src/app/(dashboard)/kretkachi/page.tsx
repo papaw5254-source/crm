@@ -22,8 +22,8 @@ import { formatDate, formatCurrency, formatNumber, getErrorMessage } from '@/lib
 import type { WorkerPayment, InventoryIncome } from '@/types'
 
 const schema = z.object({
-  kirimId: z.string().min(1, 'Kirimni tanlang'),
-  ratePerBrick: z.coerce.number().min(0),
+  date: z.string().min(1, 'Sana kiriting'),
+  ratePerBrick: z.coerce.number().min(1, 'Narx kiriting'),
   paid: z.coerce.number().min(0).optional(),
 })
 type FormData = z.infer<typeof schema>
@@ -57,23 +57,28 @@ export default function KretkachPage() {
     queryFn: () => workerPaymentsService.getAll({ category: 'KRETKACHI', month: THIS_MONTH, year: THIS_YEAR, limit: 100 }),
   })
 
-  // Fetch recent kirimlar for selector
+  // All kirimlar (for date lookup)
   const { data: kirimlar } = useQuery({
-    queryKey: ['inventory', 1, 100, ''],
-    queryFn: () => inventoryService.getAll({ page: 1, limit: 100 }),
+    queryKey: ['inventory-all'],
+    queryFn: () => inventoryService.getAll({ page: 1, limit: 200 }),
   })
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { kirimId: '', ratePerBrick: 0, paid: 0 },
+    defaultValues: { date: today, ratePerBrick: 0, paid: 0 },
   })
 
-  const selectedKirimId = form.watch('kirimId')
+  const selectedDate = form.watch('date')
   const rate = form.watch('ratePerBrick') || 0
   const paid = form.watch('paid') || 0
-  const selectedKirim = kirimlar?.data?.find((k: InventoryIncome) => k.id === selectedKirimId)
-  const qty = selectedKirim?.quantity || 0
-  const amount = qty > 0 && rate > 0 ? qty * rate : 0
+
+  // Find kirimlar for the selected date
+  const matchingKirimlar = (kirimlar?.data ?? []).filter(
+    (k: InventoryIncome) => k.date === selectedDate
+  )
+  const totalQty = matchingKirimlar.reduce((s: number, k: InventoryIncome) => s + Number(k.quantity), 0)
+  const primaryKirim: InventoryIncome | undefined = matchingKirimlar[0]
+  const amount = totalQty > 0 && rate > 0 ? totalQty * rate : 0
   const debt = Math.max(0, amount - paid)
 
   const eskiQarzForm = useForm<EskiQarzForm>({
@@ -88,26 +93,24 @@ export default function KretkachPage() {
   }
 
   const createMutation = useMutation({
-    mutationFn: (d: FormData) => {
-      if (!selectedKirim) throw new Error('Kirim tanlanmagan')
-      return workerPaymentsService.create({
-        workerName: 'Kretkachi',
-        category: 'KRETKACHI',
-        amount,
-        paidAmount: d.paid || 0,
-        debtFromPreviousMonth: 0,
-        month: selectedKirim.date.slice(0, 7),
-        date: selectedKirim.date,
-        description: `${formatNumber(qty)} dona xom g'isht (${rate} so'm/dona)`,
-        sourceType: 'INVENTORY_INCOME_KRETKACH',
-        sourceId: selectedKirim.id,
-      })
-    },
+    mutationFn: (d: FormData) => workerPaymentsService.create({
+      workerName: 'Kretkachi',
+      category: 'KRETKACHI',
+      amount: totalQty > 0 ? totalQty * d.ratePerBrick : 0,
+      paidAmount: d.paid || 0,
+      debtFromPreviousMonth: 0,
+      month: d.date.slice(0, 7),
+      date: d.date,
+      description: totalQty > 0
+        ? `${formatNumber(totalQty)} dona xom g'isht (${d.ratePerBrick} so'm/dona)`
+        : `Kretkachi — ${d.date}`,
+      ...(primaryKirim ? { sourceType: 'INVENTORY_INCOME_KRETKACH', sourceId: primaryKirim.id } : {}),
+    }),
     onSuccess: () => {
       invalidate()
       toast.success("To'lov qo'shildi")
       setDialogOpen(false)
-      form.reset({ kirimId: '', ratePerBrick: 0, paid: 0 })
+      form.reset({ date: today, ratePerBrick: 0, paid: 0 })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -206,38 +209,42 @@ export default function KretkachPage() {
       </Card>
 
       {/* To'lov dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) form.reset({ date: today, ratePerBrick: 0, paid: 0 }) }}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Kretkachi to&apos;lov qo&apos;shish</DialogTitle></DialogHeader>
           <form onSubmit={form.handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
             <div className="space-y-2">
-              <Label>Kirimni tanlang *</Label>
-              <select
-                {...form.register('kirimId')}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">— Kirimni tanlang —</option>
-                {(kirimlar?.data ?? []).map((k: InventoryIncome) => (
-                  <option key={k.id} value={k.id}>
-                    {formatDate(k.date)} — {formatNumber(k.quantity)} dona
-                  </option>
-                ))}
-              </select>
-              {form.formState.errors.kirimId && (
-                <p className="text-destructive text-xs">{form.formState.errors.kirimId.message}</p>
+              <Label>Sana *</Label>
+              <Input {...form.register('date')} type="date" />
+              {form.formState.errors.date && (
+                <p className="text-destructive text-xs">{form.formState.errors.date.message}</p>
               )}
             </div>
 
-            {selectedKirim && (
-              <div className="rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground">
-                Tanlangan: <span className="font-medium text-foreground">{formatDate(selectedKirim.date)}</span>
-                {' · '}<span className="font-medium text-primary">{formatNumber(selectedKirim.quantity)} dona</span>
-              </div>
+            {/* Kirim topildi/topilmadi */}
+            {selectedDate && (
+              totalQty > 0 ? (
+                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-sm">
+                  <p className="text-emerald-700 dark:text-emerald-400 font-medium">
+                    {formatDate(selectedDate)} — <span className="font-bold">{formatNumber(totalQty)} dona</span> xom g&apos;isht
+                  </p>
+                  {matchingKirimlar.length > 1 && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{matchingKirimlar.length} ta kirim birlashtirildi</p>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-lg bg-muted/50 border p-3 text-sm text-muted-foreground">
+                  Bu sana uchun kirim topilmadi — to&apos;lovni baribir qo&apos;shish mumkin
+                </div>
+              )
             )}
 
             <div className="space-y-2">
-              <Label>1 dona narx (so&apos;m)</Label>
+              <Label>1 dona narx (so&apos;m) *</Label>
               <Input {...form.register('ratePerBrick')} type="number" placeholder="20" />
+              {form.formState.errors.ratePerBrick && (
+                <p className="text-destructive text-xs">{form.formState.errors.ratePerBrick.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Berildi</Label>

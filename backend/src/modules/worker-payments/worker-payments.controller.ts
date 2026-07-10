@@ -15,9 +15,9 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Role } from '../../common/enums/role.enum';
-import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CreateWorkerPaymentDto } from './dto/create-worker-payment.dto';
 import { UpdateWorkerPaymentDto } from './dto/update-worker-payment.dto';
+import { WorkerPaymentQueryDto } from './dto/worker-payment-query.dto';
 import { WorkerPaymentsService } from './worker-payments.service';
 
 @ApiTags('worker-payments')
@@ -35,10 +35,10 @@ export class WorkerPaymentsController {
 
   @Get()
   @ApiOperation({ summary: 'Barcha ishchi to\'lovlarini olish' })
-  findAll(@Query() paginationDto: PaginationDto & { debtOnly?: string }) {
+  findAll(@Query() query: WorkerPaymentQueryDto) {
     return this.workerPaymentsService.findAll({
-      ...paginationDto,
-      debtOnly: paginationDto.debtOnly === 'true',
+      ...query,
+      debtOnly: query.debtOnly === 'true',
     });
   }
 
