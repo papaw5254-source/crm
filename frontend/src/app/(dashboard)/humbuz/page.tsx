@@ -65,7 +65,7 @@ export default function HumbuzPage() {
     queryFn: () => kilnService.getAll({ page, limit }),
   })
 
-  const { data: allOpsData } = useQuery({
+  const { data: allOpsData, isLoading: isAllOpsLoading } = useQuery({
     queryKey: ['kiln-operations-all'],
     queryFn: () => kilnService.getAll({ page: 1, limit: 9999 }),
   })
@@ -354,7 +354,7 @@ export default function HumbuzPage() {
 
       <Card>
         <CardContent className="p-4 space-y-4">
-          {allOps.length === 0 && !isLoading ? (
+          {allOps.length === 0 && !isLoading && !isAllOpsLoading ? (
             <EmptyState
               icon={Flame}
               title="Operatsiya yo'q"
@@ -363,7 +363,7 @@ export default function HumbuzPage() {
             />
           ) : (
             <>
-              <DataTable columns={columns} data={allOps} loading={isLoading} />
+              <DataTable columns={columns} data={allOps} loading={isLoading || isAllOpsLoading} />
               {kilnFilter === 'ALL' && data?.meta && (
                 <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />
               )}
