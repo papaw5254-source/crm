@@ -53,7 +53,7 @@ export class ReportsService {
       .reduce((s, x) => s + Number(x.totalAmount), 0);
   }
 
-  private readonly reportExcludedSources = ['DAILY_SALE', 'DEBT_RETURN'];
+  private readonly reportExcludedSources = ['DAILY_SALE', 'DEBT_RETURN', 'FIRM_DEPOSIT'];
 
   private moneyIncomeAmount(incomes: MoneyIncome[]): number {
     return incomes.filter(x => !this.reportExcludedSources.includes(x.source)).reduce((s, x) => s + Number(x.amount), 0);

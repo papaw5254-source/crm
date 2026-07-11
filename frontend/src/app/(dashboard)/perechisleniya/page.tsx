@@ -2,13 +2,14 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Building2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Building2, Plus, Pencil, Trash2, Wallet, TrendingDown, TrendingUp } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { salesService } from '@/services/sales.service'
 import type { BankTransferFirm } from '@/services/sales.service'
+import { moneyIncomesService } from '@/services/money-incomes.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
@@ -20,9 +21,10 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatDate, formatCurrency, formatNumber, brickTypeLabel, brickTypeColor, getErrorMessage } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
-import type { Sale, BrickType } from '@/types'
+import type { Sale, BrickType, MoneyIncome } from '@/types'
 
 const saleSchema = z.object({
   customerName: z.string().optional(),
@@ -47,10 +49,16 @@ export default function PerechisleniyaPage() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
   const queryClient = useQueryClient()
-  const [selectedFirm, setSelectedFirm] = useState<BankTransferFirm | null>(null)
+  const [selectedFirm, setSelectedFirm] = useState<string | null>(null)
   const [addSaleOpen, setAddSaleOpen] = useState(false)
   const [editSale, setEditSale] = useState<Sale | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [depositOpen, setDepositOpen] = useState(false)
+  const [depositFirm, setDepositFirm] = useState('')
+  const [depositAmount, setDepositAmount] = useState('')
+  const [depositDate, setDepositDate] = useState(new Date().toISOString().split('T')[0])
+  const [depositDesc, setDepositDesc] = useState('')
+  const [deleteDepositId, setDeleteDepositId] = useState<string | null>(null)
 
   const { data: firms = [], isLoading } = useQuery({
     queryKey: ['bank-transfer-firms'],
@@ -62,11 +70,33 @@ export default function PerechisleniyaPage() {
     queryFn: () => salesService.getFirmNames(),
   })
 
+  const { data: depositsData } = useQuery({
+    queryKey: ['firm-deposits'],
+    queryFn: () => moneyIncomesService.getAll({ source: 'FIRM_DEPOSIT', limit: 1000 }),
+  })
+  const allDeposits: MoneyIncome[] = depositsData?.data ?? []
+
   const { data: firmSales = [], isLoading: firmSalesLoading } = useQuery({
-    queryKey: ['firm-sales', selectedFirm?.firmName, 'BANK_TRANSFER'],
-    queryFn: () => salesService.getFirmSales(selectedFirm!.firmName, 'BANK_TRANSFER'),
+    queryKey: ['firm-sales', selectedFirm, 'BANK_TRANSFER'],
+    queryFn: () => salesService.getFirmSales(selectedFirm!, 'BANK_TRANSFER'),
     enabled: !!selectedFirm,
   })
+
+  const firmDeposits = allDeposits.filter(d => d.fromWhom === selectedFirm)
+
+  const getBalance = (firmName: string) => {
+    const deposited = allDeposits
+      .filter(d => d.fromWhom === firmName)
+      .reduce((s, d) => s + Number(d.amount), 0)
+    const firm = (firms as BankTransferFirm[]).find(f => f.firmName === firmName)
+    const sold = firm ? firm.totalAmount : 0
+    return deposited - sold
+  }
+
+  const allFirmNames: string[] = [...new Set([
+    ...(firms as BankTransferFirm[]).map(f => f.firmName),
+    ...allDeposits.map(d => d.fromWhom).filter(Boolean) as string[],
+  ])]
 
   const form = useForm<SaleForm>({
     resolver: zodResolver(saleSchema),
@@ -80,7 +110,7 @@ export default function PerechisleniyaPage() {
   const watchedIsReserve = form.watch('isReserveSale')
   const totalSaleAmount = watchedQty * watchedPrice
 
-  const invalidate = () => {
+  const invalidateSales = () => {
     queryClient.invalidateQueries({ queryKey: ['bank-transfer-firms'] })
     queryClient.invalidateQueries({ queryKey: ['firm-names'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard'] })
@@ -90,7 +120,8 @@ export default function PerechisleniyaPage() {
   const createMutation = useMutation({
     mutationFn: (d: SaleForm) => salesService.create(d as Parameters<typeof salesService.create>[0]),
     onSuccess: () => {
-      invalidate()
+      invalidateSales()
+      queryClient.invalidateQueries({ queryKey: ['firm-sales', selectedFirm, 'BANK_TRANSFER'] })
       toast.success("Sotuv qo'shildi")
       setAddSaleOpen(false)
       form.reset(defaultFormValues)
@@ -101,8 +132,8 @@ export default function PerechisleniyaPage() {
   const updateMutation = useMutation({
     mutationFn: (d: SaleForm) => salesService.update(editSale!.id, d as Parameters<typeof salesService.create>[0]),
     onSuccess: () => {
-      invalidate()
-      queryClient.invalidateQueries({ queryKey: ['firm-sales', selectedFirm?.firmName, 'BANK_TRANSFER'] })
+      invalidateSales()
+      queryClient.invalidateQueries({ queryKey: ['firm-sales', selectedFirm, 'BANK_TRANSFER'] })
       toast.success('Sotuv yangilandi')
       setAddSaleOpen(false)
       setEditSale(null)
@@ -113,17 +144,46 @@ export default function PerechisleniyaPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => salesService.delete(id),
     onSuccess: () => {
-      invalidate()
-      queryClient.invalidateQueries({ queryKey: ['firm-sales', selectedFirm?.firmName, 'BANK_TRANSFER'] })
+      invalidateSales()
+      queryClient.invalidateQueries({ queryKey: ['firm-sales', selectedFirm, 'BANK_TRANSFER'] })
       toast.success("Sotuv o'chirildi")
       setDeleteId(null)
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
-  const openAdd = () => {
+  const depositMutation = useMutation({
+    mutationFn: () => moneyIncomesService.create({
+      amount: Number(depositAmount),
+      source: 'FIRM_DEPOSIT',
+      fromWhom: depositFirm,
+      description: depositDesc || `${depositFirm} oldindan to'lov`,
+      date: depositDate,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['firm-deposits'] })
+      toast.success("Depozit qo'shildi")
+      setDepositOpen(false)
+      setDepositAmount('')
+      setDepositDesc('')
+      setDepositDate(new Date().toISOString().split('T')[0])
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const deleteDepositMutation = useMutation({
+    mutationFn: (id: string) => moneyIncomesService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['firm-deposits'] })
+      toast.success("Depozit o'chirildi")
+      setDeleteDepositId(null)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const openAdd = (firmName?: string) => {
     setEditSale(null)
-    form.reset(defaultFormValues)
+    form.reset({ ...defaultFormValues, customerName: firmName || '' })
     setAddSaleOpen(true)
   }
 
@@ -148,87 +208,87 @@ export default function PerechisleniyaPage() {
     else createMutation.mutate(d)
   }
 
-  const totalFirms = firms.length
-  const totalAmount = firms.reduce((s: number, f: BankTransferFirm) => s + f.totalAmount, 0)
-  const totalQty = firms.reduce((s: number, f: BankTransferFirm) => s + f.totalQuantity, 0)
+  const openDepositDialog = (firmName: string) => {
+    setDepositFirm(firmName)
+    setDepositOpen(true)
+  }
+
+  const totalDeposited = allDeposits.reduce((s, d) => s + Number(d.amount), 0)
+  const totalSold = (firms as BankTransferFirm[]).reduce((s, f) => s + f.totalAmount, 0)
+  const totalBalance = totalDeposited - totalSold
 
   const firmColumns = [
     {
       key: 'firmName',
       header: 'Firma nomi',
-      cell: (row: BankTransferFirm) => <span className="font-semibold">{row.firmName}</span>,
+      cell: (row: { firmName: string }) => <span className="font-semibold">{row.firmName}</span>,
     },
     {
-      key: 'totalSales',
-      header: 'Sotuvlar',
-      cell: (row: BankTransferFirm) => <span className="text-muted-foreground">{row.totalSales} marta</span>,
-    },
-    {
-      key: 'totalQuantity',
-      header: "Jami g'isht",
-      cell: (row: BankTransferFirm) => <span className="font-medium">{formatNumber(row.totalQuantity)} dona</span>,
+      key: 'deposited',
+      header: "To'langan (depozit)",
+      cell: (row: { firmName: string }) => {
+        const dep = allDeposits.filter(d => d.fromWhom === row.firmName).reduce((s, d) => s + Number(d.amount), 0)
+        return <span className="text-blue-600 dark:text-blue-400 font-medium">{formatCurrency(dep)}</span>
+      },
     },
     {
       key: 'totalAmount',
-      header: 'Jami summa',
-      cell: (row: BankTransferFirm) => (
-        <span className="font-semibold text-primary">{formatCurrency(row.totalAmount)}</span>
-      ),
+      header: 'Berilgan (sotuv)',
+      cell: (row: { firmName: string }) => {
+        const firm = (firms as BankTransferFirm[]).find(f => f.firmName === row.firmName)
+        return <span className="font-medium">{formatCurrency(firm ? firm.totalAmount : 0)}</span>
+      },
+    },
+    {
+      key: 'balance',
+      header: 'Balans',
+      cell: (row: { firmName: string }) => {
+        const bal = getBalance(row.firmName)
+        return (
+          <span className={`font-bold text-base ${bal >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+            {bal >= 0 ? '+' : ''}{formatCurrency(bal)}
+          </span>
+        )
+      },
     },
     {
       key: 'actions',
       header: '',
-      cell: (row: BankTransferFirm) => (
-        <Button variant="outline" size="sm" onClick={() => setSelectedFirm(row)}>
-          Ko&apos;rish
-        </Button>
+      cell: (row: { firmName: string }) => (
+        <div className="flex gap-1 justify-end">
+          <Button variant="outline" size="sm" onClick={() => openDepositDialog(row.firmName)}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Depozit
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setSelectedFirm(row.firmName)}>
+            Ko&apos;rish
+          </Button>
+        </div>
       ),
     },
   ]
 
   const saleColumns = [
+    { key: 'date', header: 'Sana', cell: (r: Sale) => <span className="font-medium">{formatDate(r.date)}</span> },
     {
-      key: 'date',
-      header: 'Sana',
-      cell: (r: Sale) => <span className="font-semibold">{formatDate(r.date)}</span>,
-    },
-    {
-      key: 'brickType',
-      header: "G'isht turi",
+      key: 'brickType', header: "G'isht",
       cell: (r: Sale) => (
         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${brickTypeColor(r.brickType ?? 'BAKED_BRICK')}`}>
           {brickTypeLabel(r.brickType ?? 'BAKED_BRICK')}
         </span>
       ),
     },
+    { key: 'quantity', header: 'Miqdor', cell: (r: Sale) => <span className="font-bold">{formatNumber(r.quantity)} dona</span> },
+    { key: 'pricePerBrick', header: 'Narx', cell: (r: Sale) => <span>{formatCurrency(Number(r.pricePerBrick))}</span> },
     {
-      key: 'quantity',
-      header: 'Miqdor',
-      cell: (r: Sale) => <span className="font-bold text-base">{formatNumber(r.quantity)} dona</span>,
+      key: 'totalAmount', header: 'Jami',
+      cell: (r: Sale) => <span className="font-semibold text-red-600 dark:text-red-400">-{formatCurrency(Number(r.totalAmount))}</span>,
     },
+    { key: 'desc', header: 'Izoh', cell: (r: Sale) => <span className="text-xs text-muted-foreground">{r.description || '—'}</span> },
     {
-      key: 'pricePerBrick',
-      header: 'Narx',
-      cell: (r: Sale) => <span>{formatCurrency(Number(r.pricePerBrick))}</span>,
-    },
-    {
-      key: 'totalAmount',
-      header: 'Jami',
-      cell: (r: Sale) => <span className="font-semibold text-primary">{formatCurrency(Number(r.totalAmount))}</span>,
-    },
-    {
-      key: 'desc',
-      header: 'Izoh',
-      cell: (r: Sale) => <span className="text-xs text-muted-foreground">{r.description || '—'}</span>,
-    },
-    {
-      key: 'actions',
-      header: '',
+      key: 'actions', header: '',
       cell: (r: Sale) => (
         <div className="flex gap-1 justify-end">
-          <Button variant="ghost" size="icon-sm" onClick={() => openEdit(r)}>
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
+          <Button variant="ghost" size="icon-sm" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
           {isAdmin && (
             <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteId(r.id)}>
               <Trash2 className="h-3.5 w-3.5" />
@@ -239,71 +299,182 @@ export default function PerechisleniyaPage() {
     },
   ]
 
+  const depositColumns = [
+    { key: 'date', header: 'Sana', cell: (r: MoneyIncome) => <span className="font-medium">{formatDate(r.date)}</span> },
+    {
+      key: 'amount', header: 'Summa',
+      cell: (r: MoneyIncome) => <span className="font-bold text-blue-600 dark:text-blue-400">+{formatCurrency(Number(r.amount))}</span>,
+    },
+    { key: 'desc', header: 'Izoh', cell: (r: MoneyIncome) => <span className="text-xs text-muted-foreground">{r.description || '—'}</span> },
+    {
+      key: 'actions', header: '',
+      cell: (r: MoneyIncome) => isAdmin ? (
+        <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteDepositId(r.id)}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      ) : null,
+    },
+  ]
+
+  const selectedBalance = selectedFirm ? getBalance(selectedFirm) : 0
+  const selectedDeposited = firmDeposits.reduce((s, d) => s + Number(d.amount), 0)
+  const selectedSold = (firms as BankTransferFirm[]).find(f => f.firmName === selectedFirm)?.totalAmount ?? 0
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Perechisleniya"
-        description="Bank o'tkazmasi orqali sotuvlar"
+        description="Firma depozitlari va bank o'tkazmalari"
         actions={
-          <Button onClick={openAdd}>
-            <Plus className="h-4 w-4 mr-1" /> Sotuv qo&apos;shish
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => { setDepositFirm(''); setDepositOpen(true) }}>
+              <Wallet className="h-4 w-4 mr-1" /> Depozit qo&apos;shish
+            </Button>
+            <Button onClick={() => openAdd()}>
+              <Plus className="h-4 w-4 mr-1" /> Sotuv qo&apos;shish
+            </Button>
+          </div>
         }
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatsCard title="Firmalar soni" value={totalFirms} icon={Building2} color="purple" format="number" suffix="ta" />
-        <StatsCard title="Jami g'isht" value={totalQty} icon={Building2} color="blue" format="number" suffix="dona" />
-        <StatsCard title="Jami summa" value={totalAmount} icon={Building2} color="emerald" />
+        <StatsCard title="Jami depozit" value={totalDeposited} icon={TrendingUp} color="blue" />
+        <StatsCard title="Jami berilgan" value={totalSold} icon={TrendingDown} color="red" />
+        <StatsCard title="Umumiy balans" value={totalBalance} icon={Wallet} color={totalBalance >= 0 ? 'emerald' : 'red'} />
       </div>
 
       <Card>
         <CardContent className="p-4">
-          {firms.length === 0 && !isLoading ? (
+          {allFirmNames.length === 0 && !isLoading ? (
             <EmptyState
               icon={Building2}
-              title="Perechisleniya sotuvlar yo'q"
-              description="Bank o'tkazmasi to'lov turi bilan sotuv qo'shing"
-              action={<Button onClick={openAdd}><Plus className="h-4 w-4 mr-1" />Sotuv qo&apos;shish</Button>}
+              title="Firmalar yo'q"
+              description="Depozit qo'shing yoki perechisleniya sotuv kiriting"
+              action={<Button onClick={() => setDepositOpen(true)}><Wallet className="h-4 w-4 mr-1" />Depozit qo&apos;shish</Button>}
             />
           ) : (
-            <DataTable columns={firmColumns} data={firms} loading={isLoading} />
+            <DataTable
+              columns={firmColumns}
+              data={allFirmNames.map(name => ({ firmName: name }))}
+              loading={isLoading}
+            />
           )}
         </CardContent>
       </Card>
 
       {/* Firma detail dialog */}
-      <Dialog open={!!selectedFirm} onOpenChange={(o: boolean) => !o && setSelectedFirm(null)}>
-        <DialogContent className="max-w-4xl">
+      <Dialog open={!!selectedFirm} onOpenChange={(o) => !o && setSelectedFirm(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold">{selectedFirm?.firmName}</DialogTitle>
+            <DialogTitle className="text-lg font-bold">{selectedFirm}</DialogTitle>
           </DialogHeader>
           {selectedFirm && (
-            <div className="space-y-4">
+            <div className="space-y-4 flex-1 min-h-0 overflow-y-auto">
+              {/* Balance summary */}
               <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-lg bg-muted p-3 text-center">
-                  <div className="text-xs text-muted-foreground mb-1">Sotuvlar soni</div>
-                  <div className="font-bold text-xl">{selectedFirm.totalSales} ta</div>
+                <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 p-3 text-center">
+                  <div className="text-xs text-muted-foreground mb-1">Jami depozit</div>
+                  <div className="font-bold text-lg text-blue-600 dark:text-blue-400">+{formatCurrency(selectedDeposited)}</div>
                 </div>
-                <div className="rounded-lg bg-muted p-3 text-center">
-                  <div className="text-xs text-muted-foreground mb-1">Jami g&apos;isht</div>
-                  <div className="font-bold text-xl">{formatNumber(selectedFirm.totalQuantity)} dona</div>
+                <div className="rounded-lg bg-red-50 dark:bg-red-950/30 p-3 text-center">
+                  <div className="text-xs text-muted-foreground mb-1">Berilgan g&apos;isht</div>
+                  <div className="font-bold text-lg text-red-600 dark:text-red-400">-{formatCurrency(selectedSold)}</div>
                 </div>
-                <div className="rounded-lg bg-primary/10 p-3 text-center">
-                  <div className="text-xs text-muted-foreground mb-1">Jami summa</div>
-                  <div className="font-bold text-xl text-primary">{formatCurrency(selectedFirm.totalAmount)}</div>
+                <div className={`rounded-lg p-3 text-center ${selectedBalance >= 0 ? 'bg-emerald-50 dark:bg-emerald-950/30' : 'bg-red-50 dark:bg-red-950/30'}`}>
+                  <div className="text-xs text-muted-foreground mb-1">Balans</div>
+                  <div className={`font-bold text-xl ${selectedBalance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {selectedBalance >= 0 ? '+' : ''}{formatCurrency(selectedBalance)}
+                  </div>
+                  <div className="text-xs mt-0.5 text-muted-foreground">
+                    {selectedBalance >= 0 ? 'Qolgan kredit' : 'Qarz (ortiqcha olgan)'}
+                  </div>
                 </div>
               </div>
-              <div className="max-h-[420px] overflow-y-auto rounded-lg border">
-                <DataTable columns={saleColumns} data={firmSales} loading={firmSalesLoading} />
+
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => openDepositDialog(selectedFirm)}>
+                  <Wallet className="h-3.5 w-3.5 mr-1" /> Depozit qo&apos;shish
+                </Button>
+                <Button size="sm" onClick={() => openAdd(selectedFirm)}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Sotuv qo&apos;shish
+                </Button>
               </div>
+
+              <Tabs defaultValue="deposits">
+                <TabsList>
+                  <TabsTrigger value="deposits">Depozitlar ({firmDeposits.length})</TabsTrigger>
+                  <TabsTrigger value="sales">Sotuvlar ({firmSales.length})</TabsTrigger>
+                </TabsList>
+                <TabsContent value="deposits" className="mt-2">
+                  {firmDeposits.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-6 text-sm">Depozit yo&apos;q</p>
+                  ) : (
+                    <DataTable columns={depositColumns} data={firmDeposits} />
+                  )}
+                </TabsContent>
+                <TabsContent value="sales" className="mt-2">
+                  <DataTable columns={saleColumns} data={firmSales} loading={firmSalesLoading} />
+                </TabsContent>
+              </Tabs>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
+      {/* Deposit dialog */}
+      <Dialog open={depositOpen} onOpenChange={(o) => { if (!o) { setDepositOpen(false); setDepositAmount(''); setDepositDesc('') } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Firma depoziti qo&apos;shish</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Firma nomi *</Label>
+              <Input
+                list="deposit-firm-names"
+                value={depositFirm}
+                onChange={(e) => setDepositFirm(e.target.value)}
+                placeholder="Firma nomi..."
+                autoComplete="off"
+              />
+              <datalist id="deposit-firm-names">
+                {allFirmNames.map(name => <option key={name} value={name} />)}
+                {(firmNames as string[]).map((name: string) => <option key={name} value={name} />)}
+              </datalist>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Summa (so&apos;m) *</Label>
+              <Input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="15000000" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Sana *</Label>
+              <Input type="date" value={depositDate} onChange={(e) => setDepositDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Izoh</Label>
+              <Input value={depositDesc} onChange={(e) => setDepositDesc(e.target.value)} placeholder="Oldindan to'lov..." />
+            </div>
+            {depositAmount && Number(depositAmount) > 0 && (
+              <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 px-3 py-2 text-sm">
+                <span className="text-muted-foreground">Depozit: </span>
+                <span className="font-bold text-blue-600">{formatCurrency(Number(depositAmount))}</span>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDepositOpen(false)}>Bekor qilish</Button>
+            <Button
+              disabled={!depositFirm || !depositAmount || Number(depositAmount) <= 0 || depositMutation.isPending}
+              onClick={() => depositMutation.mutate()}
+            >
+              {depositMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add / Edit sale dialog */}
-      <Dialog open={addSaleOpen} onOpenChange={(o: boolean) => { if (!o) { setAddSaleOpen(false); setEditSale(null) } }}>
+      <Dialog open={addSaleOpen} onOpenChange={(o) => { if (!o) { setAddSaleOpen(false); setEditSale(null) } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editSale ? 'Sotuvni tahrirlash' : "Perechisleniya sotuv qo'shish"}</DialogTitle>
@@ -319,9 +490,8 @@ export default function PerechisleniyaPage() {
                   autoComplete="off"
                 />
                 <datalist id="firm-names-list">
-                  {firmNames.map((name: string) => (
-                    <option key={name} value={name} />
-                  ))}
+                  {allFirmNames.map(name => <option key={name} value={name} />)}
+                  {(firmNames as string[]).map((name: string) => <option key={name} value={name} />)}
                 </datalist>
               </div>
               <div className="space-y-2">
@@ -333,7 +503,7 @@ export default function PerechisleniyaPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>To&apos;lov turi *</Label>
-                <Select value={watchedPayType || 'BANK_TRANSFER'} onValueChange={(v: string) => form.setValue('paymentType', v as SaleForm['paymentType'])}>
+                <Select value={watchedPayType || 'BANK_TRANSFER'} onValueChange={(v) => form.setValue('paymentType', v as SaleForm['paymentType'])}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="BANK_TRANSFER">Perechisleniya</SelectItem>
@@ -344,7 +514,7 @@ export default function PerechisleniyaPage() {
               </div>
               <div className="space-y-2">
                 <Label>G&apos;isht turi *</Label>
-                <Select value={watchedBrickType || 'BAKED_BRICK'} onValueChange={(v: string) => form.setValue('brickType', v as BrickType)}>
+                <Select value={watchedBrickType || 'BAKED_BRICK'} onValueChange={(v) => form.setValue('brickType', v as BrickType)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="BAKED_BRICK">Pishgan g&apos;isht</SelectItem>
@@ -357,7 +527,7 @@ export default function PerechisleniyaPage() {
             {!editSale && (
               <div className="space-y-2">
                 <Label>Manba</Label>
-                <Select value={watchedIsReserve ? 'true' : 'false'} onValueChange={(v: string) => form.setValue('isReserveSale', v === 'true')}>
+                <Select value={watchedIsReserve ? 'true' : 'false'} onValueChange={(v) => form.setValue('isReserveSale', v === 'true')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="false">Asosiy ombordan</SelectItem>
@@ -371,16 +541,12 @@ export default function PerechisleniyaPage() {
               <div className="space-y-2">
                 <Label>Miqdor (dona) *</Label>
                 <Input {...form.register('quantity')} type="number" placeholder="10000" />
-                {form.formState.errors.quantity && (
-                  <p className="text-destructive text-xs">{form.formState.errors.quantity.message}</p>
-                )}
+                {form.formState.errors.quantity && <p className="text-destructive text-xs">{form.formState.errors.quantity.message}</p>}
               </div>
               <div className="space-y-2">
                 <Label>Narx (1 dona, so&apos;m) *</Label>
                 <Input {...form.register('pricePerBrick')} type="number" step="0.01" placeholder="450" />
-                {form.formState.errors.pricePerBrick && (
-                  <p className="text-destructive text-xs">{form.formState.errors.pricePerBrick.message}</p>
-                )}
+                {form.formState.errors.pricePerBrick && <p className="text-destructive text-xs">{form.formState.errors.pricePerBrick.message}</p>}
               </div>
             </div>
 
@@ -414,11 +580,20 @@ export default function PerechisleniyaPage() {
 
       <ConfirmDialog
         open={!!deleteId}
-        onOpenChange={(o: boolean) => !o && setDeleteId(null)}
+        onOpenChange={(o) => !o && setDeleteId(null)}
         title="Sotuvni o'chirishni tasdiqlang"
         description="Ombor miqdori tiklanadi. Bu amalni qaytarib bo'lmaydi."
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
         loading={deleteMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!deleteDepositId}
+        onOpenChange={(o) => !o && setDeleteDepositId(null)}
+        title="Depozitni o'chirishni tasdiqlang"
+        description="Bu amal orqaga qaytarib bo'lmaydi."
+        onConfirm={() => deleteDepositId && deleteDepositMutation.mutate(deleteDepositId)}
+        loading={deleteDepositMutation.isPending}
       />
     </div>
   )
