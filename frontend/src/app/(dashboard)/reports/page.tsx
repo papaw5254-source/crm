@@ -152,7 +152,8 @@ export default function ReportsPage() {
                     <StatRow label="Xom g'isht sotildi" value={formatNumber(daily?.rawBrickSold ?? 0) + ' dona'} />
                     <StatRow label="Pishgan g'isht sotildi" value={formatNumber(daily?.bakedBrickSold ?? 0) + ' dona'} />
                     <StatRow label="Naqd sotuvlar" value={formatCurrency(Number(daily?.cashSales ?? 0))} highlight="green" />
-                    <StatRow label="Karta sotuvlar" value={formatCurrency(Number(daily?.cardSales ?? 0))} />
+                    <StatRow label="Karta sotuvlar" value={formatCurrency(Number(daily?.cardSales ?? 0))} highlight="green" />
+                    <StatRow label="Perechisleniya" value={formatCurrency(Number(daily?.bankTransferSales ?? 0))} highlight="green" />
                     <StatRow label="Nasiya sotuvlar" value={formatCurrency(Number(daily?.debtSalesAmount ?? 0))} highlight="red" />
                     <StatRow label="Qarz to'lovlari" value={formatCurrency(Number(daily?.debtPayments ?? 0))} highlight="green" />
                     <StatRow label="Pul kirimlari" value={formatCurrency(Number(daily?.moneyIncomes ?? 0))} highlight="green" />
@@ -445,6 +446,7 @@ export default function ReportsPage() {
                   <CardContent className="p-4 divide-y divide-border">
                     <StatRow label="Naqd sotuvlar" value={formatCurrency(cashflow.inflows.cashSales)} highlight="green" />
                     <StatRow label="Karta sotuvlar" value={formatCurrency(cashflow.inflows.cardSales)} highlight="green" />
+                    <StatRow label="Perechisleniya" value={formatCurrency(cashflow.inflows.bankTransferSales ?? 0)} highlight="green" />
                     <StatRow label="Qarz to'lovlari" value={formatCurrency(cashflow.inflows.debtPayments)} highlight="green" />
                     <StatRow label="Oldindan to'lovlar" value={formatCurrency(cashflow.inflows.prepayments)} highlight="green" />
                     <StatRow label="Boshqa kirimlar" value={formatCurrency(cashflow.inflows.moneyIncomes)} highlight="green" />

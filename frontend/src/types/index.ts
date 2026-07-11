@@ -351,6 +351,7 @@ export interface DailyReport {
   totalSalesAmount: number
   cashSales: number
   cardSales: number
+  bankTransferSales: number
   debtSalesAmount: number
   debtPayments: number
   prepaymentPaid: number
@@ -477,7 +478,7 @@ export interface CashflowReport {
   totalInflows: number
   totalOutflows: number
   netCashflow: number
-  inflows: { cashSales: number; cardSales: number; debtPayments: number; prepayments: number; moneyIncomes: number }
+  inflows: { cashSales: number; cardSales: number; bankTransferSales: number; debtPayments: number; prepayments: number; moneyIncomes: number }
   outflows: { expenses: number; workerPayments: number }
 }
 
