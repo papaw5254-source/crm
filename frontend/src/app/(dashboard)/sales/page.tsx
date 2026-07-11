@@ -73,13 +73,15 @@ export default function SalesPage() {
     queryFn: () => workerPaymentsService.getReport({ month: THIS_MONTH, year: THIS_YEAR }),
   })
   const emptyStats = { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
-  const yuklagchiStats = wpReport?.byCategory?.FIELD_RAW_LOADING ?? emptyStats
+  const yuklagchiStatsRaw = wpReport?.byCategory?.FIELD_RAW_LOADING ?? emptyStats
 
   const { data: eskiQarzData } = useQuery({
     queryKey: ['worker-payments-eski-qarz'],
     queryFn: () => workerPaymentsService.getAll({ category: 'FIELD_RAW_LOADING', limit: 200 }),
   })
   const eskiQarzList = (eskiQarzData?.data ?? []).filter((r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0)
+  const eskiQarzCarriedDebt = eskiQarzList.reduce((acc: number, r: WorkerPayment) => acc + Number(r.debtFromPreviousMonth), 0)
+  const yuklagchiStats = { ...yuklagchiStatsRaw, carriedDebt: eskiQarzCarriedDebt }
 
   const { data, isLoading } = useQuery({
     queryKey: ['sales', page, limit, debouncedSearch, filterDate],
