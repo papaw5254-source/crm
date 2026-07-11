@@ -43,14 +43,23 @@ export class KilnService {
       const legacyPaid = dto.workerPaidAmount || 0;
       const rawRate = dto.rawWorkerRatePerBrick ?? legacyRate;
       const bakedRate = dto.bakedWorkerRatePerBrick ?? legacyRate;
-      const rawPaid = dto.rawWorkerPaidAmount ?? (dto.rawWorkerRatePerBrick === undefined ? legacyPaid : 0);
-      const bakedPaid = dto.bakedWorkerPaidAmount ?? 0;
       const qachigarRate = dto.qachigarRatePerBrick ?? 0;
       const qachigarPaid = dto.qachigarPaidAmount ?? 0;
 
       const rawWorkerCost = rawEntered > 0 && rawRate > 0 ? rawEntered * rawRate : 0;
       const bakedWorkerCost = bakedOutput > 0 && bakedRate > 0 ? bakedOutput * bakedRate : 0;
       const qachigarCost = bakedOutput > 0 && qachigarRate > 0 ? bakedOutput * qachigarRate : 0;
+
+      let rawPaid: number;
+      let bakedPaid: number;
+      if (dto.rawWorkerPaidAmount !== undefined || dto.bakedWorkerPaidAmount !== undefined) {
+        rawPaid = dto.rawWorkerPaidAmount ?? 0;
+        bakedPaid = dto.bakedWorkerPaidAmount ?? 0;
+      } else {
+        rawPaid = Math.min(rawWorkerCost, legacyPaid);
+        bakedPaid = Math.max(0, legacyPaid - rawPaid);
+      }
+
       const rawWorkerDebt = Math.max(0, rawWorkerCost - rawPaid);
       const bakedWorkerDebt = Math.max(0, bakedWorkerCost - bakedPaid);
       const qachigarDebt = Math.max(0, qachigarCost - qachigarPaid);
@@ -257,13 +266,15 @@ export class KilnService {
     const bakedOutput = Number(operation.bakedBricksOutput || 0);
     const rawRate = Number(operation.rawWorkerRatePerBrick || operation.workerRatePerBrick || 0);
     const bakedRate = Number(operation.bakedWorkerRatePerBrick || operation.workerRatePerBrick || 0);
-    const rawPaid = Number(operation.rawWorkerPaidAmount || operation.workerPaidAmount || 0);
-    const bakedPaid = Number(operation.bakedWorkerPaidAmount || 0);
     const qachigarRate = Number(operation.qachigarRatePerBrick || 0);
     const qachigarPaid = Number(operation.qachigarPaidAmount || 0);
     const rawWorkerCost = rawEntered > 0 && rawRate > 0 ? rawEntered * rawRate : 0;
     const bakedWorkerCost = bakedOutput > 0 && bakedRate > 0 ? bakedOutput * bakedRate : 0;
     const qachigarCost = bakedOutput > 0 && qachigarRate > 0 ? bakedOutput * qachigarRate : 0;
+    // Split combined workerPaidAmount: fill kirdi first, rest to chiqdi
+    const combinedPaid = Number(operation.workerPaidAmount || 0);
+    const rawPaid = Math.min(rawWorkerCost, combinedPaid);
+    const bakedPaid = Math.max(0, combinedPaid - rawPaid);
     const rawWorkerDebt = Math.max(0, rawWorkerCost - rawPaid);
     const bakedWorkerDebt = Math.max(0, bakedWorkerCost - bakedPaid);
     const qachigarDebt = Math.max(0, qachigarCost - qachigarPaid);

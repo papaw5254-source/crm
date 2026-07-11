@@ -35,9 +35,8 @@ const schema = z.object({
   date: z.string().min(1, 'Sana kiritilishi shart'),
   description: z.string().optional(),
   rawWorkerRatePerBrick: z.coerce.number().min(0).optional(),
-  rawWorkerPaidAmount: z.coerce.number().min(0).optional(),
   bakedWorkerRatePerBrick: z.coerce.number().min(0).optional(),
-  bakedWorkerPaidAmount: z.coerce.number().min(0).optional(),
+  workerPaidAmount: z.coerce.number().min(0).optional(),
 })
 type FormData = z.infer<typeof schema>
 
@@ -88,13 +87,12 @@ export default function HumbuzPage() {
   const rawBricksEntered = Number(watch('rawBricksEntered') ?? 0)
   const bakedBricksOutput = Number(watch('bakedBricksOutput') ?? 0)
   const watchedRawRate = watch('rawWorkerRatePerBrick') || 0
-  const watchedRawPaid = watch('rawWorkerPaidAmount') || 0
   const watchedBakedRate = watch('bakedWorkerRatePerBrick') || 0
-  const watchedBakedPaid = watch('bakedWorkerPaidAmount') || 0
+  const watchedTotalPaid = watch('workerPaidAmount') || 0
   const rawWorkerCost = rawBricksEntered > 0 && watchedRawRate > 0 ? rawBricksEntered * watchedRawRate : 0
   const bakedWorkerCost = bakedBricksOutput > 0 && watchedBakedRate > 0 ? bakedBricksOutput * watchedBakedRate : 0
-  const rawWorkerDebt = Math.max(0, rawWorkerCost - watchedRawPaid)
-  const bakedWorkerDebt = Math.max(0, bakedWorkerCost - watchedBakedPaid)
+  const totalWorkerCost = rawWorkerCost + bakedWorkerCost
+  const totalDebt = Math.max(0, totalWorkerCost - watchedTotalPaid)
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['kiln-operations'] })
@@ -187,9 +185,9 @@ export default function HumbuzPage() {
     setValue('date', item.date)
     setValue('description', item.description || '')
     setValue('rawWorkerRatePerBrick', Number(item.rawWorkerRatePerBrick ?? 0) || undefined)
-    setValue('rawWorkerPaidAmount', Number(item.rawWorkerPaidAmount ?? 0) || undefined)
     setValue('bakedWorkerRatePerBrick', Number(item.bakedWorkerRatePerBrick ?? 0) || undefined)
-    setValue('bakedWorkerPaidAmount', Number(item.bakedWorkerPaidAmount ?? 0) || undefined)
+    const combinedPaid = (Number(item.rawWorkerPaidAmount ?? 0) + Number(item.bakedWorkerPaidAmount ?? 0)) || undefined
+    setValue('workerPaidAmount', combinedPaid)
     setDialogOpen(true)
   }
 
@@ -420,49 +418,35 @@ export default function HumbuzPage() {
               <Input {...register('description')} placeholder="Qo'shimcha ma'lumot..." />
             </div>
 
-            {/* Kirdi ishchi puli */}
-            {rawBricksEntered > 0 && (
-              <div className="rounded-lg border border-dashed border-blue-400 px-3 py-2 space-y-2">
-                <p className="text-xs font-semibold text-blue-600">Kirdi ishchi puli (xom g&apos;isht)</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs text-muted-foreground">1 dona narx (so&apos;m)</Label>
-                    <Input {...register('rawWorkerRatePerBrick')} type="number" placeholder="20" className="h-8 text-sm" />
-                  </div>
-                  <div className="space-y-0.5">
-                    <Label className="text-xs text-muted-foreground">Berildi (so&apos;m)</Label>
-                    <Input {...register('rawWorkerPaidAmount')} type="number" placeholder="0" className="h-8 text-sm" />
-                  </div>
-                </div>
-                {rawWorkerCost > 0 && (
-                  <div className="grid grid-cols-3 gap-1 bg-blue-50 dark:bg-blue-950/20 rounded px-2 py-1 text-xs text-center">
-                    <div><div className="text-muted-foreground">Hisoblandi</div><div className="font-semibold">{formatCurrency(rawWorkerCost)}</div></div>
-                    <div><div className="text-muted-foreground">Berildi</div><div className="font-semibold text-green-600">{formatCurrency(watchedRawPaid)}</div></div>
-                    <div><div className="text-muted-foreground">Qarz</div><div className={`font-bold ${rawWorkerDebt > 0 ? 'text-red-500' : 'text-green-600'}`}>{formatCurrency(rawWorkerDebt)}</div></div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Chiqdi ishchi puli */}
-            {bakedBricksOutput > 0 && (
-              <div className="rounded-lg border border-dashed border-amber-400 px-3 py-2 space-y-2">
-                <p className="text-xs font-semibold text-amber-600">Chiqdi ishchi puli (pishgan g&apos;isht)</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs text-muted-foreground">1 dona narx (so&apos;m)</Label>
-                    <Input {...register('bakedWorkerRatePerBrick')} type="number" placeholder="30" className="h-8 text-sm" />
-                  </div>
+            {/* Ishchi puli — unified section */}
+            {(rawBricksEntered > 0 || bakedBricksOutput > 0) && (
+              <div className="rounded-lg border border-dashed border-purple-400 px-3 py-2 space-y-2">
+                <p className="text-xs font-semibold text-purple-600">Ishchi puli (ixtiyoriy)</p>
+                <div className={`grid gap-2 ${rawBricksEntered > 0 && bakedBricksOutput > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                  {rawBricksEntered > 0 && (
+                    <div className="space-y-0.5">
+                      <Label className="text-xs text-muted-foreground">Kirdi (xom, 1 dona)</Label>
+                      <Input {...register('rawWorkerRatePerBrick')} type="number" placeholder="20" className="h-8 text-sm" />
+                    </div>
+                  )}
+                  {bakedBricksOutput > 0 && (
+                    <div className="space-y-0.5">
+                      <Label className="text-xs text-muted-foreground">Chiqdi (pishgan, 1 dona)</Label>
+                      <Input {...register('bakedWorkerRatePerBrick')} type="number" placeholder="30" className="h-8 text-sm" />
+                    </div>
+                  )}
                   <div className="space-y-0.5">
                     <Label className="text-xs text-muted-foreground">Berildi (so&apos;m)</Label>
-                    <Input {...register('bakedWorkerPaidAmount')} type="number" placeholder="0" className="h-8 text-sm" />
+                    <Input {...register('workerPaidAmount')} type="number" placeholder="0" className="h-8 text-sm" />
                   </div>
                 </div>
-                {bakedWorkerCost > 0 && (
-                  <div className="grid grid-cols-3 gap-1 bg-amber-50 dark:bg-amber-950/20 rounded px-2 py-1 text-xs text-center">
-                    <div><div className="text-muted-foreground">Hisoblandi</div><div className="font-semibold">{formatCurrency(bakedWorkerCost)}</div></div>
-                    <div><div className="text-muted-foreground">Berildi</div><div className="font-semibold text-green-600">{formatCurrency(watchedBakedPaid)}</div></div>
-                    <div><div className="text-muted-foreground">Qarz</div><div className={`font-bold ${bakedWorkerDebt > 0 ? 'text-red-500' : 'text-green-600'}`}>{formatCurrency(bakedWorkerDebt)}</div></div>
+                {totalWorkerCost > 0 && (
+                  <div className="grid grid-cols-2 gap-1 bg-purple-50 dark:bg-purple-950/20 rounded px-2 py-1 text-xs">
+                    {rawWorkerCost > 0 && <div>Kirdi: <span className="font-semibold">{formatCurrency(rawWorkerCost)}</span></div>}
+                    {bakedWorkerCost > 0 && <div>Chiqdi: <span className="font-semibold">{formatCurrency(bakedWorkerCost)}</span></div>}
+                    <div>Jami: <span className="font-semibold">{formatCurrency(totalWorkerCost)}</span></div>
+                    <div>Berildi: <span className="font-semibold text-emerald-600">{formatCurrency(watchedTotalPaid)}</span></div>
+                    <div className="col-span-2">Qarz: <span className={`font-bold ${totalDebt > 0 ? 'text-red-500' : 'text-emerald-600'}`}>{formatCurrency(totalDebt)}</span></div>
                   </div>
                 )}
               </div>
