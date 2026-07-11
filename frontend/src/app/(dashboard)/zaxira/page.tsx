@@ -108,7 +108,7 @@ export default function ZaxiraPage() {
 
   const emptyStats = { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
   const reserveCategories = ['RESERVE_RAW_LOADING', 'RESERVE_BAKED_LOADING', 'ROAD_PAYMENT']
-  const wpStats = reserveCategories.reduce(
+  const wpStatsRaw = reserveCategories.reduce(
     (acc, cat) => {
       const row = wpReport?.byCategory?.[cat]
       if (row) {
@@ -121,10 +121,14 @@ export default function ZaxiraPage() {
     },
     { ...emptyStats }
   )
+  const eskiQarzCarriedDebt = eskiQarzList.reduce((acc: number, r: WorkerPayment) => acc + Number(r.debtFromPreviousMonth), 0)
+  const wpStats = { ...wpStatsRaw, carriedDebt: eskiQarzCarriedDebt }
+
+  const eskiSaleQarzCarriedDebt = eskiSaleQarzList.reduce((acc: number, r: WorkerPayment) => acc + Number(r.debtFromPreviousMonth), 0)
   const saleLoadingStats = (() => {
     const row = wpReport?.byCategory?.['RESERVE_SALE_LOADING']
-    if (!row) return emptyStats
-    return { amount: Number(row.amount), paid: Number(row.paid), debt: Number(row.debt), carriedDebt: Number(row.carriedDebt) }
+    if (!row) return { ...emptyStats, carriedDebt: eskiSaleQarzCarriedDebt }
+    return { amount: Number(row.amount), paid: Number(row.paid), debt: Number(row.debt), carriedDebt: eskiSaleQarzCarriedDebt }
   })()
 
   const { data: balance, isLoading: balanceLoading } = useQuery({
