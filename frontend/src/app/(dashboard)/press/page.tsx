@@ -44,6 +44,7 @@ export default function PressPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [eskiQarzOpen, setEskiQarzOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleteWpId, setDeleteWpId] = useState<string | null>(null)
 
   const { data: wpReport } = useQuery({
     queryKey: ['worker-payments-report', THIS_MONTH, THIS_YEAR],
@@ -61,6 +62,14 @@ export default function PressPage() {
     queryKey: ['inventory-all'],
     queryFn: () => inventoryService.getAll({ page: 1, limit: 200 }),
   })
+
+  const { data: eskiQarzData } = useQuery({
+    queryKey: ['worker-payments', 'PRESS', 'eski-qarz'],
+    queryFn: () => workerPaymentsService.getAll({ category: 'PRESS', limit: 100 }),
+  })
+  const eskiQarzList = (eskiQarzData?.data ?? []).filter(
+    (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
+  )
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -142,6 +151,17 @@ export default function PressPage() {
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
+  const deleteWpMutation = useMutation({
+    mutationFn: (id: string) => workerPaymentsService.delete(id),
+    onSuccess: () => {
+      invalidate()
+      queryClient.invalidateQueries({ queryKey: ['worker-payments', 'PRESS', 'eski-qarz'] })
+      toast.success("Eski qarz o'chirildi")
+      setDeleteWpId(null)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: WorkerPayment) => formatDate(r.date) },
     {
@@ -199,6 +219,26 @@ export default function PressPage() {
         <StatsCard title="Oldingi qarz" value={Number(stats.carriedDebt)} icon={HardHat} color="slate" />
         <StatsCard title="Jami qarz" value={Number(stats.debt)} icon={HardHat} color="red" />
       </div>
+
+      {/* Eski qarz list */}
+      {eskiQarzList.length > 0 && (
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <h4 className="text-sm font-semibold text-muted-foreground mb-3">Eski qarz ro&apos;yxati</h4>
+            {eskiQarzList.map((r: WorkerPayment) => (
+              <div key={r.id} className="flex items-center justify-between rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-muted-foreground">{formatDate(r.date)}</span>
+                  <span className="font-bold">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteWpId(r.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="p-4">
@@ -293,6 +333,15 @@ export default function PressPage() {
         description="Bu amal orqaga qaytarib bo'lmaydi."
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
         loading={deleteMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!deleteWpId}
+        onOpenChange={(o: boolean) => !o && setDeleteWpId(null)}
+        title="Eski qarzni o'chirishni tasdiqlang"
+        description="Bu amal orqaga qaytarib bo'lmaydi."
+        onConfirm={() => deleteWpId && deleteWpMutation.mutate(deleteWpId)}
+        loading={deleteWpMutation.isPending}
       />
     </div>
   )
