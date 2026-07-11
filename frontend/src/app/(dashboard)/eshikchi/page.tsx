@@ -107,7 +107,7 @@ export default function EshikchPage() {
   }
 
   const displayStats = activeTab === 'all'
-    ? (wpReport?.byCategory?.ESHIKCHI ?? emptyStats)
+    ? calcStats(regularPayments, eskiQarzList)
     : calcStats(filtered, filteredEskiQarz)
 
   const form = useForm<FormData>({
