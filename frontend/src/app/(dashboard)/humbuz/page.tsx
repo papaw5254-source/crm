@@ -65,6 +65,11 @@ export default function HumbuzPage() {
     queryFn: () => kilnService.getAll({ page, limit, kilnName: kilnFilter !== 'ALL' ? kilnFilter : undefined }),
   })
 
+  const { data: allOpsData } = useQuery({
+    queryKey: ['kiln-operations-all', kilnFilter],
+    queryFn: () => kilnService.getAll({ page: 1, limit: 9999, kilnName: kilnFilter !== 'ALL' ? kilnFilter : undefined }),
+  })
+
   const { data: wpReport } = useQuery({
     queryKey: ['worker-payments-report', THIS_MONTH, THIS_YEAR],
     queryFn: () => workerPaymentsService.getReport({ month: THIS_MONTH, year: THIS_YEAR }),
@@ -96,6 +101,7 @@ export default function HumbuzPage() {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['kiln-operations'] })
+    queryClient.invalidateQueries({ queryKey: ['kiln-operations-all'] })
     queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
     queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
     queryClient.invalidateQueries({ queryKey: ['worker-payments-qachigar'] })
@@ -192,8 +198,9 @@ export default function HumbuzPage() {
   }
 
   const allOps = (data?.data ?? []) as KilnOperation[]
-  const totalRawIn = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.rawBricksEntered), 0)
-  const totalBakedOut = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.bakedBricksOutput), 0)
+  const allOpsForStats = (allOpsData?.data ?? []) as KilnOperation[]
+  const totalRawIn = allOpsForStats.reduce((s: number, x: KilnOperation) => s + Number(x.rawBricksEntered), 0)
+  const totalBakedOut = allOpsForStats.reduce((s: number, x: KilnOperation) => s + Number(x.bakedBricksOutput), 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: KilnOperation) => <span className="font-medium">{formatDate(r.date)}</span> },
