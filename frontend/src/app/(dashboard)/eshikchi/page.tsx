@@ -84,10 +84,16 @@ export default function EshikchPage() {
     ? regularPayments
     : regularPayments.filter((p) => p.workerName === activeTab)
 
+  const activeWorkerLabel = WORKERS.find((w) => w.key === activeTab)?.label
   const knownWorkerKeys = new Set(WORKERS.map((w) => w.key))
+  const knownWorkerLabels = new Set(WORKERS.map((w) => w.label))
   const filteredEskiQarz = activeTab === 'all'
     ? eskiQarzList
-    : eskiQarzList.filter((r) => r.workerName === activeTab || !knownWorkerKeys.has(r.workerName))
+    : eskiQarzList.filter((r) =>
+        r.workerName === activeTab ||          // 'Eshikchi-1'
+        r.workerName === activeWorkerLabel ||  // '1-xumbuz'
+        (!knownWorkerKeys.has(r.workerName) && !knownWorkerLabels.has(r.workerName)) // noma'lum nom
+      )
 
   const calcStats = (list: WorkerPayment[], ekList: WorkerPayment[]) => {
     const base = list.reduce(
