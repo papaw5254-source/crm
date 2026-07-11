@@ -24,7 +24,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { formatDate, formatNumber, formatCurrency, kilnNameLabel, rawBrickSourceLabel, getErrorMessage } from '@/lib/utils'
 import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
-import type { KilnOperation, KilnName } from '@/types'
+import type { KilnOperation, KilnName, WorkerPayment } from '@/types'
 
 const schema = z.object({
   kilnName: z.enum(['HUMBUZ_1', 'HUMBUZ_2', 'HUMBUZ_3']),
@@ -58,6 +58,7 @@ export default function HumbuzPage() {
   const [debtDialogOpen, setDebtDialogOpen] = useState(false)
   const [debtAmountStr, setDebtAmountStr] = useState('')
   const [debtDate, setDebtDate] = useState(new Date().toISOString().split('T')[0])
+  const [deleteWpId, setDeleteWpId] = useState<string | null>(null)
   const { page, limit, setPage } = usePagination()
 
   const { data, isLoading } = useQuery({
@@ -70,6 +71,14 @@ export default function HumbuzPage() {
     queryFn: () => workerPaymentsService.getReport({ month: THIS_MONTH, year: THIS_YEAR }),
   })
   const humbuzStats = wpReport?.byCategory?.HUMBUZ_KIRDI_CHIQDI ?? { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
+
+  const { data: humbuzWpData } = useQuery({
+    queryKey: ['worker-payments', 'HUMBUZ_KIRDI_CHIQDI', THIS_MONTH, THIS_YEAR],
+    queryFn: () => workerPaymentsService.getAll({ category: 'HUMBUZ_KIRDI_CHIQDI', month: THIS_MONTH, year: THIS_YEAR, limit: 200 }),
+  })
+  const eskiQarzList = (humbuzWpData?.data ?? []).filter(
+    (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
+  )
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -125,6 +134,17 @@ export default function HumbuzPage() {
       invalidate()
       toast.success("Operatsiya o'chirildi")
       setDeleteId(null)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const deleteWpMutation = useMutation({
+    mutationFn: (id: string) => workerPaymentsService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      toast.success("O'chirildi")
+      setDeleteWpId(null)
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -277,6 +297,34 @@ export default function HumbuzPage() {
           <StatsCard title="Jami qarz" value={Number(humbuzStats.debt)} icon={HardHat} color="red" />
         </div>
       </div>
+
+      {/* Eski qarz ro'yxati */}
+      {eskiQarzList.length > 0 && (
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs font-semibold text-muted-foreground mb-2">Qo&apos;shilgan eski qarzlar</p>
+            <div className="space-y-1">
+              {eskiQarzList.map((r: WorkerPayment) => (
+                <div key={r.id} className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="text-muted-foreground">{formatDate(r.date)}</span>
+                    <span className="font-semibold text-orange-600">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
+                    {r.description && <span className="text-xs text-muted-foreground">{r.description}</span>}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
+                    onClick={() => setDeleteWpId(r.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Kiln filter tabs */}
       <div className="flex gap-1 border-b">
@@ -438,6 +486,15 @@ export default function HumbuzPage() {
         description="Bu amal orqaga qaytarib bo'lmaydi."
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
         loading={deleteMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!deleteWpId}
+        onOpenChange={(o: boolean) => !o && setDeleteWpId(null)}
+        title="Eski qarzni o'chirishni tasdiqlang"
+        description="Bu amal orqaga qaytarib bo'lmaydi."
+        onConfirm={() => deleteWpId && deleteWpMutation.mutate(deleteWpId)}
+        loading={deleteWpMutation.isPending}
       />
 
       {/* Eski qarz dialog */}
