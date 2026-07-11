@@ -664,6 +664,14 @@ export class ReportsService {
       RESTART IDENTITY CASCADE
     `);
     await this.saleRepo.query(`UPDATE stock SET quantity = 0`);
+    // Ensure stock records exist after reset (CASCADE may have truncated them)
+    await this.saleRepo.query(`
+      INSERT INTO stock (brick_type, quantity, product_name, updated_at)
+      VALUES
+        ('BAKED_BRICK', 0, 'Pishgan g''isht', NOW()),
+        ('RAW_BRICK', 0, 'Xom g''isht', NOW())
+      ON CONFLICT (brick_type) DO UPDATE SET quantity = 0, updated_at = NOW()
+    `);
     return { message: "Barcha ma'lumotlar tozalandi" };
   }
 

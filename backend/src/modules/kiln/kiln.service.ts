@@ -133,47 +133,29 @@ export class KilnService {
 
         if (rawEntered > 0) {
           if (dto.rawBrickSource === RawBrickSource.FIELD) {
-            // Daladan kelgan xom g'isht ombor qoldig'idan tekshirilmaydi.
+            // Field source: raw bricks come from field production, no stock/reserve deduction
           } else if (dto.rawBrickSource === RawBrickSource.RESERVE) {
-            const rawStock = await manager.findOne(Stock, { where: { brickType: BrickType.RAW_BRICK } });
-            if (!rawStock || rawStock.quantity < rawEntered) {
-              throw new BadRequestException(`Insufficient RAW_BRICK stock. Available: ${rawStock?.quantity || 0}`);
+            const lastReserve = await manager
+              .createQueryBuilder(ReserveMovement, 'rm')
+              .where('rm.brickType = :bt', { bt: BrickType.RAW_BRICK })
+              .orderBy('rm.createdAt', 'DESC')
+              .getOne();
+            const currentBalance = lastReserve ? lastReserve.newQuantity : 0;
+            if (currentBalance < rawEntered) {
+              throw new BadRequestException(`Zaxirada yetarli xom g'isht yo'q. Mavjud: ${currentBalance} dona`);
             }
-          const prev = rawStock.quantity;
-          rawStock.quantity -= rawEntered;
-          await manager.save(Stock, rawStock);
-          await manager.save(StockMovement, manager.create(StockMovement, {
-            type: StockMovementType.KILN_IN_RAW,
-            brickType: BrickType.RAW_BRICK,
-            quantity: rawEntered,
-            previousQuantity: prev,
-            newQuantity: rawStock.quantity,
-            reason: `Humbuz kirdi (dala): ${dto.kilnName}`,
-            createdById: userId,
-          }));
-        } else if (dto.rawBrickSource === RawBrickSource.RESERVE) {
-          // Get current reserve balance
-          const lastReserve = await manager
-            .createQueryBuilder(ReserveMovement, 'rm')
-            .where('rm.brickType = :bt', { bt: BrickType.RAW_BRICK })
-            .orderBy('rm.createdAt', 'DESC')
-            .getOne();
-          const currentBalance = lastReserve ? lastReserve.newQuantity : 0;
-          if (currentBalance < rawEntered) {
-            throw new BadRequestException(`Insufficient RAW_BRICK reserve. Available: ${currentBalance}`);
+            await manager.save(ReserveMovement, manager.create(ReserveMovement, {
+              brickType: BrickType.RAW_BRICK,
+              movementType: ReserveMovementType.TO_KILN,
+              quantity: rawEntered,
+              previousQuantity: currentBalance,
+              newQuantity: currentBalance - rawEntered,
+              reason: `Humbuzga yuborildi: ${dto.kilnName}`,
+              date: dto.date,
+              createdById: userId,
+            }));
           }
-          await manager.save(ReserveMovement, manager.create(ReserveMovement, {
-            brickType: BrickType.RAW_BRICK,
-            movementType: ReserveMovementType.TO_KILN,
-            quantity: rawEntered,
-            previousQuantity: currentBalance,
-            newQuantity: currentBalance - rawEntered,
-            reason: `Humbuzga yuborildi: ${dto.kilnName}`,
-            date: dto.date,
-            createdById: userId,
-          }));
         }
-      }
 
       if (bakedOutput > 0) {
         const bakedStock = await manager.findOne(Stock, { where: { brickType: BrickType.BAKED_BRICK } });
