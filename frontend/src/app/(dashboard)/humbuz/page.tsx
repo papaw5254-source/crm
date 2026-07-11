@@ -61,13 +61,13 @@ export default function HumbuzPage() {
   const { page, limit, setPage } = usePagination()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['kiln-operations', page, limit, kilnFilter],
-    queryFn: () => kilnService.getAll({ page, limit, kilnName: kilnFilter !== 'ALL' ? kilnFilter : undefined }),
+    queryKey: ['kiln-operations', page, limit],
+    queryFn: () => kilnService.getAll({ page, limit }),
   })
 
   const { data: allOpsData } = useQuery({
-    queryKey: ['kiln-operations-all', kilnFilter],
-    queryFn: () => kilnService.getAll({ page: 1, limit: 9999, kilnName: kilnFilter !== 'ALL' ? kilnFilter : undefined }),
+    queryKey: ['kiln-operations-all'],
+    queryFn: () => kilnService.getAll({ page: 1, limit: 9999 }),
   })
 
   const { data: wpReport } = useQuery({
@@ -103,6 +103,7 @@ export default function HumbuzPage() {
     queryClient.invalidateQueries({ queryKey: ['kiln-operations'] })
     queryClient.invalidateQueries({ queryKey: ['kiln-operations-all'] })
     queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+
     queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
     queryClient.invalidateQueries({ queryKey: ['worker-payments-qachigar'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard'] })
@@ -197,10 +198,11 @@ export default function HumbuzPage() {
     setDialogOpen(true)
   }
 
-  const allOps = (data?.data ?? []) as KilnOperation[]
-  const allOpsForStats = (allOpsData?.data ?? []) as KilnOperation[]
-  const totalRawIn = allOpsForStats.reduce((s: number, x: KilnOperation) => s + Number(x.rawBricksEntered), 0)
-  const totalBakedOut = allOpsForStats.reduce((s: number, x: KilnOperation) => s + Number(x.bakedBricksOutput), 0)
+  const allOpsRaw = (allOpsData?.data ?? []) as KilnOperation[]
+  const allOpsFiltered = kilnFilter === 'ALL' ? allOpsRaw : allOpsRaw.filter((op) => op.kilnName === kilnFilter)
+  const allOps = kilnFilter === 'ALL' ? (data?.data ?? []) as KilnOperation[] : allOpsFiltered
+  const totalRawIn = allOpsFiltered.reduce((s: number, x: KilnOperation) => s + Number(x.rawBricksEntered), 0)
+  const totalBakedOut = allOpsFiltered.reduce((s: number, x: KilnOperation) => s + Number(x.bakedBricksOutput), 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: KilnOperation) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -285,7 +287,7 @@ export default function HumbuzPage() {
 
       {/* Kiln stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatsCard title="Jami operatsiyalar" value={data?.meta?.total ?? 0} icon={Flame} color="amber" format="number" suffix="ta" />
+        <StatsCard title="Jami operatsiyalar" value={allOpsFiltered.length} icon={Flame} color="amber" format="number" suffix="ta" />
         <StatsCard title="Jami xom kirdi" value={totalRawIn} icon={Flame} color="red" format="number" suffix="dona" />
         <StatsCard title="Jami pishgan chiqdi" value={totalBakedOut} icon={Flame} color="emerald" format="number" suffix="dona" />
       </div>
@@ -362,7 +364,9 @@ export default function HumbuzPage() {
           ) : (
             <>
               <DataTable columns={columns} data={allOps} loading={isLoading} />
-              {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
+              {kilnFilter === 'ALL' && data?.meta && (
+                <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />
+              )}
             </>
           )}
         </CardContent>
