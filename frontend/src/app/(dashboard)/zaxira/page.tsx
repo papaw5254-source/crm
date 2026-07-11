@@ -70,10 +70,14 @@ export default function ZaxiraPage() {
   const [saleDialogOpen, setSaleDialogOpen] = useState(false)
   const { page: salePage, limit: saleLimit, setPage: setSalePage } = usePagination()
 
-  // eski qarz
+  // eski qarz — harakati
   const [debtDialogOpen, setDebtDialogOpen] = useState(false)
   const [debtAmountStr, setDebtAmountStr] = useState('')
   const [debtDate, setDebtDate] = useState(new Date().toISOString().split('T')[0])
+  // eski qarz — sotuv
+  const [saleDebtDialogOpen, setSaleDebtDialogOpen] = useState(false)
+  const [saleDebtAmountStr, setSaleDebtAmountStr] = useState('')
+  const [saleDebtDate, setSaleDebtDate] = useState(new Date().toISOString().split('T')[0])
   const [deleteWpId, setDeleteWpId] = useState<string | null>(null)
 
   const now = new Date()
@@ -91,6 +95,14 @@ export default function ZaxiraPage() {
     queryFn: () => workerPaymentsService.getAll({ category: 'RESERVE_RAW_LOADING', limit: 100 }),
   })
   const eskiQarzList = (eskiQarzData?.data ?? []).filter(
+    (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
+  )
+
+  const { data: eskiSaleQarzData } = useQuery({
+    queryKey: ['worker-payments', 'RESERVE_SALE-eski-qarz'],
+    queryFn: () => workerPaymentsService.getAll({ category: 'RESERVE_SALE_LOADING', limit: 100 }),
+  })
+  const eskiSaleQarzList = (eskiSaleQarzData?.data ?? []).filter(
     (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
   )
 
@@ -196,7 +208,8 @@ export default function ZaxiraPage() {
       : Array.isArray(reserveSalesInner?.data)
         ? reserveSalesInner.data
         : []
-  const reserveSaleRows = reserveSaleRowsAll.filter((sale: Sale) => sale?.isReserveSale === true || String((sale as any)?.isReserveSale) === 'true')
+  const isReserveSaleTruthy = (v: unknown) => v === true || v === 'true' || v === 1 || v === 't'
+  const reserveSaleRows = reserveSaleRowsAll.filter((sale: Sale) => isReserveSaleTruthy((sale as any)?.isReserveSale))
   const reserveSaleMeta = reserveSalesData?.meta ?? reserveSalesInner?.meta
 
   const openMovementCreate = () => {
@@ -289,6 +302,28 @@ export default function ZaxiraPage() {
       setDebtDialogOpen(false)
       setDebtAmountStr('')
       setDebtDate(new Date().toISOString().split('T')[0])
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const saleOldDebtMutation = useMutation({
+    mutationFn: ({ date, amount }: { date: string; amount: number }) =>
+      workerPaymentsService.create({
+        workerName: 'Zaxira sotuv ishchi',
+        category: 'RESERVE_SALE_LOADING',
+        amount: 0,
+        paidAmount: 0,
+        debtFromPreviousMonth: amount,
+        date,
+        description: `Eski qarz: ${amount.toLocaleString()} so'm`,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+      toast.success("Eski qarz qo'shildi")
+      setSaleDebtDialogOpen(false)
+      setSaleDebtAmountStr('')
+      setSaleDebtDate(new Date().toISOString().split('T')[0])
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -492,15 +527,39 @@ export default function ZaxiraPage() {
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-          <ShoppingCart className="h-4 w-4" /> Ishchi puli (Zaxira sotuv) — bu oy
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <ShoppingCart className="h-4 w-4" /> Ishchi puli (Zaxira sotuv) — bu oy
+          </h3>
+          <Button variant="outline" size="sm" onClick={() => setSaleDebtDialogOpen(true)}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Eski qarz
+          </Button>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatsCard title="Bu oy hisoblangan" value={saleLoadingStats.amount} icon={ShoppingCart} color="amber" />
           <StatsCard title="Berildi" value={saleLoadingStats.paid} icon={ShoppingCart} color="emerald" />
           <StatsCard title="Oldingi qarz" value={saleLoadingStats.carriedDebt} icon={ShoppingCart} color="slate" />
           <StatsCard title="Jami qarz" value={saleLoadingStats.debt} icon={ShoppingCart} color="red" />
         </div>
+        {eskiSaleQarzList.length > 0 && (
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              <h4 className="text-sm font-semibold text-muted-foreground mb-3">Eski qarz ro&apos;yxati (sotuv)</h4>
+              {(eskiSaleQarzList as WorkerPayment[]).map((r) => (
+                <div key={r.id} className="flex items-center justify-between rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="text-muted-foreground">{formatDate(r.date)}</span>
+                    <span className="font-bold text-amber-700 dark:text-amber-400">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
+                    {r.description && <span className="text-xs text-muted-foreground">{r.description}</span>}
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteWpId(r.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Main Tabs */}
@@ -798,11 +857,11 @@ export default function ZaxiraPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Eski qarz dialog */}
+      {/* Eski qarz dialog — harakati */}
       <Dialog open={debtDialogOpen} onOpenChange={(o: boolean) => { setDebtDialogOpen(o); if (!o) { setDebtAmountStr(''); setDebtDate(new Date().toISOString().split('T')[0]) } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Eski qarz qo&apos;shish (Zaxira)</DialogTitle>
+            <DialogTitle>Eski qarz qo&apos;shish (Zaxira harakati)</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -821,6 +880,34 @@ export default function ZaxiraPage() {
               onClick={() => oldDebtMutation.mutate({ date: debtDate, amount: Number(debtAmountStr) })}
             >
               {oldDebtMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Eski qarz dialog — sotuv */}
+      <Dialog open={saleDebtDialogOpen} onOpenChange={(o: boolean) => { setSaleDebtDialogOpen(o); if (!o) { setSaleDebtAmountStr(''); setSaleDebtDate(new Date().toISOString().split('T')[0]) } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Eski qarz qo&apos;shish (Zaxira sotuv)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Sana</Label>
+              <Input type="date" value={saleDebtDate} onChange={(e) => setSaleDebtDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Qarz miqdori (so&apos;m)</Label>
+              <Input type="number" placeholder="0" value={saleDebtAmountStr} onChange={(e) => setSaleDebtAmountStr(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaleDebtDialogOpen(false)}>Bekor qilish</Button>
+            <Button
+              disabled={!saleDebtAmountStr || Number(saleDebtAmountStr) <= 0 || saleOldDebtMutation.isPending}
+              onClick={() => saleOldDebtMutation.mutate({ date: saleDebtDate, amount: Number(saleDebtAmountStr) })}
+            >
+              {saleOldDebtMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
             </Button>
           </DialogFooter>
         </DialogContent>

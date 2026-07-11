@@ -207,7 +207,10 @@ export default function SalesPage() {
     else createMutation.mutate(data)
   }
 
-  const allRows = (data?.data ?? []).filter((s: Sale) => !s.isReserveSale)
+  const allRows = (data?.data ?? []).filter((s: Sale) => {
+    const v = (s as any).isReserveSale
+    return v !== true && v !== 'true' && v !== 1 && v !== 't'
+  })
 
   const filteredData = paymentTypeFilter === 'ALL'
     ? allRows
