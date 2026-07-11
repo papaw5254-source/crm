@@ -80,9 +80,10 @@ export default function EshikchPage() {
     ? regularPayments
     : regularPayments.filter((p) => p.workerName === activeTab)
 
+  const knownWorkerKeys = new Set(WORKERS.map((w) => w.key))
   const filteredEskiQarz = activeTab === 'all'
     ? eskiQarzList
-    : eskiQarzList.filter((r) => r.workerName === activeTab)
+    : eskiQarzList.filter((r) => r.workerName === activeTab || !knownWorkerKeys.has(r.workerName))
 
   const calcStats = (list: WorkerPayment[], ekList: WorkerPayment[]) => {
     const base = list.reduce(
