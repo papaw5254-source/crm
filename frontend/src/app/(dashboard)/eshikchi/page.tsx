@@ -59,7 +59,6 @@ export default function EshikchPage() {
     queryFn: () => workerPaymentsService.getReport({ month: THIS_MONTH, year: THIS_YEAR }),
   })
   const emptyStats = { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
-  const stats = wpReport?.byCategory?.ESHIKCHI ?? emptyStats
 
   const { data: payments, isLoading } = useQuery({
     queryKey: ['worker-payments', 'ESHIKCHI', THIS_MONTH, THIS_YEAR],
@@ -70,6 +69,20 @@ export default function EshikchPage() {
   const filtered = activeTab === 'all'
     ? allPayments
     : allPayments.filter((p) => p.workerName === activeTab)
+
+  const calcStats = (list: WorkerPayment[]) => list.reduce(
+    (acc, r) => ({
+      amount: acc.amount + Number(r.amount),
+      paid: acc.paid + Number(r.paidAmount),
+      debt: acc.debt + Number(r.remainingDebt),
+      carriedDebt: acc.carriedDebt + Number(r.debtFromPreviousMonth),
+    }),
+    { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
+  )
+
+  const displayStats = activeTab === 'all'
+    ? (wpReport?.byCategory?.ESHIKCHI ?? emptyStats)
+    : calcStats(filtered)
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -200,10 +213,10 @@ export default function EshikchPage() {
       />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatsCard title="Bu oy hisoblangan" value={Number(stats.amount)} icon={HardHat} color="amber" />
-        <StatsCard title="Berildi" value={Number(stats.paid)} icon={HardHat} color="emerald" />
-        <StatsCard title="Oldingi qarz" value={Number(stats.carriedDebt)} icon={HardHat} color="slate" />
-        <StatsCard title="Jami qarz" value={Number(stats.debt)} icon={HardHat} color="red" />
+        <StatsCard title="Bu oy hisoblangan" value={Number(displayStats.amount)} icon={HardHat} color="amber" />
+        <StatsCard title="Berildi" value={Number(displayStats.paid)} icon={HardHat} color="emerald" />
+        <StatsCard title="Oldingi qarz" value={Number(displayStats.carriedDebt)} icon={HardHat} color="slate" />
+        <StatsCard title="Jami qarz" value={Number(displayStats.debt)} icon={HardHat} color="red" />
       </div>
 
       {/* Tabs */}
