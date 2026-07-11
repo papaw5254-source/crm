@@ -630,11 +630,7 @@ export default function ZaxiraPage() {
             </div>
             <div className="rounded-lg border border-dashed p-3 space-y-3">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ishchi puli (ixtiyoriy)</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-2">
-                  <Label>Oldingi qarz (so&apos;m)</Label>
-                  <Input {...movForm.register('workerOldDebt')} type="number" placeholder="0" />
-                </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>1 dona uchun narx (so&apos;m)</Label>
                   <Input {...movForm.register('workerRatePerBrick')} type="number" placeholder="25" />
@@ -644,15 +640,9 @@ export default function ZaxiraPage() {
                   <Input {...movForm.register('workerPaidAmount')} type="number" placeholder="0" />
                 </div>
               </div>
-              {(totalMovWorkerCost > 0 || watchedMovOldDebt > 0) && (
-                <div className="grid grid-cols-4 gap-2 text-sm">
-                  {watchedMovOldDebt > 0 && (
-                    <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-center">
-                      <div className="text-xs text-muted-foreground">Oldingi qarz</div>
-                      <div className="font-semibold text-amber-700 dark:text-amber-400">{formatCurrency(watchedMovOldDebt)}</div>
-                    </div>
-                  )}
-                  <div className={`rounded-md bg-muted px-3 py-2 text-center ${watchedMovOldDebt > 0 ? '' : 'col-span-2'}`}>
+              {totalMovWorkerCost > 0 && (
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div className="rounded-md bg-muted px-3 py-2 text-center">
                     <div className="text-xs text-muted-foreground">Bugungi ish</div>
                     <div className="font-semibold">{formatCurrency(totalMovWorkerCost)}</div>
                   </div>
