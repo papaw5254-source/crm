@@ -89,7 +89,6 @@ export default function SalesPage() {
       page: filterDate ? 1 : page,
       limit: filterDate ? 500 : limit,
       search: debouncedSearch,
-      isReserveSale: false,
       ...(filterDate ? { dateFrom: filterDate, dateTo: filterDate } : {}),
     }),
   })
@@ -208,7 +207,7 @@ export default function SalesPage() {
     else createMutation.mutate(data)
   }
 
-  const allRows = data?.data ?? []
+  const allRows = (data?.data ?? []).filter((s: Sale) => !s.isReserveSale)
 
   const filteredData = paymentTypeFilter === 'ALL'
     ? allRows
