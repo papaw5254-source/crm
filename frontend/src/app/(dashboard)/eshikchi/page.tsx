@@ -80,33 +80,30 @@ export default function EshikchPage() {
     (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
   )
 
-  const filtered = activeTab === 'all'
-    ? regularPayments
-    : regularPayments.filter((p) => p.workerName === activeTab)
-
   const activeWorkerLabel = WORKERS.find((w) => w.key === activeTab)?.label
   const knownWorkerKeys = new Set(WORKERS.map((w) => w.key))
   const knownWorkerLabels = new Set(WORKERS.map((w) => w.label))
+
+  const workerMatch = (workerName: string) =>
+    workerName === activeTab ||
+    workerName === activeWorkerLabel ||
+    (!knownWorkerKeys.has(workerName) && !knownWorkerLabels.has(workerName))
+
+  const filtered = activeTab === 'all'
+    ? regularPayments
+    : regularPayments.filter((p) => workerMatch(p.workerName))
+
   const filteredEskiQarz = activeTab === 'all'
     ? eskiQarzList
-    : eskiQarzList.filter((r) =>
-        r.workerName === activeTab ||          // 'Eshikchi-1'
-        r.workerName === activeWorkerLabel ||  // '1-xumbuz'
-        (!knownWorkerKeys.has(r.workerName) && !knownWorkerLabels.has(r.workerName)) // noma'lum nom
-      )
+    : eskiQarzList.filter((r) => workerMatch(r.workerName))
 
   const calcStats = (list: WorkerPayment[], ekList: WorkerPayment[]) => {
-    const base = list.reduce(
-      (acc, r) => ({
-        amount: acc.amount + Number(r.amount),
-        paid: acc.paid + Number(r.paidAmount),
-        debt: acc.debt + Number(r.remainingDebt),
-        carriedDebt: acc.carriedDebt + Number(r.debtFromPreviousMonth),
-      }),
-      { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
-    )
+    const amount = list.reduce((acc, r) => acc + Number(r.amount), 0)
+    const paid = list.reduce((acc, r) => acc + Number(r.paidAmount), 0)
+    const regularDebt = list.reduce((acc, r) => acc + Number(r.remainingDebt), 0)
     const carriedDebt = ekList.reduce((acc, r) => acc + Number(r.debtFromPreviousMonth), 0)
-    return { ...base, carriedDebt }
+    const eskiRemainingDebt = ekList.reduce((acc, r) => acc + Number(r.remainingDebt), 0)
+    return { amount, paid, carriedDebt, debt: regularDebt + eskiRemainingDebt }
   }
 
   const displayStats = activeTab === 'all'
