@@ -262,7 +262,7 @@ export interface PrepaymentDelivery {
 }
 
 // ─── Money Incomes / Pul kirimlari ───────────────────────────────────────────
-export type MoneyIncomeSource = 'FOUNDER' | 'BANK' | 'DEBT_RETURN' | 'OTHER'
+export type MoneyIncomeSource = 'FOUNDER' | 'BANK' | 'DAILY_SALE' | 'DEBT_RETURN' | 'OTHER'
 
 export interface MoneyIncome {
   id: string

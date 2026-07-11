@@ -27,11 +27,11 @@ import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
 import type { MoneyIncome, MoneyIncomeSource } from '@/types'
 
-const SOURCES: MoneyIncomeSource[] = ['FOUNDER', 'BANK', 'DEBT_RETURN', 'OTHER']
+const SOURCES: MoneyIncomeSource[] = ['FOUNDER', 'BANK', 'DAILY_SALE', 'DEBT_RETURN', 'OTHER']
 
 const schema = z.object({
   amount: z.coerce.number().min(0.01, "Summa 0 dan katta bo'lishi kerak"),
-  source: z.enum(['FOUNDER', 'BANK', 'DEBT_RETURN', 'OTHER']),
+  source: z.enum(['FOUNDER', 'BANK', 'DAILY_SALE', 'DEBT_RETURN', 'OTHER']),
   fromWhom: z.string().optional(),
   description: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
