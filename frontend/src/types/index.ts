@@ -479,7 +479,7 @@ export interface CashflowReport {
   totalInflows: number
   totalOutflows: number
   netCashflow: number
-  inflows: { cashSales: number; cardSales: number; bankTransferSales: number; debtPayments: number; prepayments: number; moneyIncomes: number }
+  inflows: { cashSales: number; cardSales: number; bankTransferSales: number; debtPayments: number; prepayments: number; moneyIncomes: number; firmDepositIncome?: number }
   outflows: { expenses: number; workerPayments: number }
 }
 
