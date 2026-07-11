@@ -61,6 +61,7 @@ export default function IshchilarPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<WorkerPayment | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [categoryFilter, setCategoryFilter] = useState<WorkerPaymentCategory | 'ALL'>('ALL')
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
   const currentMonth = new Date().getMonth() + 1
@@ -69,8 +70,11 @@ export default function IshchilarPage() {
   const [reportYear, setReportYear] = useState(currentYear)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['worker-payments', page, limit, debouncedSearch],
-    queryFn: () => workerPaymentsService.getAll({ page, limit, search: debouncedSearch }),
+    queryKey: ['worker-payments', page, limit, debouncedSearch, categoryFilter],
+    queryFn: () => workerPaymentsService.getAll({
+      page, limit, search: debouncedSearch,
+      ...(categoryFilter !== 'ALL' ? { category: categoryFilter } : {}),
+    }),
   })
 
   const { data: report, isLoading: reportLoading } = useQuery({
@@ -223,7 +227,16 @@ export default function IshchilarPage() {
         <TabsContent value="list" className="mt-4 space-y-4">
           <Card>
             <CardContent className="p-4 space-y-4">
-              <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Ishchi ismi bo'yicha..." className="max-w-sm" />
+              <div className="flex gap-2 flex-wrap">
+                <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Ishchi ismi bo'yicha..." className="max-w-sm" />
+                <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v as WorkerPaymentCategory | 'ALL'); setPage(1) }}>
+                  <SelectTrigger className="w-48"><SelectValue placeholder="Kategoriya" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Barchasi</SelectItem>
+                    {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{workerPaymentCategoryLabel(c)}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
               {allItems.length === 0 && !isLoading ? (
                 <EmptyState icon={HardHat} title="Ishchi yo'q" description="Birinchi ishchi to'lovini qo'shing" action={<Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />To&apos;lov qo&apos;shish</Button>} />
               ) : (
