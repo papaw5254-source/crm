@@ -21,7 +21,6 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatDate, formatNumber, formatCurrency, kilnNameLabel, rawBrickSourceLabel, getErrorMessage } from '@/lib/utils'
 import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
@@ -278,33 +277,40 @@ export default function HumbuzPage() {
         </div>
       </div>
 
-      {/* Kiln tabs */}
-      <Tabs value={kilnFilter} onValueChange={(v: string) => { setKilnFilter(v as KilnName | 'ALL'); setPage(1) }}>
-        <TabsList>
-          <TabsTrigger value="ALL">Barchasi</TabsTrigger>
-          {KILNS.map((k) => <TabsTrigger key={k} value={k}>{kilnNameLabel(k)}</TabsTrigger>)}
-        </TabsList>
+      {/* Kiln filter tabs */}
+      <div className="flex gap-1 border-b">
+        {([{ key: 'ALL', label: 'Barchasi' }, ...KILNS.map((k) => ({ key: k, label: kilnNameLabel(k) }))] as { key: string; label: string }[]).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => { setKilnFilter(tab.key as KilnName | 'ALL'); setPage(1) }}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              kilnFilter === tab.key
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-        <TabsContent value={kilnFilter} className="mt-4">
-          <Card>
-            <CardContent className="p-4 space-y-4">
-              {allOps.length === 0 && !isLoading ? (
-                <EmptyState
-                  icon={Flame}
-                  title="Operatsiya yo'q"
-                  description="Birinchi humbuz operatsiyasini qo'shing"
-                  action={<Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" />Operatsiya qo&apos;shish</Button>}
-                />
-              ) : (
-                <>
-                  <DataTable columns={columns} data={allOps} loading={isLoading} />
-                  {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          {allOps.length === 0 && !isLoading ? (
+            <EmptyState
+              icon={Flame}
+              title="Operatsiya yo'q"
+              description="Birinchi humbuz operatsiyasini qo'shing"
+              action={<Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" />Operatsiya qo&apos;shish</Button>}
+            />
+          ) : (
+            <>
+              <DataTable columns={columns} data={allOps} loading={isLoading} />
+              {data?.meta && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Add / Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

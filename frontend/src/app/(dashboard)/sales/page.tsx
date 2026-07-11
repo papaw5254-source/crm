@@ -301,40 +301,6 @@ export default function SalesPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatsCard title="Yuklagchi hisoblangan" value={Number(yuklagchiStats.amount)} icon={HardHat} color="amber" />
-        <StatsCard title="Berildi" value={Number(yuklagchiStats.paid)} icon={HardHat} color="emerald" />
-        <StatsCard title="Oldingi qarz" value={Number(yuklagchiStats.carriedDebt)} icon={HardHat} color="slate" />
-        <StatsCard title="Jami qarz" value={Number(yuklagchiStats.debt)} icon={HardHat} color="red" />
-      </div>
-
-      {eskiQarzList.length > 0 && (
-        <Card>
-          <CardContent className="p-3">
-            <p className="text-xs font-semibold text-muted-foreground mb-2">Qo&apos;shilgan eski qarzlar</p>
-            <div className="space-y-1">
-              {eskiQarzList.map((r: WorkerPayment) => (
-                <div key={r.id} className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
-                  <div className="flex items-center gap-3 text-sm">
-                    <span className="text-muted-foreground">{formatDate(r.date)}</span>
-                    <span className="font-semibold text-orange-600">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
-                    {r.description && <span className="text-xs text-muted-foreground">{r.description}</span>}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
-                    onClick={() => setDeleteEskiQarzId(r.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <Card>
         <CardContent className="p-4 space-y-4">
           <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
@@ -376,6 +342,41 @@ export default function SalesPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Yuklagchi ishchi puli */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          <HardHat className="h-4 w-4" /> Yuklagchi ishchi puli — bu oy
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatsCard title="Hisoblangan" value={Number(yuklagchiStats.amount)} icon={HardHat} color="amber" />
+          <StatsCard title="Berildi" value={Number(yuklagchiStats.paid)} icon={HardHat} color="emerald" />
+          <StatsCard title="Oldingi qarz" value={Number(yuklagchiStats.carriedDebt)} icon={HardHat} color="slate" />
+          <StatsCard title="Jami qarz" value={Number(yuklagchiStats.debt)} icon={HardHat} color="red" />
+        </div>
+
+        {eskiQarzList.length > 0 && (
+          <Card>
+            <CardContent className="p-3">
+              <p className="text-xs font-semibold text-muted-foreground mb-2">Qo&apos;shilgan eski qarzlar</p>
+              <div className="space-y-1">
+                {eskiQarzList.map((r: WorkerPayment) => (
+                  <div key={r.id} className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="text-muted-foreground">{formatDate(r.date)}</span>
+                      <span className="font-semibold text-orange-600">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
+                      {r.description && <span className="text-xs text-muted-foreground">{r.description}</span>}
+                    </div>
+                    <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0" onClick={() => setDeleteEskiQarzId(r.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Sale dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
