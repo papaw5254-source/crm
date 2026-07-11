@@ -275,6 +275,11 @@ export default function HumbuzPage() {
         }
       />
 
+      {/* DEBUG - remove after fix */}
+      <div className="bg-yellow-50 border border-yellow-300 rounded p-2 text-xs text-yellow-800">
+        API: {isLoading ? 'yuklanmoqda...' : `${allOpsRaw.length} ta operatsiya qaytdi (meta.total=${allOpsData?.meta?.total ?? '?'})`}
+      </div>
+
       {/* Kiln stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatsCard title="Jami operatsiyalar" value={allOps.length} icon={Flame} color="amber" format="number" suffix="ta" />
