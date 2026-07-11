@@ -40,6 +40,16 @@ export class PaginationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  kilnName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   sortBy?: string;
 
   @ApiPropertyOptional({ enum: SortOrder, default: SortOrder.DESC })

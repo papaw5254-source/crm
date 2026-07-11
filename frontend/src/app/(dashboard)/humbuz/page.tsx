@@ -71,11 +71,11 @@ export default function HumbuzPage() {
   })
   const humbuzStats = wpReport?.byCategory?.HUMBUZ_KIRDI_CHIQDI ?? { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
 
-  const { data: humbuzWpData } = useQuery({
-    queryKey: ['worker-payments', 'HUMBUZ_KIRDI_CHIQDI', THIS_MONTH, THIS_YEAR],
-    queryFn: () => workerPaymentsService.getAll({ category: 'HUMBUZ_KIRDI_CHIQDI', month: THIS_MONTH, year: THIS_YEAR, limit: 200 }),
+  const { data: eskiQarzData } = useQuery({
+    queryKey: ['worker-payments', 'HUMBUZ_KIRDI_CHIQDI', 'eski-qarz'],
+    queryFn: () => workerPaymentsService.getAll({ category: 'HUMBUZ_KIRDI_CHIQDI', limit: 200 }),
   })
-  const eskiQarzList = (humbuzWpData?.data ?? []).filter(
+  const eskiQarzList = (eskiQarzData?.data ?? []).filter(
     (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
   )
 
@@ -309,14 +309,16 @@ export default function HumbuzPage() {
                     <span className="font-semibold text-orange-600">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
                     {r.description && <span className="text-xs text-muted-foreground">{r.description}</span>}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
-                    onClick={() => setDeleteWpId(r.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {isAdmin && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
+                      onClick={() => setDeleteWpId(r.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
