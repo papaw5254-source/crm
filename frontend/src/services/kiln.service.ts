@@ -11,28 +11,26 @@ export interface CreateKilnOperationDto {
   description?: string
   workerRatePerBrick?: number
   workerPaidAmount?: number
-  rawWorkerRatePerBrick?: number
-  rawWorkerPaidAmount?: number
-  bakedWorkerRatePerBrick?: number
-  bakedWorkerPaidAmount?: number
-  qachigarRatePerBrick?: number
-  qachigarPaidAmount?: number
 }
 
 export const kilnService = {
   async getAll(params?: PaginationParams & { kilnName?: string; dateFrom?: string; dateTo?: string }): Promise<PaginatedResponse<KilnOperation>> {
     const res = await api.get('/kilns/operations', { params })
-    return res.data?.data?.data ?? res.data?.data ?? res.data
+    const raw = res.data.data
+    if (Array.isArray(raw)) {
+      return { data: raw, meta: { total: raw.length, page: 1, limit: raw.length, totalPages: 1 } }
+    }
+    return raw
   },
 
   async create(data: CreateKilnOperationDto): Promise<KilnOperation> {
     const res = await api.post('/kilns/operations', data)
-    return res.data?.data?.data ?? res.data?.data ?? res.data
+    return res.data.data
   },
 
   async update(id: string, data: Partial<CreateKilnOperationDto>): Promise<KilnOperation> {
     const res = await api.patch(`/kilns/operations/${id}`, data)
-    return res.data?.data?.data ?? res.data?.data ?? res.data
+    return res.data.data
   },
 
   async delete(id: string): Promise<void> {
@@ -41,13 +39,13 @@ export const kilnService = {
 
   async getBakedOutput(date: string, kilnName: string): Promise<number> {
     const res = await api.get('/kilns/operations', { params: { dateFrom: date, dateTo: date, limit: 100 } })
-    const raw = res.data?.data?.data ?? res.data?.data ?? res.data
-    const arr: KilnOperation[] = Array.isArray(raw) ? raw : (raw?.data ?? [])
-    return arr.filter((op) => op.kilnName === kilnName).reduce((s, op) => s + Number(op.bakedBricksOutput || 0), 0)
+    const paged: PaginatedResponse<KilnOperation> = res.data.data
+    const ops = (paged?.data ?? []).filter((op) => op.kilnName === kilnName)
+    return ops.reduce((s, op) => s + Number(op.bakedBricksOutput || 0), 0)
   },
 
   async getReport(params?: { dateFrom?: string; dateTo?: string; kilnName?: string }) {
     const res = await api.get('/kilns/report', { params })
-    return res.data?.data?.data ?? res.data?.data ?? res.data
+    return res.data.data
   },
 }

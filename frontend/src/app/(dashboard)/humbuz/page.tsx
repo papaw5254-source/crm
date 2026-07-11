@@ -57,10 +57,9 @@ export default function HumbuzPage() {
   const [debtDate, setDebtDate] = useState(new Date().toISOString().split('T')[0])
   const [deleteWpId, setDeleteWpId] = useState<string | null>(null)
 
-  const { data: allOpsData, isLoading, error: opsError } = useQuery({
+  const { data: allOpsData, isLoading } = useQuery({
     queryKey: ['kiln-operations-all'],
     queryFn: () => kilnService.getAll({ page: 1, limit: 9999 }),
-    retry: false,
   })
 
   const { data: wpReport } = useQuery({
@@ -276,14 +275,7 @@ export default function HumbuzPage() {
         }
       />
 
-      {/* DEBUG - remove after fix */}
-      <div className="bg-yellow-50 border border-yellow-300 rounded p-2 text-xs text-yellow-800 space-y-1 break-all">
-        <div>isLoading: {String(isLoading)} | opsError: {opsError ? getErrorMessage(opsError) : 'yo\'q'}</div>
-        <div>allOpsData type: {Array.isArray(allOpsData) ? 'ARRAY' : typeof allOpsData} | allOpsData keys: {allOpsData ? Object.keys(allOpsData as object).join(',') : 'undefined'}</div>
-        <div>allOpsRaw.length: {allOpsRaw.length} | meta.total: {allOpsData?.meta?.total ?? '?'}</div>
-      </div>
-
-      {/* Kiln stats */}
+{/* Kiln stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatsCard title="Jami operatsiyalar" value={allOps.length} icon={Flame} color="amber" format="number" suffix="ta" />
         <StatsCard title="Jami xom kirdi" value={totalRawIn} icon={Flame} color="red" format="number" suffix="dona" />
