@@ -262,7 +262,7 @@ export default function HumbuzPage() {
     <div className="space-y-6">
       <PageHeader
         title="Humbuz boshqaruvi"
-        description="3 ta humbuz operatsiyalari"
+        description="3 ta humbuz (1, 2, 3)"
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setDebtDialogOpen(true)}>
