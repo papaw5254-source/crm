@@ -66,8 +66,6 @@ export default function HumbuzPage() {
     queryKey: ['worker-payments-report', THIS_MONTH, THIS_YEAR],
     queryFn: () => workerPaymentsService.getReport({ month: THIS_MONTH, year: THIS_YEAR }),
   })
-  const humbuzStats = wpReport?.byCategory?.HUMBUZ_KIRDI_CHIQDI ?? { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
-
   const { data: eskiQarzData } = useQuery({
     queryKey: ['worker-payments', 'HUMBUZ_KIRDI_CHIQDI', 'eski-qarz'],
     queryFn: () => workerPaymentsService.getAll({ category: 'HUMBUZ_KIRDI_CHIQDI', limit: 200 }),
@@ -75,6 +73,15 @@ export default function HumbuzPage() {
   const eskiQarzList = (eskiQarzData?.data ?? []).filter(
     (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
   )
+
+  const backendHumbuzStats = wpReport?.byCategory?.HUMBUZ_KIRDI_CHIQDI ?? { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
+  const eskiQarzCarriedDebt = eskiQarzList.reduce((acc: number, r: WorkerPayment) => acc + Number(r.debtFromPreviousMonth), 0)
+  const humbuzStats = {
+    amount: Number(backendHumbuzStats.amount),
+    paid: Number(backendHumbuzStats.paid),
+    carriedDebt: eskiQarzCarriedDebt,
+    debt: Math.max(0, eskiQarzCarriedDebt + Number(backendHumbuzStats.amount) - Number(backendHumbuzStats.paid)),
+  }
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
