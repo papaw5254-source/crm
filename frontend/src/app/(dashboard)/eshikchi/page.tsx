@@ -20,14 +20,23 @@ import { Card, CardContent } from '@/components/ui/card'
 import { formatDate, formatCurrency, getErrorMessage } from '@/lib/utils'
 import type { WorkerPayment } from '@/types'
 
+const WORKERS = [
+  { key: 'Eshikchi-1', label: '1-xumbuz' },
+  { key: 'Eshikchi-2', label: '2-xumbuz' },
+  { key: 'Eshikchi-3', label: '3-xumbuz' },
+]
+
 const schema = z.object({
-  date: z.string().min(1),
-  dailyAmount: z.coerce.number().min(0),
+  workerKey: z.string().min(1, 'Ishchini tanlang'),
+  date: z.string().min(1, 'Sana kiriting'),
+  amount: z.coerce.number().min(1, 'Miqdor kiriting'),
   paid: z.coerce.number().min(0).optional(),
+  description: z.string().optional(),
 })
 type FormData = z.infer<typeof schema>
 
 const eskiQarzSchema = z.object({
+  workerKey: z.string().min(1, 'Ishchini tanlang'),
   date: z.string().min(1),
   oldDebt: z.coerce.number().min(0),
 })
@@ -43,6 +52,7 @@ export default function EshikchPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [eskiQarzOpen, setEskiQarzOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<string>('all')
 
   const { data: wpReport } = useQuery({
     queryKey: ['worker-payments-report', THIS_MONTH, THIS_YEAR],
@@ -53,20 +63,25 @@ export default function EshikchPage() {
 
   const { data: payments, isLoading } = useQuery({
     queryKey: ['worker-payments', 'ESHIKCHI', THIS_MONTH, THIS_YEAR],
-    queryFn: () => workerPaymentsService.getAll({ category: 'ESHIKCHI', month: THIS_MONTH, year: THIS_YEAR, limit: 100 }),
+    queryFn: () => workerPaymentsService.getAll({ category: 'ESHIKCHI', month: THIS_MONTH, year: THIS_YEAR, limit: 200 }),
   })
+
+  const allPayments: WorkerPayment[] = payments?.data ?? []
+  const filtered = activeTab === 'all'
+    ? allPayments
+    : allPayments.filter((p) => p.workerName === activeTab)
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { date: today, dailyAmount: 0, paid: 0 },
+    defaultValues: { workerKey: 'Eshikchi-1', date: today, amount: 0, paid: 0, description: '' },
   })
-  const daily = form.watch('dailyAmount') || 0
-  const paid = form.watch('paid') || 0
-  const debt = Math.max(0, daily - paid)
+  const amountVal = form.watch('amount') || 0
+  const paidVal = form.watch('paid') || 0
+  const debt = Math.max(0, amountVal - paidVal)
 
   const eskiQarzForm = useForm<EskiQarzForm>({
     resolver: zodResolver(eskiQarzSchema),
-    defaultValues: { date: today, oldDebt: 0 },
+    defaultValues: { workerKey: 'Eshikchi-1', date: today, oldDebt: 0 },
   })
 
   const invalidate = () => {
@@ -76,27 +91,31 @@ export default function EshikchPage() {
   }
 
   const createMutation = useMutation({
-    mutationFn: (d: FormData) => workerPaymentsService.create({
-      workerName: 'Eshikchi',
-      category: 'ESHIKCHI',
-      amount: d.dailyAmount,
-      paidAmount: d.paid || 0,
-      debtFromPreviousMonth: 0,
-      month: d.date.slice(0, 7),
-      date: d.date,
-    }),
+    mutationFn: (d: FormData) => {
+      const worker = WORKERS.find((w) => w.key === d.workerKey)
+      return workerPaymentsService.create({
+        workerName: d.workerKey,
+        category: 'ESHIKCHI',
+        amount: d.amount,
+        paidAmount: d.paid || 0,
+        debtFromPreviousMonth: 0,
+        month: d.date.slice(0, 7),
+        date: d.date,
+        description: d.description || (worker ? worker.label : d.workerKey),
+      })
+    },
     onSuccess: () => {
       invalidate()
       toast.success("To'lov qo'shildi")
       setDialogOpen(false)
-      form.reset({ date: today, dailyAmount: 0, paid: 0 })
+      form.reset({ workerKey: 'Eshikchi-1', date: today, amount: 0, paid: 0, description: '' })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
   const eskiQarzMutation = useMutation({
     mutationFn: (d: EskiQarzForm) => workerPaymentsService.create({
-      workerName: 'Eshikchi',
+      workerName: d.workerKey,
       category: 'ESHIKCHI',
       amount: 0,
       paidAmount: 0,
@@ -108,7 +127,7 @@ export default function EshikchPage() {
       invalidate()
       toast.success("Eski qarz qo'shildi")
       setEskiQarzOpen(false)
-      eskiQarzForm.reset({ date: today, oldDebt: 0 })
+      eskiQarzForm.reset({ workerKey: 'Eshikchi-1', date: today, oldDebt: 0 })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -123,8 +142,15 @@ export default function EshikchPage() {
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
+  const workerLabel = (name: string) => WORKERS.find((w) => w.key === name)?.label ?? name
+
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: WorkerPayment) => formatDate(r.date) },
+    {
+      key: 'worker', header: 'Ishchi', cell: (r: WorkerPayment) => (
+        <span className="font-medium text-sm">{workerLabel(r.workerName)}</span>
+      ),
+    },
     {
       key: 'amount', header: 'Kunlik', cell: (r: WorkerPayment) => (
         <span className="font-semibold">{Number(r.amount) > 0 ? formatCurrency(Number(r.amount)) : '—'}</span>
@@ -147,7 +173,6 @@ export default function EshikchPage() {
         <span className="text-amber-600">{Number(r.debtFromPreviousMonth) > 0 ? formatCurrency(Number(r.debtFromPreviousMonth)) : '—'}</span>
       ),
     },
-    { key: 'desc', header: 'Izoh', cell: (r: WorkerPayment) => <span className="text-xs text-muted-foreground">{r.description || '—'}</span> },
     {
       key: 'actions', header: '', cell: (r: WorkerPayment) => (
         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteId(r.id)}>
@@ -161,7 +186,7 @@ export default function EshikchPage() {
     <div className="space-y-6">
       <PageHeader
         title="Eshikchi"
-        description="Eshikchi ishchi puli boshqaruvi"
+        description="Eshikchi (xumbuz) ishchi puli boshqaruvi"
         actions={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setEskiQarzOpen(true)}>
@@ -181,36 +206,85 @@ export default function EshikchPage() {
         <StatsCard title="Jami qarz" value={Number(stats.debt)} icon={HardHat} color="red" />
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 border-b">
+        {[{ key: 'all', label: 'Barchasi' }, ...WORKERS].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab.key
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <Card>
         <CardContent className="p-4">
-          <DataTable columns={columns} data={payments?.data ?? []} loading={isLoading} />
+          <DataTable columns={columns} data={filtered} loading={isLoading} />
         </CardContent>
       </Card>
 
       {/* To'lov dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(o: boolean) => { setDialogOpen(o); if (!o) form.reset({ workerKey: 'Eshikchi-1', date: today, amount: 0, paid: 0, description: '' }) }}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Eshikchi to&apos;lov qo&apos;shish</DialogTitle></DialogHeader>
           <form onSubmit={form.handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
             <div className="space-y-2">
-              <Label>Sana</Label>
+              <Label>Ishchi *</Label>
+              <div className="flex gap-2">
+                {WORKERS.map((w) => (
+                  <button
+                    key={w.key}
+                    type="button"
+                    onClick={() => form.setValue('workerKey', w.key)}
+                    className={`flex-1 py-1.5 rounded-md border text-sm font-medium transition-colors ${
+                      form.watch('workerKey') === w.key
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background border-input hover:bg-muted'
+                    }`}
+                  >
+                    {w.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Sana *</Label>
               <Input {...form.register('date')} type="date" />
             </div>
+
             <div className="space-y-2">
-              <Label>Kunlik to&apos;lov (so&apos;m)</Label>
-              <Input {...form.register('dailyAmount')} type="number" placeholder="80000" />
+              <Label>Kunlik miqdor (so&apos;m) *</Label>
+              <Input {...form.register('amount')} type="number" placeholder="0" />
+              {form.formState.errors.amount && (
+                <p className="text-destructive text-xs">{form.formState.errors.amount.message}</p>
+              )}
             </div>
+
             <div className="space-y-2">
-              <Label>Berildi</Label>
+              <Label>Berildi (so&apos;m)</Label>
               <Input {...form.register('paid')} type="number" placeholder="0" />
             </div>
-            {daily > 0 && (
+
+            <div className="space-y-2">
+              <Label>Izoh (ixtiyoriy)</Label>
+              <Input {...form.register('description')} placeholder="masalan: 2 kunlik..." />
+            </div>
+
+            {amountVal > 0 && (
               <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 p-2 text-xs text-center">
-                <div><div className="text-muted-foreground">Kunlik</div><div className="font-semibold">{formatCurrency(daily)}</div></div>
-                <div><div className="text-muted-foreground">Berildi</div><div className="font-semibold text-emerald-600">{formatCurrency(paid)}</div></div>
+                <div><div className="text-muted-foreground">Kunlik</div><div className="font-semibold">{formatCurrency(amountVal)}</div></div>
+                <div><div className="text-muted-foreground">Berildi</div><div className="font-semibold text-emerald-600">{formatCurrency(paidVal)}</div></div>
                 <div><div className="text-muted-foreground">Jami qarz</div><div className={`font-bold ${debt > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(debt)}</div></div>
               </div>
             )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Bekor qilish</Button>
               <Button type="submit" loading={createMutation.isPending}>Saqlash</Button>
@@ -220,10 +294,29 @@ export default function EshikchPage() {
       </Dialog>
 
       {/* Eski qarz dialog */}
-      <Dialog open={eskiQarzOpen} onOpenChange={setEskiQarzOpen}>
+      <Dialog open={eskiQarzOpen} onOpenChange={(o: boolean) => { setEskiQarzOpen(o) }}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Eski qarz qo&apos;shish (Eshikchi)</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Eski qarz qo&apos;shish</DialogTitle></DialogHeader>
           <form onSubmit={eskiQarzForm.handleSubmit((d) => eskiQarzMutation.mutate(d))} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Ishchi *</Label>
+              <div className="flex gap-2">
+                {WORKERS.map((w) => (
+                  <button
+                    key={w.key}
+                    type="button"
+                    onClick={() => eskiQarzForm.setValue('workerKey', w.key)}
+                    className={`flex-1 py-1.5 rounded-md border text-sm font-medium transition-colors ${
+                      eskiQarzForm.watch('workerKey') === w.key
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background border-input hover:bg-muted'
+                    }`}
+                  >
+                    {w.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Eski qarz miqdori (so&apos;m)</Label>
               <Input {...eskiQarzForm.register('oldDebt')} type="number" placeholder="0" />
@@ -242,7 +335,7 @@ export default function EshikchPage() {
 
       <ConfirmDialog
         open={!!deleteId}
-        onOpenChange={(o) => !o && setDeleteId(null)}
+        onOpenChange={(o: boolean) => !o && setDeleteId(null)}
         title="To'lovni o'chirishni tasdiqlang"
         description="Bu amal orqaga qaytarib bo'lmaydi."
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
