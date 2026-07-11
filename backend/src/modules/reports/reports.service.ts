@@ -49,11 +49,11 @@ export class ReportsService {
 
   private cashSaleAmount(sales: Sale[]): number {
     return sales
-      .filter((x) => [PaymentType.CASH, PaymentType.CARD].includes(x.paymentType))
+      .filter((x) => [PaymentType.CASH, PaymentType.CARD, PaymentType.BANK_TRANSFER].includes(x.paymentType))
       .reduce((s, x) => s + Number(x.totalAmount), 0);
   }
 
-  private readonly reportExcludedSources = ['DAILY_SALE', 'DEBT_RETURN'];
+  private readonly reportExcludedSources = ['DAILY_SALE', 'DEBT_RETURN', 'FIRM_DEPOSIT'];
 
   private moneyIncomeAmount(incomes: MoneyIncome[]): number {
     return incomes.filter(x => !this.reportExcludedSources.includes(x.source)).reduce((s, x) => s + Number(x.amount), 0);
@@ -82,6 +82,7 @@ export class ReportsService {
     const todaySalesAmount = todaySales.reduce((s, x) => s + Number(x.totalAmount), 0);
     const todayCashSales = todaySales.filter(x => x.paymentType === PaymentType.CASH).reduce((s, x) => s + Number(x.totalAmount), 0);
     const todayCardSales = todaySales.filter(x => x.paymentType === PaymentType.CARD).reduce((s, x) => s + Number(x.totalAmount), 0);
+    const todayBankTransferSales = todaySales.filter(x => x.paymentType === PaymentType.BANK_TRANSFER).reduce((s, x) => s + Number(x.totalAmount), 0);
     const todayDebtSales = todaySales.filter(x => x.paymentType === PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0);
     const todayDebtPaymentsTotal = todayDebtPayments.reduce((s, x) => s + Number(x.amount), 0);
     const todayExpensesTotal = todayExpenses.reduce((s, x) => s + Number(x.amount), 0);
@@ -90,7 +91,7 @@ export class ReportsService {
     const todayWorkerAccrued = todayWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
     const todayWorkerPaid = todayWorkerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
 
-    const receivedCash = todayCashSales + todayCardSales + todayDebtPaymentsTotal + todayPrepaymentPaid + todayMoneyIncomesTotal;
+    const receivedCash = todayCashSales + todayCardSales + todayBankTransferSales + todayDebtPaymentsTotal + todayPrepaymentPaid + todayMoneyIncomesTotal;
     const todayProfit = receivedCash - todayExpensesTotal - todayWorkerPaid;
 
     // Monthly
@@ -521,12 +522,11 @@ export class ReportsService {
     const prepaymentPaid = prepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const founderIncome = moneyIncomes.filter(x => x.source === 'FOUNDER').reduce((s, x) => s + Number(x.amount), 0);
     const bankIncome = moneyIncomes.filter(x => x.source === 'BANK').reduce((s, x) => s + Number(x.amount), 0);
-    const firmDepositIncome = moneyIncomes.filter(x => x.source === 'FIRM_DEPOSIT').reduce((s, x) => s + Number(x.amount), 0);
     const otherIncome = moneyIncomes.filter(x => !['FOUNDER', 'BANK', 'DAILY_SALE', 'DEBT_RETURN', 'FIRM_DEPOSIT'].includes(x.source)).reduce((s, x) => s + Number(x.amount), 0);
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
     const workerPaid = workerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
 
-    const totalInflow = cashSales + cardSales + debtPaymentsTotal + prepaymentPaid + founderIncome + bankIncome + firmDepositIncome + otherIncome;
+    const totalInflow = cashSales + cardSales + bankTransferSales + debtPaymentsTotal + prepaymentPaid + founderIncome + bankIncome + otherIncome;
     const totalOutflow = totalExpenses + workerPaid;
     const netCashflow = totalInflow - totalOutflow;
 
@@ -534,11 +534,11 @@ export class ReportsService {
       dateFrom, dateTo,
       totalInflows: totalInflow,
       totalOutflows: totalOutflow,
-      inflows: { cashSales, cardSales, bankTransferSales, debtPayments: debtPaymentsTotal, prepayments: prepaymentPaid, firmDepositIncome, moneyIncomes: founderIncome + bankIncome + firmDepositIncome + otherIncome, founderIncome, bankIncome, otherIncome, total: totalInflow },
+      inflows: { cashSales, cardSales, bankTransferSales, debtPayments: debtPaymentsTotal, prepayments: prepaymentPaid, moneyIncomes: founderIncome + bankIncome + otherIncome, founderIncome, bankIncome, otherIncome, total: totalInflow },
       outflows: { expenses: totalExpenses, workerPayments: workerPaid, total: totalOutflow },
       debtSales,
       netCashflow,
-      note: 'debtSales and bankTransferSales are NOT in totalInflows — bankTransfer cash came in as firmDeposit',
+      note: 'debtSales are NOT included in inflows — they are paper income only',
     };
   }
 
