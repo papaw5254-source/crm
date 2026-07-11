@@ -17,12 +17,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
-import { formatDate, formatCurrency, getErrorMessage } from '@/lib/utils'
+import { formatDate, formatCurrency, formatNumber, getErrorMessage } from '@/lib/utils'
 import type { WorkerPayment } from '@/types'
 
 const schema = z.object({
   date: z.string().min(1, 'Sana kiriting'),
-  amount: z.coerce.number().min(1, 'Miqdor kiriting'),
+  quantity: z.coerce.number().min(1, 'G\'isht sonini kiriting'),
+  ratePerBrick: z.coerce.number().min(1, 'Narx kiriting'),
   paid: z.coerce.number().min(0).optional(),
   description: z.string().optional(),
 })
@@ -59,12 +60,14 @@ export default function KretkachPage() {
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { date: today, amount: 0, paid: 0, description: '' },
+    defaultValues: { date: today, quantity: 0, ratePerBrick: 0, paid: 0, description: '' },
   })
 
-  const amountVal = form.watch('amount') || 0
+  const quantity = form.watch('quantity') || 0
+  const rate = form.watch('ratePerBrick') || 0
   const paidVal = form.watch('paid') || 0
-  const debt = Math.max(0, amountVal - paidVal)
+  const amount = quantity > 0 && rate > 0 ? quantity * rate : 0
+  const debt = Math.max(0, amount - paidVal)
 
   const eskiQarzForm = useForm<EskiQarzForm>({
     resolver: zodResolver(eskiQarzSchema),
@@ -78,21 +81,25 @@ export default function KretkachPage() {
   }
 
   const createMutation = useMutation({
-    mutationFn: (d: FormData) => workerPaymentsService.create({
-      workerName: 'Kretkachi',
-      category: 'KRETKACHI',
-      amount: d.amount,
-      paidAmount: d.paid || 0,
-      debtFromPreviousMonth: 0,
-      month: d.date.slice(0, 7),
-      date: d.date,
-      description: d.description || undefined,
-    }),
+    mutationFn: (d: FormData) => {
+      const qty = d.quantity || 0
+      const calcAmount = qty * d.ratePerBrick
+      return workerPaymentsService.create({
+        workerName: 'Kretkachi',
+        category: 'KRETKACHI',
+        amount: calcAmount,
+        paidAmount: d.paid || 0,
+        debtFromPreviousMonth: 0,
+        month: d.date.slice(0, 7),
+        date: d.date,
+        description: d.description || `${formatNumber(qty)} dona × ${formatNumber(d.ratePerBrick)} so'm`,
+      })
+    },
     onSuccess: () => {
       invalidate()
       toast.success("To'lov qo'shildi")
       setDialogOpen(false)
-      form.reset({ date: today, amount: 0, paid: 0, description: '' })
+      form.reset({ date: today, quantity: 0, ratePerBrick: 0, paid: 0, description: '' })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -191,7 +198,7 @@ export default function KretkachPage() {
       </Card>
 
       {/* To'lov dialog */}
-      <Dialog open={dialogOpen} onOpenChange={(o: boolean) => { setDialogOpen(o); if (!o) form.reset({ date: today, amount: 0, paid: 0, description: '' }) }}>
+      <Dialog open={dialogOpen} onOpenChange={(o: boolean) => { setDialogOpen(o); if (!o) form.reset({ date: today, quantity: 0, ratePerBrick: 0, paid: 0, description: '' }) }}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Kretkachi to&apos;lov qo&apos;shish</DialogTitle></DialogHeader>
           <form onSubmit={form.handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
@@ -203,13 +210,31 @@ export default function KretkachPage() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label>Hisoblangan miqdor (so&apos;m) *</Label>
-              <Input {...form.register('amount')} type="number" placeholder="0" />
-              {form.formState.errors.amount && (
-                <p className="text-destructive text-xs">{form.formState.errors.amount.message}</p>
-              )}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Tahlangan g&apos;isht (dona) *</Label>
+                <Input {...form.register('quantity')} type="number" placeholder="0" />
+                {form.formState.errors.quantity && (
+                  <p className="text-destructive text-xs">{form.formState.errors.quantity.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>1 dona narxi (so&apos;m) *</Label>
+                <Input {...form.register('ratePerBrick')} type="number" placeholder="0" />
+                {form.formState.errors.ratePerBrick && (
+                  <p className="text-destructive text-xs">{form.formState.errors.ratePerBrick.message}</p>
+                )}
+              </div>
             </div>
+
+            {amount > 0 && (
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-sm text-center">
+                <span className="text-muted-foreground">Hisoblandi: </span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                  {formatNumber(quantity)} × {formatNumber(rate)} = {formatCurrency(amount)}
+                </span>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>Berildi (so&apos;m)</Label>
@@ -218,14 +243,14 @@ export default function KretkachPage() {
 
             <div className="space-y-2">
               <Label>Izoh (ixtiyoriy)</Label>
-              <Input {...form.register('description')} placeholder="masalan: 3 kunlik ish..." />
+              <Input {...form.register('description')} placeholder="" />
             </div>
 
-            {amountVal > 0 && (
+            {amount > 0 && (
               <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 p-2 text-xs text-center">
-                <div><div className="text-muted-foreground">Hisoblandi</div><div className="font-semibold">{formatCurrency(amountVal)}</div></div>
+                <div><div className="text-muted-foreground">Hisoblandi</div><div className="font-semibold">{formatCurrency(amount)}</div></div>
                 <div><div className="text-muted-foreground">Berildi</div><div className="font-semibold text-emerald-600">{formatCurrency(paidVal)}</div></div>
-                <div><div className="text-muted-foreground">Jami qarz</div><div className={`font-bold ${debt > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(debt)}</div></div>
+                <div><div className="text-muted-foreground">Qarz</div><div className={`font-bold ${debt > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(debt)}</div></div>
               </div>
             )}
 

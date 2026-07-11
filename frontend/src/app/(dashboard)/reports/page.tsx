@@ -86,7 +86,8 @@ export default function ReportsPage() {
     ? (Object.entries(monthly.groupedByDay) as [string, DayData][]).map(([date, d]) => ({
         date: formatDate(date, 'dd.MM'),
         savdo: Number(d.salesAmount),
-        xarajat: Number(d.expenses) + Number(d.workerAccrued ?? 0),
+        xarajat: Number(d.expenses),
+        ishchi: Number(d.workerAccrued ?? 0),
         foyda: Number(d.profit ?? (Number(d.cashReceived ?? 0) - Number(d.expenses) - Number(d.workerAccrued ?? 0))),
       }))
     : []
@@ -95,7 +96,8 @@ export default function ReportsPage() {
     ? (Object.entries(yearly.groupedByMonth) as [string, MonthData][]).map(([key, m]) => ({
         oy: `${key.split('-')[1]}-oy`,
         savdo: Number(m.salesAmount),
-        xarajat: Number(m.expenses) + Number(m.workerAccrued ?? 0),
+        xarajat: Number(m.expenses),
+        ishchi: Number(m.workerAccrued ?? 0),
         foyda: Number(m.profit ?? (Number(m.cashReceived ?? 0) - Number(m.expenses) - Number(m.workerAccrued ?? 0))),
       }))
     : []
@@ -163,34 +165,32 @@ export default function ReportsPage() {
                   <CardContent className="p-4 divide-y divide-border">
                     <StatRow label="Jami hisoblangan" value={formatCurrency(Number(daily?.workerAccrued ?? 0))} highlight="red" />
                     <StatRow label="Jami to'langan" value={formatCurrency(Number(daily?.workerPayments ?? 0))} highlight="green" />
-                    {daily?.workerByCategory?.HUMBUZ_KIRDI_CHIQDI && (
+                    {daily?.workerByCategory && Object.keys(daily.workerByCategory).length > 0 ? (
                       <>
-                        <StatRow label="Humbuz — hisoblangan" value={formatCurrency(Number(daily.workerByCategory.HUMBUZ_KIRDI_CHIQDI.accrued))} />
-                        <StatRow label="Humbuz — to'langan" value={formatCurrency(Number(daily.workerByCategory.HUMBUZ_KIRDI_CHIQDI.paid))} highlight="green" />
+                        {Object.entries(daily.workerByCategory).map(([cat, val]) => {
+                          const v = val as { accrued: number; paid: number }
+                          const labels: Record<string, string> = {
+                            HUMBUZ_KIRDI_CHIQDI: 'Humbuz',
+                            QACHIGAR: 'Qachigar',
+                            RESERVE_RAW_LOADING: 'Zaxira (xom)',
+                            RESERVE_BAKED_LOADING: 'Zaxira (pishgan)',
+                            ESHIKCHI: 'Eshikchi',
+                            KRETKACHI: 'Kretkachi',
+                            PRESS: 'Press',
+                            YUKLAGCHI: 'Yuklagchi',
+                          }
+                          const label = labels[cat] ?? cat
+                          return (
+                            <div key={cat}>
+                              <StatRow label={`${label} — hisoblandi`} value={formatCurrency(Number(v.accrued))} />
+                              <StatRow label={`${label} — to'landi`} value={formatCurrency(Number(v.paid))} highlight="green" />
+                            </div>
+                          )
+                        })}
                       </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground py-2 text-center">Bu kunda ishchi to&apos;lovi yo&apos;q</p>
                     )}
-                    {daily?.workerByCategory?.QACHIGAR && (
-                      <>
-                        <StatRow label="Qachigar — hisoblangan" value={formatCurrency(Number(daily.workerByCategory.QACHIGAR.accrued))} />
-                        <StatRow label="Qachigar — to'langan" value={formatCurrency(Number(daily.workerByCategory.QACHIGAR.paid))} highlight="green" />
-                      </>
-                    )}
-                    {(daily?.workerByCategory?.RESERVE_RAW_LOADING || daily?.workerByCategory?.RESERVE_BAKED_LOADING) && (
-                      <>
-                        <StatRow
-                          label="Zaxira — hisoblangan"
-                          value={formatCurrency(Number(daily.workerByCategory?.RESERVE_RAW_LOADING?.accrued ?? 0) + Number(daily.workerByCategory?.RESERVE_BAKED_LOADING?.accrued ?? 0))}
-                        />
-                        <StatRow
-                          label="Zaxira — to'langan"
-                          value={formatCurrency(Number(daily.workerByCategory?.RESERVE_RAW_LOADING?.paid ?? 0) + Number(daily.workerByCategory?.RESERVE_BAKED_LOADING?.paid ?? 0))}
-                          highlight="green"
-                        />
-                      </>
-                    )}
-                    {!daily?.workerByCategory || Object.keys(daily.workerByCategory).length === 0 ? (
-                      <p className="text-xs text-muted-foreground py-2 text-center">Bu kunda ishchi to'lovi yo'q</p>
-                    ) : null}
                   </CardContent>
                 </Card>
               </div>
@@ -259,6 +259,7 @@ export default function ReportsPage() {
                         <Legend />
                         <Area type="monotone" dataKey="savdo" stroke="#10b981" fill="url(#salesG)" strokeWidth={2} name="Sotuv" />
                         <Area type="monotone" dataKey="xarajat" stroke="#f59e0b" fill="none" strokeWidth={2} strokeDasharray="4 2" name="Xarajat" />
+                        <Area type="monotone" dataKey="ishchi" stroke="#ec4899" fill="none" strokeWidth={2} strokeDasharray="2 2" name="Ishchi puli" />
                         <Area type="monotone" dataKey="foyda" stroke="#3b82f6" fill="none" strokeWidth={2} name="Foyda" />
                       </AreaChart>
                     </ResponsiveContainer>
@@ -335,6 +336,7 @@ export default function ReportsPage() {
                       <Legend />
                       <Bar dataKey="savdo" fill="#10b981" radius={[4, 4, 0, 0]} name="Sotuv" />
                       <Bar dataKey="xarajat" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Xarajat" />
+                      <Bar dataKey="ishchi" fill="#ec4899" radius={[4, 4, 0, 0]} name="Ishchi puli" />
                       <Bar dataKey="foyda" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Foyda" />
                     </BarChart>
                   </ResponsiveContainer>
