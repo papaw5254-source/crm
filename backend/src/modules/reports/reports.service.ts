@@ -47,6 +47,58 @@ export class ReportsService {
     return latest ? latest.newQuantity : 0;
   }
 
+  // Computes current stock from all operations (avoids stale stock table)
+  private async computeBakedStock(): Promise<number> {
+    const [kiln, sold, reserveAdded] = await Promise.all([
+      this.kilnRepo.createQueryBuilder('k').select('SUM(k.bakedBricksOutput)', 'v').getRawOne(),
+      this.saleRepo.createQueryBuilder('s').select('SUM(s.quantity)', 'v')
+        .where('s.brickType = :bt AND (s.isReserveSale = false OR s.isReserveSale IS NULL)', { bt: BrickType.BAKED_BRICK })
+        .getRawOne(),
+      this.reserveRepo.createQueryBuilder('r').select('SUM(r.quantity)', 'v')
+        .where('r.brickType = :bt AND r.movementType = :mt', { bt: BrickType.BAKED_BRICK, mt: ReserveMovementType.ADD })
+        .getRawOne(),
+    ]);
+    return Math.max(0, (parseInt(kiln?.v) || 0) - (parseInt(sold?.v) || 0) - (parseInt(reserveAdded?.v) || 0));
+  }
+
+  private async computeRawStock(): Promise<number> {
+    const [produced, sold, kilnUsed, reserveAdded] = await Promise.all([
+      this.inventoryRepo.createQueryBuilder('i').select('SUM(i.quantity)', 'v')
+        .where('i.brickType = :bt', { bt: BrickType.RAW_BRICK })
+        .getRawOne(),
+      this.saleRepo.createQueryBuilder('s').select('SUM(s.quantity)', 'v')
+        .where('s.brickType = :bt AND (s.isReserveSale = false OR s.isReserveSale IS NULL)', { bt: BrickType.RAW_BRICK })
+        .getRawOne(),
+      this.kilnRepo.createQueryBuilder('k').select('SUM(k.rawBricksEntered)', 'v')
+        .where('k.rawBrickSource = :src OR k.rawBrickSource IS NULL', { src: 'FIELD' })
+        .getRawOne(),
+      this.reserveRepo.createQueryBuilder('r').select('SUM(r.quantity)', 'v')
+        .where('r.brickType = :bt AND r.movementType = :mt', { bt: BrickType.RAW_BRICK, mt: ReserveMovementType.ADD })
+        .getRawOne(),
+    ]);
+    return Math.max(0, (parseInt(produced?.v) || 0) - (parseInt(sold?.v) || 0) - (parseInt(kilnUsed?.v) || 0) - (parseInt(reserveAdded?.v) || 0));
+  }
+
+  private async computeReserveBalance(brickType: BrickType): Promise<number> {
+    const addTypes = [ReserveMovementType.ADD];
+    const removeTypes = [ReserveMovementType.REMOVE, ReserveMovementType.SALE];
+    const toKilnTypes = brickType === BrickType.RAW_BRICK ? [ReserveMovementType.TO_KILN] : [];
+    const [added, removed, toKiln] = await Promise.all([
+      this.reserveRepo.createQueryBuilder('r').select('SUM(r.quantity)', 'v')
+        .where('r.brickType = :bt AND r.movementType IN (:...types)', { bt: brickType, types: addTypes })
+        .getRawOne(),
+      this.reserveRepo.createQueryBuilder('r').select('SUM(r.quantity)', 'v')
+        .where('r.brickType = :bt AND r.movementType IN (:...types)', { bt: brickType, types: removeTypes })
+        .getRawOne(),
+      toKilnTypes.length > 0
+        ? this.reserveRepo.createQueryBuilder('r').select('SUM(r.quantity)', 'v')
+            .where('r.brickType = :bt AND r.movementType IN (:...types)', { bt: brickType, types: toKilnTypes })
+            .getRawOne()
+        : Promise.resolve({ v: '0' }),
+    ]);
+    return Math.max(0, (parseInt(added?.v) || 0) - (parseInt(removed?.v) || 0) - (parseInt(toKiln?.v) || 0));
+  }
+
   private cashSaleAmount(sales: Sale[]): number {
     return sales
       .filter((x) => [PaymentType.CASH, PaymentType.CARD, PaymentType.BANK_TRANSFER].includes(x.paymentType))
@@ -66,10 +118,10 @@ export class ReportsService {
     const yearEnd = today.substring(0, 4) + '-12-31';
 
     const [bakedStock, rawStock, reserveRaw, reserveBaked] = await Promise.all([
-      this.getStockBalance(BrickType.BAKED_BRICK),
-      this.getStockBalance(BrickType.RAW_BRICK),
-      this.getReserveBalance(BrickType.RAW_BRICK),
-      this.getReserveBalance(BrickType.BAKED_BRICK),
+      this.computeBakedStock(),
+      this.computeRawStock(),
+      this.computeReserveBalance(BrickType.RAW_BRICK),
+      this.computeReserveBalance(BrickType.BAKED_BRICK),
     ]);
 
     const todaySales = await this.saleRepo.createQueryBuilder('s').where('s.date = :today', { today }).getMany();
