@@ -44,6 +44,7 @@ export default function QachigarPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<WorkerPayment | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleteEskiQarzId, setDeleteEskiQarzId] = useState<string | null>(null)
   const [debtDialogOpen, setDebtDialogOpen] = useState(false)
   const [debtDateState, setDebtDateState] = useState(new Date().toISOString().split('T')[0])
   const [debtAmountStr, setDebtAmountStr] = useState('')
@@ -63,6 +64,7 @@ export default function QachigarPage() {
   const watchedRate = watch('ratePerBrick') || 0
   const watchedPaid = watch('paidAmount') || 0
 
+  // Dedicated endpoint — avoids DTO whitelist issues and createdBy join errors
   const { data: bakedOutput, isFetching: loadingBaked } = useQuery({
     queryKey: ['kiln-baked-output', watchedDate, watchedKiln],
     queryFn: () => kilnService.getBakedOutput(watchedDate, watchedKiln),
@@ -73,6 +75,7 @@ export default function QachigarPage() {
 
   const todayCost = bakedCount * watchedRate
 
+  // Previous debt comes from the report — no extra query needed
   const { data: report } = useQuery({
     queryKey: ['worker-payments-report'],
     queryFn: () => workerPaymentsService.getReport(),
@@ -98,8 +101,10 @@ export default function QachigarPage() {
   })
 
   const filteredAll = (payments?.data ?? []).filter((p: WorkerPayment) => p.category === 'QACHIGAR')
-  const totalPages = Math.ceil(filteredAll.length / limit) || 1
-  const allPayments = filteredAll.slice((page - 1) * limit, page * limit)
+  const eskiQarzEntries = filteredAll.filter((r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0)
+  const regularPayments = filteredAll.filter((r: WorkerPayment) => Number(r.amount) > 0 || Number(r.paidAmount) > 0)
+  const totalPages = Math.ceil(regularPayments.length / limit) || 1
+  const allPayments = regularPayments.slice((page - 1) * limit, page * limit)
 
   const createMutation = useMutation({
     mutationFn: (d: FormData) =>
@@ -142,6 +147,17 @@ export default function QachigarPage() {
       queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
       toast.success("To'lov o'chirildi")
       setDeleteId(null)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const deleteEskiQarzMutation = useMutation({
+    mutationFn: (id: string) => workerPaymentsService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-qachigar'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      toast.success("Eski qarz o'chirildi")
+      setDeleteEskiQarzId(null)
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -271,6 +287,26 @@ export default function QachigarPage() {
         <StatsCard title="Oldingi qarz" value={totalPrevDebtStat} icon={HardHat} color="amber" />
         <StatsCard title="Jami qarz" value={totalRemainingDebt} icon={HardHat} color="red" />
       </div>
+
+      {eskiQarzEntries.length > 0 && (
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <h4 className="text-sm font-semibold text-muted-foreground mb-3">Eski qarz ro&apos;yxati</h4>
+            {eskiQarzEntries.map((r: WorkerPayment) => (
+              <div key={r.id} className="flex items-center justify-between rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-muted-foreground">{formatDate(r.date)}</span>
+                  <span className="font-bold text-amber-700 dark:text-amber-400">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
+                  {r.description && <span className="text-xs text-muted-foreground">{r.description}</span>}
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteEskiQarzId(r.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="p-4 space-y-4">
@@ -440,6 +476,15 @@ export default function QachigarPage() {
         description="Bu amal orqaga qaytarib bo'lmaydi."
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
         loading={deleteMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!deleteEskiQarzId}
+        onOpenChange={(o) => !o && setDeleteEskiQarzId(null)}
+        title="Eski qarzni o'chirishni tasdiqlang"
+        description="Bu amal orqaga qaytarib bo'lmaydi."
+        onConfirm={() => deleteEskiQarzId && deleteEskiQarzMutation.mutate(deleteEskiQarzId)}
+        loading={deleteEskiQarzMutation.isPending}
       />
 
       <Dialog open={debtDialogOpen} onOpenChange={(o: boolean) => { setDebtDialogOpen(o); if (!o) { setDebtAmountStr(''); setDebtDateState(new Date().toISOString().split('T')[0]) } }}>

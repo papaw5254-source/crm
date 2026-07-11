@@ -13,7 +13,7 @@ import { workerPaymentsService } from '@/services/worker-payments.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
-import { WorkerPaymentsPanel } from '@/components/shared/worker-payments-panel'
+import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { Pagination } from '@/components/shared/pagination'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Button } from '@/components/ui/button'
@@ -25,7 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn, formatDate, formatNumber, formatCurrency, brickTypeLabel, brickTypeColor, reserveMovementTypeLabel, reserveMovementTypeColor, paymentTypeLabel, paymentTypeColor, getErrorMessage } from '@/lib/utils'
 import { usePagination } from '@/hooks/use-pagination'
-import type { ReserveMovement, BrickType, ReserveMovementType, Sale } from '@/types'
+import type { ReserveMovement, BrickType, ReserveMovementType, Sale, WorkerPayment } from '@/types'
 
 // ─── Movement form ────────────────────────────────────────────────────────────
 const movementSchema = z.object({
@@ -74,8 +74,42 @@ export default function ZaxiraPage() {
   const [debtDialogOpen, setDebtDialogOpen] = useState(false)
   const [debtAmountStr, setDebtAmountStr] = useState('')
   const [debtDate, setDebtDate] = useState(new Date().toISOString().split('T')[0])
+  const [deleteWpId, setDeleteWpId] = useState<string | null>(null)
+
+  const now = new Date()
+  const THIS_MONTH = now.getMonth() + 1
+  const THIS_YEAR = now.getFullYear()
 
   // ─── Queries ───────────────────────────────────────────────────────────────
+  const { data: wpReport } = useQuery({
+    queryKey: ['worker-payments-report', THIS_MONTH, THIS_YEAR],
+    queryFn: () => workerPaymentsService.getReport({ month: THIS_MONTH, year: THIS_YEAR }),
+  })
+
+  const { data: eskiQarzData } = useQuery({
+    queryKey: ['worker-payments', 'RESERVE-eski-qarz'],
+    queryFn: () => workerPaymentsService.getAll({ category: 'RESERVE_RAW_LOADING', limit: 100 }),
+  })
+  const eskiQarzList = (eskiQarzData?.data ?? []).filter(
+    (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
+  )
+
+  const emptyStats = { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
+  const reserveCategories = ['RESERVE_RAW_LOADING', 'RESERVE_BAKED_LOADING', 'ROAD_PAYMENT']
+  const wpStats = reserveCategories.reduce(
+    (acc, cat) => {
+      const row = wpReport?.byCategory?.[cat]
+      if (row) {
+        acc.amount += Number(row.amount)
+        acc.paid += Number(row.paid)
+        acc.debt += Number(row.debt)
+        acc.carriedDebt += Number(row.carriedDebt)
+      }
+      return acc
+    },
+    { ...emptyStats }
+  )
+
   const { data: balance, isLoading: balanceLoading } = useQuery({
     queryKey: ['reserve-balance'],
     queryFn: reserveService.getBalance,
@@ -217,6 +251,17 @@ export default function ZaxiraPage() {
       queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success("Harakat o'chirildi")
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const deleteWpMutation = useMutation({
+    mutationFn: (id: string) => workerPaymentsService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      toast.success("Eski qarz o'chirildi")
+      setDeleteWpId(null)
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -410,10 +455,36 @@ export default function ZaxiraPage() {
         </Card>
       </div>
 
-      <WorkerPaymentsPanel
-        title="Ishchi puli (Zaxira)"
-          categories={['RESERVE_RAW_LOADING', 'RESERVE_BAKED_LOADING', 'ROAD_PAYMENT']}
-      />
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          <Warehouse className="h-4 w-4" /> Ishchi puli (Zaxira) — bu oy
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatsCard title="Bu oy hisoblangan" value={wpStats.amount} icon={Warehouse} color="amber" />
+          <StatsCard title="Berildi" value={wpStats.paid} icon={Warehouse} color="emerald" />
+          <StatsCard title="Oldingi qarz" value={wpStats.carriedDebt} icon={Warehouse} color="slate" />
+          <StatsCard title="Jami qarz" value={wpStats.debt} icon={Warehouse} color="red" />
+        </div>
+        {eskiQarzList.length > 0 && (
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              <h4 className="text-sm font-semibold text-muted-foreground mb-3">Eski qarz ro&apos;yxati</h4>
+              {(eskiQarzList as WorkerPayment[]).map((r) => (
+                <div key={r.id} className="flex items-center justify-between rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="text-muted-foreground">{formatDate(r.date)}</span>
+                    <span className="font-bold text-amber-700 dark:text-amber-400">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
+                    {r.description && <span className="text-xs text-muted-foreground">{r.description}</span>}
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteWpId(r.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Main Tabs */}
       <Tabs defaultValue="harakatlar">
@@ -747,6 +818,15 @@ export default function ZaxiraPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteWpId}
+        onOpenChange={(o: boolean) => !o && setDeleteWpId(null)}
+        title="Eski qarzni o'chirishni tasdiqlang"
+        description="Bu amal orqaga qaytarib bo'lmaydi."
+        onConfirm={() => deleteWpId && deleteWpMutation.mutate(deleteWpId)}
+        loading={deleteWpMutation.isPending}
+      />
     </div>
   )
 }
