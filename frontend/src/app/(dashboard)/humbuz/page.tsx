@@ -62,10 +62,6 @@ export default function HumbuzPage() {
     queryFn: () => kilnService.getAll({ page: 1, limit: 9999 }),
   })
 
-  const { data: wpReport } = useQuery({
-    queryKey: ['worker-payments-report', THIS_MONTH, THIS_YEAR],
-    queryFn: () => workerPaymentsService.getReport({ month: THIS_MONTH, year: THIS_YEAR }),
-  })
   const { data: eskiQarzData } = useQuery({
     queryKey: ['worker-payments', 'HUMBUZ_KIRDI_CHIQDI', 'eski-qarz'],
     queryFn: () => workerPaymentsService.getAll({ category: 'HUMBUZ_KIRDI_CHIQDI', limit: 200 }),
@@ -74,13 +70,21 @@ export default function HumbuzPage() {
     (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
   )
 
-  const backendHumbuzStats = wpReport?.byCategory?.HUMBUZ_KIRDI_CHIQDI ?? { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
+  const { data: currentMonthWpData } = useQuery({
+    queryKey: ['worker-payments', 'HUMBUZ_KIRDI_CHIQDI', THIS_MONTH, THIS_YEAR],
+    queryFn: () => workerPaymentsService.getAll({ category: 'HUMBUZ_KIRDI_CHIQDI', month: THIS_MONTH, year: THIS_YEAR, limit: 200 }),
+  })
+  const regularHumbuzPayments = (currentMonthWpData?.data ?? []).filter(
+    (r: WorkerPayment) => !!r.sourceId
+  )
+
   const eskiQarzCarriedDebt = eskiQarzList.reduce((acc: number, r: WorkerPayment) => acc + Number(r.debtFromPreviousMonth), 0)
   const humbuzStats = {
-    amount: Number(backendHumbuzStats.amount),
-    paid: Number(backendHumbuzStats.paid),
+    amount: regularHumbuzPayments.reduce((acc: number, r: WorkerPayment) => acc + Number(r.amount), 0),
+    paid: regularHumbuzPayments.reduce((acc: number, r: WorkerPayment) => acc + Number(r.paidAmount), 0),
     carriedDebt: eskiQarzCarriedDebt,
-    debt: Math.max(0, eskiQarzCarriedDebt + Number(backendHumbuzStats.amount) - Number(backendHumbuzStats.paid)),
+    debt: regularHumbuzPayments.reduce((acc: number, r: WorkerPayment) => acc + Number(r.remainingDebt), 0)
+      + eskiQarzList.reduce((acc: number, r: WorkerPayment) => acc + Number(r.remainingDebt), 0),
   }
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -100,8 +104,6 @@ export default function HumbuzPage() {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['kiln-operations-all'] })
-    queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
-
     queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
     queryClient.invalidateQueries({ queryKey: ['worker-payments-qachigar'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard'] })
