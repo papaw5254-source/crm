@@ -211,14 +211,15 @@ export default function HumbuzPage() {
       key: 'workerCost',
       header: 'Ishchi puli',
       cell: (r: KilnOperation) => {
-        const raw = Number(r.rawWorkerTotalCost ?? 0)
-        const baked = Number(r.bakedWorkerTotalCost ?? 0)
-        if (!raw && !baked) return <span className="text-muted-foreground text-xs">—</span>
+        const total = Number(r.totalWorkerCost ?? 0)
+        const paid = Number(r.workerPaidAmount ?? 0)
+        const debt = Number(r.workerDebt ?? 0)
+        if (!total && !debt) return <span className="text-muted-foreground text-xs">—</span>
         return (
           <div className="text-xs space-y-0.5">
-            {raw > 0 && <div>Kirdi: <span className="font-medium">{formatCurrency(raw)}</span></div>}
-            {baked > 0 && <div>Chiqdi: <span className="font-medium">{formatCurrency(baked)}</span></div>}
-            {Number(r.workerDebt) > 0 && <div className="text-red-500">Qarz: {formatCurrency(Number(r.workerDebt))}</div>}
+            <div className="font-semibold">{formatCurrency(total)}</div>
+            {paid > 0 && <div className="text-emerald-600">Berildi: {formatCurrency(paid)}</div>}
+            {debt > 0 && <div className="text-red-500">Qarz: {formatCurrency(debt)}</div>}
           </div>
         )
       },
