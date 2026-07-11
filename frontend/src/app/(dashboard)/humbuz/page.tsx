@@ -12,7 +12,6 @@ import { workerPaymentsService } from '@/services/worker-payments.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
-import { Pagination } from '@/components/shared/pagination'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Button } from '@/components/ui/button'
@@ -22,7 +21,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatDate, formatNumber, formatCurrency, kilnNameLabel, rawBrickSourceLabel, getErrorMessage } from '@/lib/utils'
-import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
 import type { KilnOperation, KilnName, WorkerPayment } from '@/types'
 
@@ -58,14 +56,8 @@ export default function HumbuzPage() {
   const [debtAmountStr, setDebtAmountStr] = useState('')
   const [debtDate, setDebtDate] = useState(new Date().toISOString().split('T')[0])
   const [deleteWpId, setDeleteWpId] = useState<string | null>(null)
-  const { page, limit, setPage } = usePagination()
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['kiln-operations', page, limit],
-    queryFn: () => kilnService.getAll({ page, limit }),
-  })
-
-  const { data: allOpsData, isLoading: isAllOpsLoading } = useQuery({
+  const { data: allOpsData, isLoading } = useQuery({
     queryKey: ['kiln-operations-all'],
     queryFn: () => kilnService.getAll({ page: 1, limit: 9999 }),
   })
@@ -100,7 +92,6 @@ export default function HumbuzPage() {
   const totalDebt = Math.max(0, totalWorkerCost - watchedTotalPaid)
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['kiln-operations'] })
     queryClient.invalidateQueries({ queryKey: ['kiln-operations-all'] })
     queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
 
@@ -199,10 +190,9 @@ export default function HumbuzPage() {
   }
 
   const allOpsRaw = (allOpsData?.data ?? []) as KilnOperation[]
-  const allOpsFiltered = kilnFilter === 'ALL' ? allOpsRaw : allOpsRaw.filter((op) => op.kilnName === kilnFilter)
-  const allOps = kilnFilter === 'ALL' ? (data?.data ?? []) as KilnOperation[] : allOpsFiltered
-  const totalRawIn = allOpsFiltered.reduce((s: number, x: KilnOperation) => s + Number(x.rawBricksEntered), 0)
-  const totalBakedOut = allOpsFiltered.reduce((s: number, x: KilnOperation) => s + Number(x.bakedBricksOutput), 0)
+  const allOps = kilnFilter === 'ALL' ? allOpsRaw : allOpsRaw.filter((op) => op.kilnName === kilnFilter)
+  const totalRawIn = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.rawBricksEntered), 0)
+  const totalBakedOut = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.bakedBricksOutput), 0)
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: KilnOperation) => <span className="font-medium">{formatDate(r.date)}</span> },
@@ -287,7 +277,7 @@ export default function HumbuzPage() {
 
       {/* Kiln stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatsCard title="Jami operatsiyalar" value={allOpsFiltered.length} icon={Flame} color="amber" format="number" suffix="ta" />
+        <StatsCard title="Jami operatsiyalar" value={allOps.length} icon={Flame} color="amber" format="number" suffix="ta" />
         <StatsCard title="Jami xom kirdi" value={totalRawIn} icon={Flame} color="red" format="number" suffix="dona" />
         <StatsCard title="Jami pishgan chiqdi" value={totalBakedOut} icon={Flame} color="emerald" format="number" suffix="dona" />
       </div>
@@ -340,7 +330,7 @@ export default function HumbuzPage() {
         {([{ key: 'ALL', label: 'Barchasi' }, ...KILNS.map((k) => ({ key: k, label: kilnNameLabel(k) }))] as { key: string; label: string }[]).map((tab) => (
           <button
             key={tab.key}
-            onClick={() => { setKilnFilter(tab.key as KilnName | 'ALL'); setPage(1) }}
+            onClick={() => setKilnFilter(tab.key as KilnName | 'ALL')}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               kilnFilter === tab.key
                 ? 'border-primary text-primary'
@@ -354,7 +344,7 @@ export default function HumbuzPage() {
 
       <Card>
         <CardContent className="p-4 space-y-4">
-          {allOps.length === 0 && !isLoading && !isAllOpsLoading ? (
+          {allOps.length === 0 && !isLoading ? (
             <EmptyState
               icon={Flame}
               title="Operatsiya yo'q"
@@ -362,12 +352,7 @@ export default function HumbuzPage() {
               action={<Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" />Operatsiya qo&apos;shish</Button>}
             />
           ) : (
-            <>
-              <DataTable columns={columns} data={allOps} loading={isLoading || isAllOpsLoading} />
-              {kilnFilter === 'ALL' && data?.meta && (
-                <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />
-              )}
-            </>
+            <DataTable columns={columns} data={allOps} loading={isLoading} />
           )}
         </CardContent>
       </Card>
