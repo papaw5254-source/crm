@@ -287,6 +287,7 @@ export type WorkerPaymentCategory =
   | 'FIELD_RAW_LOADING'
   | 'RESERVE_RAW_LOADING'
   | 'RESERVE_BAKED_LOADING'
+  | 'RESERVE_SALE_LOADING'
   | 'ROAD_PAYMENT'
   | 'ADVANCE'
   | 'OTHER'

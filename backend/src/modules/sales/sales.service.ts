@@ -74,10 +74,13 @@ export class SalesService {
     const saved = await this.saleRepository.save(sale);
 
     if (brickType === BrickType.RAW_BRICK && (totalWorkerCost > 0 || workerOldDebt > 0)) {
+      const wpCategory = createDto.isReserveSale
+        ? WorkerPaymentCategory.RESERVE_SALE_LOADING
+        : WorkerPaymentCategory.FIELD_RAW_LOADING;
       await this.workerPaymentRepository.save(
         this.workerPaymentRepository.create({
-          workerName: "Ishchilar (xom g'isht yuklash)",
-          category: WorkerPaymentCategory.FIELD_RAW_LOADING,
+          workerName: createDto.isReserveSale ? "Ishchilar (zaxira sotuv)" : "Ishchilar (xom g'isht yuklash)",
+          category: wpCategory,
           amount: totalWorkerCost,
           paidAmount: workerPaidAmount,
           debtFromPreviousMonth: workerOldDebt,
@@ -259,10 +262,13 @@ export class SalesService {
 
     if (totalWorkerCost <= 0 && workerOldDebt <= 0) return;
 
+    const wpCategory = sale.isReserveSale
+      ? WorkerPaymentCategory.RESERVE_SALE_LOADING
+      : WorkerPaymentCategory.FIELD_RAW_LOADING;
     await this.workerPaymentRepository.save(
       this.workerPaymentRepository.create({
-        workerName: "Ishchilar (xom g'isht yuklash)",
-        category: WorkerPaymentCategory.FIELD_RAW_LOADING,
+        workerName: sale.isReserveSale ? "Ishchilar (zaxira sotuv)" : "Ishchilar (xom g'isht yuklash)",
+        category: wpCategory,
         amount: totalWorkerCost,
         paidAmount: workerPaidAmount,
         debtFromPreviousMonth: workerOldDebt,

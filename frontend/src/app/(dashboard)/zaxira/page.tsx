@@ -109,6 +109,11 @@ export default function ZaxiraPage() {
     },
     { ...emptyStats }
   )
+  const saleLoadingStats = (() => {
+    const row = wpReport?.byCategory?.['RESERVE_SALE_LOADING']
+    if (!row) return emptyStats
+    return { amount: Number(row.amount), paid: Number(row.paid), debt: Number(row.debt), carriedDebt: Number(row.carriedDebt) }
+  })()
 
   const { data: balance, isLoading: balanceLoading } = useQuery({
     queryKey: ['reserve-balance'],
@@ -457,7 +462,7 @@ export default function ZaxiraPage() {
 
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-          <Warehouse className="h-4 w-4" /> Ishchi puli (Zaxira) — bu oy
+          <Warehouse className="h-4 w-4" /> Ishchi puli (Zaxira harakati) — bu oy
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatsCard title="Bu oy hisoblangan" value={wpStats.amount} icon={Warehouse} color="amber" />
@@ -484,6 +489,18 @@ export default function ZaxiraPage() {
             </CardContent>
           </Card>
         )}
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          <ShoppingCart className="h-4 w-4" /> Ishchi puli (Zaxira sotuv) — bu oy
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatsCard title="Bu oy hisoblangan" value={saleLoadingStats.amount} icon={ShoppingCart} color="amber" />
+          <StatsCard title="Berildi" value={saleLoadingStats.paid} icon={ShoppingCart} color="emerald" />
+          <StatsCard title="Oldingi qarz" value={saleLoadingStats.carriedDebt} icon={ShoppingCart} color="slate" />
+          <StatsCard title="Jami qarz" value={saleLoadingStats.debt} icon={ShoppingCart} color="red" />
+        </div>
       </div>
 
       {/* Main Tabs */}

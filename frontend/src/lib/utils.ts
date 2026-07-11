@@ -138,7 +138,6 @@ export function moneyIncomeSourceLabel(source: string): string {
   const labels: Record<string, string> = {
     FOUNDER: "Ta'sischi",
     BANK: 'Bank',
-    DAILY_SALE: 'Kunlik savdo',
     DEBT_RETURN: 'Qaytarilgan qarz',
     OTHER: 'Boshqa',
   }
@@ -149,7 +148,6 @@ export function moneyIncomeSourceColor(source: string): string {
   const colors: Record<string, string> = {
     FOUNDER: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
     BANK: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    DAILY_SALE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
     DEBT_RETURN: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
     OTHER: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
   }
@@ -160,11 +158,11 @@ export function workerPaymentCategoryLabel(category: string): string {
   const labels: Record<string, string> = {
     HUMBUZ_KIRDI_CHIQDI: 'Humbuz kirdi-chiqdi',
     HUMBUZ_ESHIKCHI: 'Humbuz eshikchi',
-    QACHIGAR: 'Qachigar',
     PRESS: 'Press',
     FIELD_RAW_LOADING: 'Dala xom yuklash',
     RESERVE_RAW_LOADING: 'Zaxira xom yuklash',
     RESERVE_BAKED_LOADING: 'Zaxira pishgan yuklash',
+    RESERVE_SALE_LOADING: 'Zaxira sotuv yuklash',
     ROAD_PAYMENT: "Yo'l to'lovi",
     ADVANCE: 'Avans',
     OTHER: 'Boshqa',
