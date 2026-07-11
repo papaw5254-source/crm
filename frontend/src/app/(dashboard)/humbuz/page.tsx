@@ -79,12 +79,13 @@ export default function HumbuzPage() {
   )
 
   const eskiQarzCarriedDebt = eskiQarzList.reduce((acc: number, r: WorkerPayment) => acc + Number(r.debtFromPreviousMonth), 0)
+  const humbuzAmount = regularHumbuzPayments.reduce((acc: number, r: WorkerPayment) => acc + Number(r.amount), 0)
+  const humbuzPaid = regularHumbuzPayments.reduce((acc: number, r: WorkerPayment) => acc + Number(r.paidAmount), 0)
   const humbuzStats = {
-    amount: regularHumbuzPayments.reduce((acc: number, r: WorkerPayment) => acc + Number(r.amount), 0),
-    paid: regularHumbuzPayments.reduce((acc: number, r: WorkerPayment) => acc + Number(r.paidAmount), 0),
+    amount: humbuzAmount,
+    paid: humbuzPaid,
     carriedDebt: eskiQarzCarriedDebt,
-    debt: regularHumbuzPayments.reduce((acc: number, r: WorkerPayment) => acc + Number(r.remainingDebt), 0)
-      + eskiQarzList.reduce((acc: number, r: WorkerPayment) => acc + Number(r.remainingDebt), 0),
+    debt: Math.max(0, eskiQarzCarriedDebt + humbuzAmount - humbuzPaid),
   }
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
