@@ -77,6 +77,15 @@ export default function IshchilarPage() {
     }),
   })
 
+  // Separate query for accurate totals (all records, no pagination)
+  const { data: allData } = useQuery({
+    queryKey: ['worker-payments-all-totals', debouncedSearch, categoryFilter],
+    queryFn: () => workerPaymentsService.getAll({
+      page: 1, limit: 9999, search: debouncedSearch,
+      ...(categoryFilter !== 'ALL' ? { category: categoryFilter } : {}),
+    }),
+  })
+
   const { data: report, isLoading: reportLoading } = useQuery({
     queryKey: ['worker-payments-report', reportMonth, reportYear],
     queryFn: () => workerPaymentsService.getReport({ month: reportMonth, year: reportYear }),
@@ -150,9 +159,10 @@ export default function IshchilarPage() {
   }
 
   const allItems = data?.data ?? []
-  const totalAmount = allItems.reduce((s: number, x: WorkerPayment) => s + Number(x.amount), 0)
-  const totalPaid = allItems.reduce((s: number, x: WorkerPayment) => s + Number(x.paidAmount), 0)
-  const totalDebt = allItems.reduce((s: number, x: WorkerPayment) => s + Number(x.remainingDebt), 0)
+  const allItemsForTotals = (Array.isArray(allData) ? allData : (allData?.data ?? [])) as WorkerPayment[]
+  const totalAmount = allItemsForTotals.reduce((s: number, x: WorkerPayment) => s + Number(x.amount), 0)
+  const totalPaid = allItemsForTotals.reduce((s: number, x: WorkerPayment) => s + Number(x.paidAmount), 0)
+  const totalDebt = allItemsForTotals.reduce((s: number, x: WorkerPayment) => s + Number(x.remainingDebt), 0)
 
   const columns = [
     { key: 'worker', header: 'Ishchi', cell: (r: WorkerPayment) => <span className="font-medium">{r.workerName}</span> },
@@ -184,6 +194,13 @@ export default function IshchilarPage() {
       ),
     },
     { key: 'date', header: 'Sana', cell: (r: WorkerPayment) => <span className="text-sm text-muted-foreground">{formatDate(r.date)}</span> },
+    {
+      key: 'source',
+      header: 'Manba',
+      cell: (r: WorkerPayment) => r.sourceType
+        ? <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Auto</span>
+        : <span className="text-xs text-muted-foreground">Qo&apos;lda</span>,
+    },
     {
       key: 'actions',
       header: '',
