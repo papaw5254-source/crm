@@ -356,6 +356,8 @@ export interface DailyReport {
   prepaymentPaid: number
   moneyIncomes: number
   workerPayments: number
+  workerAccrued: number
+  workerByCategory?: Record<string, { accrued: number; paid: number }>
   receivedCash: number
   totalExpenses: number
   netProfit: number

@@ -139,7 +139,7 @@ export default function ReportsPage() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatsCard title="Jami sotuv" value={Number(daily?.totalSalesAmount ?? 0)} icon={TrendingUp} color="emerald" />
                 <StatsCard title="Naqd tushum" value={Number(daily?.receivedCash ?? 0)} icon={Banknote} color="blue" />
-                <StatsCard title="Xarajatlar" value={Number(daily?.totalExpenses ?? 0)} icon={TrendingDown} color="red" />
+                <StatsCard title="Xarajat + Ishchi puli" value={Number(daily?.totalExpenses ?? 0) + Number(daily?.workerAccrued ?? 0)} icon={TrendingDown} color="red" />
                 <StatsCard title="Sof foyda" value={Number(daily?.netProfit ?? 0)} icon={BarChart3} color={Number(daily?.netProfit ?? 0) >= 0 ? 'emerald' : 'red'} />
               </div>
 
@@ -178,6 +178,8 @@ export default function ReportsPage() {
                             KRETKACHI: 'Kretkachi',
                             PRESS: 'Press',
                             YUKLAGCHI: 'Yuklagchi',
+                            FIELD_RAW_LOADING: 'Yuklagchi (xom)',
+                            ROAD_PAYMENT: "Yo'l haqi",
                           }
                           const label = labels[cat] ?? cat
                           return (
@@ -218,7 +220,7 @@ export default function ReportsPage() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatsCard title="Jami sotuv" value={Number(monthly?.totalSalesAmount ?? 0)} icon={TrendingUp} color="emerald" />
                 <StatsCard title="Naqd tushum" value={Number(monthly?.cashReceived ?? 0)} icon={Banknote} color="blue" />
-                <StatsCard title="Xarajatlar" value={Number(monthly?.totalExpenses ?? 0)} icon={TrendingDown} color="red" />
+                <StatsCard title="Xarajat + Ishchi puli" value={Number(monthly?.totalExpenses ?? 0) + Number(monthly?.workerAccrued ?? 0)} icon={TrendingDown} color="red" />
                 <StatsCard title="Sof foyda" value={Number(monthly?.netProfit ?? 0)} icon={BarChart3} color={Number(monthly?.netProfit ?? 0) >= 0 ? 'emerald' : 'red'} />
               </div>
               {monthly && (
@@ -303,7 +305,7 @@ export default function ReportsPage() {
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                   <StatsCard title="Jami sotuv" value={Number(yearly?.totalSalesAmount ?? 0)} icon={TrendingUp} color="emerald" />
                   <StatsCard title="Naqd tushum" value={Number(yearly?.cashReceived ?? 0)} icon={Banknote} color="blue" />
-                  <StatsCard title="Xarajatlar" value={Number(yearly?.totalExpenses ?? 0)} icon={TrendingDown} color="red" />
+                  <StatsCard title="Xarajat + Ishchi puli" value={Number(yearly?.totalExpenses ?? 0) + Number(yearly?.workerAccrued ?? 0)} icon={TrendingDown} color="red" />
                   <StatsCard title="Sof foyda" value={Number(yearly?.netProfit ?? 0)} icon={BarChart3} color={Number(yearly?.netProfit ?? 0) >= 0 ? 'emerald' : 'red'} />
                 </div>
                 {yearly && (
