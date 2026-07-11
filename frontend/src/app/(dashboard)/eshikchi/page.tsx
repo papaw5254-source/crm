@@ -66,14 +66,18 @@ export default function EshikchPage() {
     queryFn: () => workerPaymentsService.getAll({ category: 'ESHIKCHI', month: THIS_MONTH, year: THIS_YEAR, limit: 200 }),
   })
 
+  const { data: eskiQarzData } = useQuery({
+    queryKey: ['worker-payments', 'ESHIKCHI', 'eski-qarz'],
+    queryFn: () => workerPaymentsService.getAll({ category: 'ESHIKCHI', limit: 100 }),
+  })
+
   const allPayments: WorkerPayment[] = payments?.data ?? []
-
-  const eskiQarzList = allPayments.filter(
-    (r) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
-  )
-
   const regularPayments = allPayments.filter(
     (r) => Number(r.amount) > 0 || Number(r.paidAmount) > 0
+  )
+
+  const eskiQarzList = (eskiQarzData?.data ?? []).filter(
+    (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
   )
 
   const filtered = activeTab === 'all'
@@ -120,6 +124,7 @@ export default function EshikchPage() {
     queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
     queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    queryClient.invalidateQueries({ queryKey: ['worker-payments', 'ESHIKCHI', 'eski-qarz'] })
   }
 
   const createMutation = useMutation({
