@@ -1,18 +1,22 @@
 'use client'
 
-import { useState } from 'react'
-import { useQueryClient, useMutation } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
+import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query'
 import { useTheme } from 'next-themes'
-import { Sun, Moon, Monitor, Info, Trash2 } from 'lucide-react'
+import { Sun, Moon, Monitor, Info, Trash2, Package } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '@/services/api'
+import { stockService } from '@/services/stock.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { cn, getErrorMessage } from '@/lib/utils'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { cn, getErrorMessage, formatNumber } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
+import type { Stock } from '@/types'
 
 const THEMES = [
   { value: 'light', label: "Yorug'", icon: Sun },
@@ -26,6 +30,44 @@ export default function SettingsPage() {
   const isAdmin = user?.role === 'ADMIN'
   const queryClient = useQueryClient()
   const [resetOpen, setResetOpen] = useState(false)
+  const [bakedQty, setBakedQty] = useState('')
+  const [rawQty, setRawQty] = useState('')
+
+  const { data: stocks } = useQuery({
+    queryKey: ['stock-all'],
+    queryFn: () => stockService.getAll(),
+    enabled: isAdmin,
+  })
+
+  const bakedStock = stocks?.find((s: Stock) => s.brickType === 'BAKED_BRICK')
+  const rawStock = stocks?.find((s: Stock) => s.brickType === 'RAW_BRICK')
+
+  useEffect(() => {
+    if (bakedStock) setBakedQty(String(bakedStock.quantity))
+    if (rawStock) setRawQty(String(rawStock.quantity))
+  }, [bakedStock, rawStock])
+
+  const adjustMutation = useMutation({
+    mutationFn: async () => {
+      const promises: Promise<Stock>[] = []
+      const newBaked = Number(bakedQty)
+      const newRaw = Number(rawQty)
+      if (!isNaN(newBaked) && bakedStock && newBaked !== bakedStock.quantity) {
+        promises.push(stockService.adjust(newBaked - bakedStock.quantity, 'BAKED_BRICK', 'Admin qo\'lda sozlash'))
+      }
+      if (!isNaN(newRaw) && rawStock && newRaw !== rawStock.quantity) {
+        promises.push(stockService.adjust(newRaw - rawStock.quantity, 'RAW_BRICK', 'Admin qo\'lda sozlash'))
+      }
+      if (promises.length === 0) throw new Error('Hech narsa o\'zgarmadi')
+      return Promise.all(promises)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stock-all'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      toast.success('Ombor qoldig\'i yangilandi')
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
 
   const resetMutation = useMutation({
     mutationFn: () => api.post('/reports/admin/reset-data'),
@@ -96,6 +138,39 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Package className="h-4 w-4" /> Ombor qoldig&apos;ini sozlash
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Joriy ombor holati: Pishgan g&apos;isht — <strong>{formatNumber(bakedStock?.quantity ?? 0)} dona</strong>,
+              Xom g&apos;isht — <strong>{formatNumber(rawStock?.quantity ?? 0)} dona</strong>
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Pishgan g&apos;isht (dona)</Label>
+                <Input type="number" value={bakedQty} onChange={(e) => setBakedQty(e.target.value)} placeholder="0" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Xom g&apos;isht (dona)</Label>
+                <Input type="number" value={rawQty} onChange={(e) => setRawQty(e.target.value)} placeholder="0" />
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => adjustMutation.mutate()}
+              disabled={adjustMutation.isPending}
+            >
+              {adjustMutation.isPending ? 'Saqlanmoqda...' : 'Saqlash'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {isAdmin && (
         <Card className="border-destructive/30">
