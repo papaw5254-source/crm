@@ -57,9 +57,10 @@ export default function HumbuzPage() {
   const [debtDate, setDebtDate] = useState(new Date().toISOString().split('T')[0])
   const [deleteWpId, setDeleteWpId] = useState<string | null>(null)
 
-  const { data: allOpsData, isLoading } = useQuery({
+  const { data: allOpsData, isLoading, error: opsError } = useQuery({
     queryKey: ['kiln-operations-all'],
     queryFn: () => kilnService.getAll({ page: 1, limit: 9999 }),
+    retry: false,
   })
 
   const { data: wpReport } = useQuery({
@@ -276,8 +277,9 @@ export default function HumbuzPage() {
       />
 
       {/* DEBUG - remove after fix */}
-      <div className="bg-yellow-50 border border-yellow-300 rounded p-2 text-xs text-yellow-800">
-        API: {isLoading ? 'yuklanmoqda...' : `${allOpsRaw.length} ta operatsiya qaytdi (meta.total=${allOpsData?.meta?.total ?? '?'})`}
+      <div className="bg-yellow-50 border border-yellow-300 rounded p-2 text-xs text-yellow-800 space-y-1">
+        <div>API: {isLoading ? 'yuklanmoqda...' : `${allOpsRaw.length} ta operatsiya qaytdi (total=${allOpsData?.meta?.total ?? '?'})`}</div>
+        {opsError && <div className="text-red-600 font-semibold">XATO: {getErrorMessage(opsError)}</div>}
       </div>
 
       {/* Kiln stats */}
