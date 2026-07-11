@@ -8,7 +8,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { workerPaymentsService } from '@/services/worker-payments.service'
-import { inventoryService } from '@/services/inventory.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
 import { DataTable } from '@/components/shared/data-table'
@@ -18,13 +17,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
-import { formatDate, formatCurrency, formatNumber, getErrorMessage } from '@/lib/utils'
-import type { WorkerPayment, InventoryIncome } from '@/types'
+import { formatDate, formatCurrency, getErrorMessage } from '@/lib/utils'
+import type { WorkerPayment } from '@/types'
 
 const schema = z.object({
   date: z.string().min(1, 'Sana kiriting'),
-  ratePerBrick: z.coerce.number().min(1, 'Narx kiriting'),
+  amount: z.coerce.number().min(1, 'Miqdor kiriting'),
   paid: z.coerce.number().min(0).optional(),
+  description: z.string().optional(),
 })
 type FormData = z.infer<typeof schema>
 
@@ -57,29 +57,14 @@ export default function KretkachPage() {
     queryFn: () => workerPaymentsService.getAll({ category: 'KRETKACHI', month: THIS_MONTH, year: THIS_YEAR, limit: 100 }),
   })
 
-  // All kirimlar (for date lookup)
-  const { data: kirimlar } = useQuery({
-    queryKey: ['inventory-all'],
-    queryFn: () => inventoryService.getAll({ page: 1, limit: 200 }),
-  })
-
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { date: today, ratePerBrick: 0, paid: 0 },
+    defaultValues: { date: today, amount: 0, paid: 0, description: '' },
   })
 
-  const selectedDate = form.watch('date')
-  const rate = form.watch('ratePerBrick') || 0
-  const paid = form.watch('paid') || 0
-
-  // Find kirimlar for the selected date
-  const matchingKirimlar = (kirimlar?.data ?? []).filter(
-    (k: InventoryIncome) => k.date === selectedDate
-  )
-  const totalQty = matchingKirimlar.reduce((s: number, k: InventoryIncome) => s + Number(k.quantity), 0)
-  const primaryKirim: InventoryIncome | undefined = matchingKirimlar[0]
-  const amount = totalQty > 0 && rate > 0 ? totalQty * rate : 0
-  const debt = Math.max(0, amount - paid)
+  const amountVal = form.watch('amount') || 0
+  const paidVal = form.watch('paid') || 0
+  const debt = Math.max(0, amountVal - paidVal)
 
   const eskiQarzForm = useForm<EskiQarzForm>({
     resolver: zodResolver(eskiQarzSchema),
@@ -96,21 +81,18 @@ export default function KretkachPage() {
     mutationFn: (d: FormData) => workerPaymentsService.create({
       workerName: 'Kretkachi',
       category: 'KRETKACHI',
-      amount: totalQty > 0 ? totalQty * d.ratePerBrick : 0,
+      amount: d.amount,
       paidAmount: d.paid || 0,
       debtFromPreviousMonth: 0,
       month: d.date.slice(0, 7),
       date: d.date,
-      description: totalQty > 0
-        ? `${formatNumber(totalQty)} dona xom g'isht (${d.ratePerBrick} so'm/dona)`
-        : `Kretkachi — ${d.date}`,
-      ...(primaryKirim ? { sourceType: 'INVENTORY_INCOME_KRETKACH', sourceId: primaryKirim.id } : {}),
+      description: d.description || undefined,
     }),
     onSuccess: () => {
       invalidate()
       toast.success("To'lov qo'shildi")
       setDialogOpen(false)
-      form.reset({ date: today, ratePerBrick: 0, paid: 0 })
+      form.reset({ date: today, amount: 0, paid: 0, description: '' })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -209,7 +191,7 @@ export default function KretkachPage() {
       </Card>
 
       {/* To'lov dialog */}
-      <Dialog open={dialogOpen} onOpenChange={(o: boolean) => { setDialogOpen(o); if (!o) form.reset({ date: today, ratePerBrick: 0, paid: 0 }) }}>
+      <Dialog open={dialogOpen} onOpenChange={(o: boolean) => { setDialogOpen(o); if (!o) form.reset({ date: today, amount: 0, paid: 0, description: '' }) }}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Kretkachi to&apos;lov qo&apos;shish</DialogTitle></DialogHeader>
           <form onSubmit={form.handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
@@ -221,40 +203,28 @@ export default function KretkachPage() {
               )}
             </div>
 
-            {/* Kirim topildi/topilmadi */}
-            {selectedDate && (
-              totalQty > 0 ? (
-                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-sm">
-                  <p className="text-emerald-700 dark:text-emerald-400 font-medium">
-                    {formatDate(selectedDate)} — <span className="font-bold">{formatNumber(totalQty)} dona</span> xom g&apos;isht
-                  </p>
-                  {matchingKirimlar.length > 1 && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{matchingKirimlar.length} ta kirim birlashtirildi</p>
-                  )}
-                </div>
-              ) : (
-                <div className="rounded-lg bg-muted/50 border p-3 text-sm text-muted-foreground">
-                  Bu sana uchun kirim topilmadi — to&apos;lovni baribir qo&apos;shish mumkin
-                </div>
-              )
-            )}
-
             <div className="space-y-2">
-              <Label>1 dona narx (so&apos;m) *</Label>
-              <Input {...form.register('ratePerBrick')} type="number" placeholder="20" />
-              {form.formState.errors.ratePerBrick && (
-                <p className="text-destructive text-xs">{form.formState.errors.ratePerBrick.message}</p>
+              <Label>Hisoblangan miqdor (so&apos;m) *</Label>
+              <Input {...form.register('amount')} type="number" placeholder="0" />
+              {form.formState.errors.amount && (
+                <p className="text-destructive text-xs">{form.formState.errors.amount.message}</p>
               )}
             </div>
+
             <div className="space-y-2">
-              <Label>Berildi</Label>
+              <Label>Berildi (so&apos;m)</Label>
               <Input {...form.register('paid')} type="number" placeholder="0" />
             </div>
 
-            {amount > 0 && (
+            <div className="space-y-2">
+              <Label>Izoh (ixtiyoriy)</Label>
+              <Input {...form.register('description')} placeholder="masalan: 3 kunlik ish..." />
+            </div>
+
+            {amountVal > 0 && (
               <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 p-2 text-xs text-center">
-                <div><div className="text-muted-foreground">Hisoblandi</div><div className="font-semibold">{formatCurrency(amount)}</div></div>
-                <div><div className="text-muted-foreground">Berildi</div><div className="font-semibold text-emerald-600">{formatCurrency(paid)}</div></div>
+                <div><div className="text-muted-foreground">Hisoblandi</div><div className="font-semibold">{formatCurrency(amountVal)}</div></div>
+                <div><div className="text-muted-foreground">Berildi</div><div className="font-semibold text-emerald-600">{formatCurrency(paidVal)}</div></div>
                 <div><div className="text-muted-foreground">Jami qarz</div><div className={`font-bold ${debt > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(debt)}</div></div>
               </div>
             )}
