@@ -54,10 +54,10 @@ const navGroups: NavGroup[] = [
       { href: '/press', icon: HardHat, label: 'Press' },
       { href: '/kretkachi', icon: HardHat, label: 'Kretkachi' },
       { href: '/eshikchi', icon: HardHat, label: 'Eshikchi' },
-      { href: '/sales', icon: ShoppingCart, label: 'Sotuvlar' },
       { href: '/humbuz', icon: Flame, label: 'Humbuz' },
       { href: '/qachigar', icon: HardHat, label: 'Qachigar' },
       { href: '/zaxira', icon: Warehouse, label: 'Zaxira' },
+      { href: '/sales', icon: ShoppingCart, label: 'Sotuvlar' },
     ],
   },
   {
