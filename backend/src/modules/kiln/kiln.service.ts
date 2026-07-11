@@ -235,14 +235,56 @@ export class KilnService {
   async remove(id: string): Promise<void> {
     const op = await this.findOne(id);
     const wpRepo = this.dataSource.getRepository(WorkerPayment);
+    const stockRepo = this.dataSource.getRepository(Stock);
+    const stockMovementRepo = this.dataSource.getRepository(StockMovement);
+    const reserveRepo = this.dataSource.getRepository(ReserveMovement);
 
+    // Reverse baked brick stock if operation had bakedBricksOutput
+    const bakedOutput = Number(op.bakedBricksOutput || 0);
+    if (bakedOutput > 0) {
+      const bakedStock = await stockRepo.findOne({ where: { brickType: BrickType.BAKED_BRICK } });
+      if (bakedStock) {
+        const prev = bakedStock.quantity;
+        bakedStock.quantity = Math.max(0, bakedStock.quantity - bakedOutput);
+        await stockRepo.save(bakedStock);
+        await stockMovementRepo.save(stockMovementRepo.create({
+          type: StockMovementType.MANUAL_ADJUSTMENT,
+          brickType: BrickType.BAKED_BRICK,
+          quantity: bakedOutput,
+          previousQuantity: prev,
+          newQuantity: bakedStock.quantity,
+          reason: `Humbuz operatsiyasi o'chirildi (teskari): ${op.kilnName}`,
+        }));
+      }
+    }
+
+    // Reverse raw brick reserve if rawBrickSource was RESERVE
+    const rawEntered = Number(op.rawBricksEntered || 0);
+    if (rawEntered > 0 && op.rawBrickSource === RawBrickSource.RESERVE) {
+      const lastReserve = await reserveRepo
+        .createQueryBuilder('rm')
+        .where('rm.brickType = :bt', { bt: BrickType.RAW_BRICK })
+        .orderBy('rm.createdAt', 'DESC')
+        .getOne();
+      const currentBalance = lastReserve ? lastReserve.newQuantity : 0;
+      await reserveRepo.save(reserveRepo.create({
+        brickType: BrickType.RAW_BRICK,
+        movementType: ReserveMovementType.ADD,
+        quantity: rawEntered,
+        previousQuantity: currentBalance,
+        newQuantity: currentBalance + rawEntered,
+        reason: `Humbuz operatsiyasi o'chirildi (teskari): ${op.kilnName}`,
+        date: op.date,
+      }));
+    }
+
+    // Delete worker payments linked to this operation
     await wpRepo.query(
       `DELETE FROM worker_payments WHERE source_id = $1`,
       [op.id],
     );
 
     // Also delete standalone qachigar payments for the same date+kiln
-    // (created via the Qachigar page — they have no sourceId)
     const kilnLabels: Record<string, string> = {
       HUMBUZ_1: '1-Humbuz',
       HUMBUZ_2: '2-Humbuz',
