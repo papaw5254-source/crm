@@ -38,7 +38,7 @@ type FormData = z.infer<typeof schema>
 const eskiQarzSchema = z.object({
   workerKey: z.string().min(1, 'Ishchini tanlang'),
   date: z.string().min(1),
-  oldDebt: z.coerce.number().min(0),
+  oldDebt: z.coerce.number().min(1, 'Miqdor kiriting'),
 })
 type EskiQarzForm = z.infer<typeof eskiQarzSchema>
 
@@ -52,6 +52,7 @@ export default function EshikchPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [eskiQarzOpen, setEskiQarzOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleteWpId, setDeleteWpId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>('all')
 
   const { data: wpReport } = useQuery({
@@ -66,23 +67,40 @@ export default function EshikchPage() {
   })
 
   const allPayments: WorkerPayment[] = payments?.data ?? []
-  const filtered = activeTab === 'all'
-    ? allPayments
-    : allPayments.filter((p) => p.workerName === activeTab)
 
-  const calcStats = (list: WorkerPayment[]) => list.reduce(
-    (acc, r) => ({
-      amount: acc.amount + Number(r.amount),
-      paid: acc.paid + Number(r.paidAmount),
-      debt: acc.debt + Number(r.remainingDebt),
-      carriedDebt: acc.carriedDebt + Number(r.debtFromPreviousMonth),
-    }),
-    { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
+  const eskiQarzList = allPayments.filter(
+    (r) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
   )
+
+  const regularPayments = allPayments.filter(
+    (r) => Number(r.amount) > 0 || Number(r.paidAmount) > 0
+  )
+
+  const filtered = activeTab === 'all'
+    ? regularPayments
+    : regularPayments.filter((p) => p.workerName === activeTab)
+
+  const filteredEskiQarz = activeTab === 'all'
+    ? eskiQarzList
+    : eskiQarzList.filter((r) => r.workerName === activeTab)
+
+  const calcStats = (list: WorkerPayment[], ekList: WorkerPayment[]) => {
+    const base = list.reduce(
+      (acc, r) => ({
+        amount: acc.amount + Number(r.amount),
+        paid: acc.paid + Number(r.paidAmount),
+        debt: acc.debt + Number(r.remainingDebt),
+        carriedDebt: acc.carriedDebt + Number(r.debtFromPreviousMonth),
+      }),
+      { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
+    )
+    const carriedDebt = ekList.reduce((acc, r) => acc + Number(r.debtFromPreviousMonth), 0)
+    return { ...base, carriedDebt }
+  }
 
   const displayStats = activeTab === 'all'
     ? (wpReport?.byCategory?.ESHIKCHI ?? emptyStats)
-    : calcStats(filtered)
+    : calcStats(filtered, filteredEskiQarz)
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -155,6 +173,16 @@ export default function EshikchPage() {
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
+  const deleteWpMutation = useMutation({
+    mutationFn: (id: string) => workerPaymentsService.delete(id),
+    onSuccess: () => {
+      invalidate()
+      toast.success("Eski qarz o'chirildi")
+      setDeleteWpId(null)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
   const workerLabel = (name: string) => WORKERS.find((w) => w.key === name)?.label ?? name
 
   const columns = [
@@ -179,11 +207,6 @@ export default function EshikchPage() {
         <span className={Number(r.remainingDebt) > 0 ? 'text-red-600 font-semibold' : 'text-muted-foreground'}>
           {formatCurrency(Number(r.remainingDebt))}
         </span>
-      ),
-    },
-    {
-      key: 'oldDebt', header: 'Eski qarz', cell: (r: WorkerPayment) => (
-        <span className="text-amber-600">{Number(r.debtFromPreviousMonth) > 0 ? formatCurrency(Number(r.debtFromPreviousMonth)) : '—'}</span>
       ),
     },
     {
@@ -218,6 +241,29 @@ export default function EshikchPage() {
         <StatsCard title="Oldingi qarz" value={Number(displayStats.carriedDebt)} icon={HardHat} color="slate" />
         <StatsCard title="Jami qarz" value={Number(displayStats.debt)} icon={HardHat} color="red" />
       </div>
+
+      {/* Eski qarz list */}
+      {eskiQarzList.length > 0 && (
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <h4 className="text-sm font-semibold text-muted-foreground mb-3">Eski qarz ro&apos;yxati</h4>
+            {filteredEskiQarz.length > 0 ? filteredEskiQarz.map((r) => (
+              <div key={r.id} className="flex items-center justify-between rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-muted-foreground">{formatDate(r.date)}</span>
+                  <span className="font-medium text-amber-700 dark:text-amber-400">{workerLabel(r.workerName)}</span>
+                  <span className="font-bold">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteWpId(r.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )) : (
+              <p className="text-xs text-muted-foreground text-center py-2">Bu ishchi uchun eski qarz yo&apos;q</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
@@ -307,7 +353,7 @@ export default function EshikchPage() {
       </Dialog>
 
       {/* Eski qarz dialog */}
-      <Dialog open={eskiQarzOpen} onOpenChange={(o: boolean) => { setEskiQarzOpen(o) }}>
+      <Dialog open={eskiQarzOpen} onOpenChange={(o: boolean) => { setEskiQarzOpen(o); if (!o) eskiQarzForm.reset({ workerKey: 'Eshikchi-1', date: today, oldDebt: 0 }) }}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Eski qarz qo&apos;shish</DialogTitle></DialogHeader>
           <form onSubmit={eskiQarzForm.handleSubmit((d) => eskiQarzMutation.mutate(d))} className="space-y-4">
@@ -329,10 +375,16 @@ export default function EshikchPage() {
                   </button>
                 ))}
               </div>
+              {eskiQarzForm.formState.errors.workerKey && (
+                <p className="text-destructive text-xs">{eskiQarzForm.formState.errors.workerKey.message}</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>Eski qarz miqdori (so&apos;m)</Label>
+              <Label>Eski qarz miqdori (so&apos;m) *</Label>
               <Input {...eskiQarzForm.register('oldDebt')} type="number" placeholder="0" />
+              {eskiQarzForm.formState.errors.oldDebt && (
+                <p className="text-destructive text-xs">{eskiQarzForm.formState.errors.oldDebt.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Sana</Label>
@@ -353,6 +405,15 @@ export default function EshikchPage() {
         description="Bu amal orqaga qaytarib bo'lmaydi."
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
         loading={deleteMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!deleteWpId}
+        onOpenChange={(o: boolean) => !o && setDeleteWpId(null)}
+        title="Eski qarzni o'chirishni tasdiqlang"
+        description="Bu amal orqaga qaytarib bo'lmaydi."
+        onConfirm={() => deleteWpId && deleteWpMutation.mutate(deleteWpId)}
+        loading={deleteWpMutation.isPending}
       />
     </div>
   )
