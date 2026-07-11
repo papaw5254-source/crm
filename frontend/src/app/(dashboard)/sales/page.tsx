@@ -89,6 +89,7 @@ export default function SalesPage() {
       page: filterDate ? 1 : page,
       limit: filterDate ? 500 : limit,
       search: debouncedSearch,
+      isReserveSale: false,
       ...(filterDate ? { dateFrom: filterDate, dateTo: filterDate } : {}),
     }),
   })
