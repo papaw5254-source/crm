@@ -53,8 +53,10 @@ export class ReportsService {
       .reduce((s, x) => s + Number(x.totalAmount), 0);
   }
 
+  private readonly reportExcludedSources = ['DAILY_SALE', 'DEBT_RETURN'];
+
   private moneyIncomeAmount(incomes: MoneyIncome[]): number {
-    return incomes.filter(x => x.source !== 'DAILY_SALE').reduce((s, x) => s + Number(x.amount), 0);
+    return incomes.filter(x => !this.reportExcludedSources.includes(x.source)).reduce((s, x) => s + Number(x.amount), 0);
   }
 
   async getDashboard() {
@@ -84,7 +86,7 @@ export class ReportsService {
     const todayDebtSales = todaySales.filter(x => x.paymentType === PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0);
     const todayDebtPaymentsTotal = todayDebtPayments.reduce((s, x) => s + Number(x.amount), 0);
     const todayExpensesTotal = todayExpenses.reduce((s, x) => s + Number(x.amount), 0);
-    const todayMoneyIncomesTotal = todayMoneyIncomes.filter(x => x.source !== 'DAILY_SALE').reduce((s, x) => s + Number(x.amount), 0);
+    const todayMoneyIncomesTotal = todayMoneyIncomes.filter(x => !this.reportExcludedSources.includes(x.source)).reduce((s, x) => s + Number(x.amount), 0);
     const todayPrepaymentPaid = todayPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const todayWorkerAccrued = todayWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
 
@@ -519,7 +521,7 @@ export class ReportsService {
     const prepaymentPaid = prepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const founderIncome = moneyIncomes.filter(x => x.source === 'FOUNDER').reduce((s, x) => s + Number(x.amount), 0);
     const bankIncome = moneyIncomes.filter(x => x.source === 'BANK').reduce((s, x) => s + Number(x.amount), 0);
-    const otherIncome = moneyIncomes.filter(x => x.source !== 'FOUNDER' && x.source !== 'BANK' && x.source !== 'DAILY_SALE').reduce((s, x) => s + Number(x.amount), 0);
+    const otherIncome = moneyIncomes.filter(x => !['FOUNDER', 'BANK', 'DAILY_SALE', 'DEBT_RETURN'].includes(x.source)).reduce((s, x) => s + Number(x.amount), 0);
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
     const workerPaid = workerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
 
