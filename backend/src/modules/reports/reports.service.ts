@@ -89,9 +89,10 @@ export class ReportsService {
     const todayMoneyIncomesTotal = todayMoneyIncomes.filter(x => !this.reportExcludedSources.includes(x.source)).reduce((s, x) => s + Number(x.amount), 0);
     const todayPrepaymentPaid = todayPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const todayWorkerAccrued = todayWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
+    const todayWorkerPaid = todayWorkerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
 
     const receivedCash = todayCashSales + todayCardSales + todayBankTransferSales + todayDebtPaymentsTotal + todayPrepaymentPaid + todayMoneyIncomesTotal;
-    const todayProfit = receivedCash - todayExpensesTotal - todayWorkerAccrued;
+    const todayProfit = receivedCash - todayExpensesTotal - todayWorkerPaid;
 
     // Monthly
     const [monthlySales, monthlyDebtPay, monthlyExpenses, monthlyMoneyIn, monthlyWorkerPay, monthlyPrepayments] = await Promise.all([
@@ -209,7 +210,7 @@ export class ReportsService {
     });
 
     const receivedCash = cashSales + cardSales + bankTransferSales + debtPaymentsTotal + prepaymentPaid + moneyIncomesTotal;
-    const netProfit = receivedCash - totalExpenses - workerAccrued;
+    const netProfit = receivedCash - totalExpenses - workerPaid;
     const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
 
     const [bakedStock, rawStock, reserveRaw, reserveBaked] = await Promise.all([
@@ -291,7 +292,7 @@ export class ReportsService {
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
     const workerAccrued = workerPayments.reduce((s, x) => s + Number(x.amount), 0);
     const workerPaid = workerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
-    const netProfit = cashReceived - totalExpenses - workerAccrued;
+    const netProfit = cashReceived - totalExpenses - workerPaid;
     const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
 
     const dailyData: Record<string, any> = {};
@@ -360,7 +361,7 @@ export class ReportsService {
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
     const workerAccrued = workerPayments.reduce((s, x) => s + Number(x.amount), 0);
     const workerPaid = workerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
-    const netProfit = cashReceived - totalExpenses - workerAccrued;
+    const netProfit = cashReceived - totalExpenses - workerPaid;
     const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
 
     const monthlyData: Record<string, any> = {};
