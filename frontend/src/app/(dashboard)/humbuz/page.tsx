@@ -277,9 +277,10 @@ export default function HumbuzPage() {
       />
 
       {/* DEBUG - remove after fix */}
-      <div className="bg-yellow-50 border border-yellow-300 rounded p-2 text-xs text-yellow-800 space-y-1">
-        <div>API: {isLoading ? 'yuklanmoqda...' : `${allOpsRaw.length} ta operatsiya qaytdi (total=${allOpsData?.meta?.total ?? '?'})`}</div>
-        {opsError && <div className="text-red-600 font-semibold">XATO: {getErrorMessage(opsError)}</div>}
+      <div className="bg-yellow-50 border border-yellow-300 rounded p-2 text-xs text-yellow-800 space-y-1 break-all">
+        <div>isLoading: {String(isLoading)} | opsError: {opsError ? getErrorMessage(opsError) : 'yo\'q'}</div>
+        <div>allOpsData type: {Array.isArray(allOpsData) ? 'ARRAY' : typeof allOpsData} | allOpsData keys: {allOpsData ? Object.keys(allOpsData as object).join(',') : 'undefined'}</div>
+        <div>allOpsRaw.length: {allOpsRaw.length} | meta.total: {allOpsData?.meta?.total ?? '?'}</div>
       </div>
 
       {/* Kiln stats */}
