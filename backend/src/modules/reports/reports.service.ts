@@ -664,14 +664,20 @@ export class ReportsService {
       RESTART IDENTITY CASCADE
     `);
     await this.saleRepo.query(`UPDATE stock SET quantity = 0`);
-    // Ensure stock records exist after reset (CASCADE may have truncated them)
-    await this.saleRepo.query(`
-      INSERT INTO stock (brick_type, quantity, product_name, updated_at)
-      VALUES
-        ('BAKED_BRICK', 0, 'Pishgan g''isht', NOW()),
-        ('RAW_BRICK', 0, 'Xom g''isht', NOW())
-      ON CONFLICT (brick_type) DO UPDATE SET quantity = 0, updated_at = NOW()
-    `);
+    // Ensure stock records exist after reset (CASCADE may have wiped them)
+    for (const brickType of [BrickType.BAKED_BRICK, BrickType.RAW_BRICK]) {
+      let stockRecord = await this.stockRepo.findOne({ where: { brickType } });
+      if (!stockRecord) {
+        stockRecord = this.stockRepo.create({
+          brickType,
+          quantity: 0,
+          productName: brickType === BrickType.BAKED_BRICK ? "Pishgan g'isht" : "Xom g'isht",
+        });
+      } else {
+        stockRecord.quantity = 0;
+      }
+      await this.stockRepo.save(stockRecord);
+    }
     return { message: "Barcha ma'lumotlar tozalandi" };
   }
 
