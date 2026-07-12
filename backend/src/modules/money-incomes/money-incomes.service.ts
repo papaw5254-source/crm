@@ -33,7 +33,13 @@ export class MoneyIncomesService {
     if (search) qb.andWhere('mi.fromWhom ILIKE :s OR mi.description ILIKE :s', { s: `%${search}%` });
     if (dateFrom) qb.andWhere('mi.date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('mi.date <= :dateTo', { dateTo });
-    if (source) qb.andWhere('mi.source = :source', { source });
+    if (source) {
+      qb.andWhere('mi.source = :source', { source });
+    } else {
+      // FIRM_DEPOSIT / FIRM_OLD_DEBT are managed exclusively on the Perechisleniya page
+      // and shouldn't clutter the general Kirimlar ledger unless explicitly filtered for.
+      qb.andWhere('mi.source NOT IN (:...excluded)', { excluded: [MoneyIncomeSource.FIRM_DEPOSIT, MoneyIncomeSource.FIRM_OLD_DEBT] });
+    }
 
     const [data, total] = await qb.getManyAndCount();
     return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
