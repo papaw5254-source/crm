@@ -35,13 +35,14 @@ export class WorkerPaymentsService {
     });
     const saved = await this.workerPaymentRepository.save(payment);
     if (overpaidAmount > 0) {
-      await this.applyPaymentToPreviousDebts(dto.category, dto.date, overpaidAmount, saved.id);
+      await this.applyPaymentToPreviousDebts(dto.category, dto.workerName, dto.date, overpaidAmount, saved.id);
     }
     return saved;
   }
 
   private async applyPaymentToPreviousDebts(
     category: WorkerPaymentCategory,
+    workerName: string,
     date: string,
     amount: number,
     excludeId?: string,
@@ -50,6 +51,7 @@ export class WorkerPaymentsService {
     const qb = this.workerPaymentRepository
       .createQueryBuilder('wp')
       .where('wp.category = :category', { category })
+      .andWhere('wp.workerName = :workerName', { workerName })
       .andWhere('wp.date < :date', { date })
       .andWhere('wp.remainingDebt > 0')
       .orderBy('wp.date', 'ASC')
