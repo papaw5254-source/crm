@@ -206,8 +206,69 @@ export class KilnService {
 
   async update(id: string, dto: UpdateKilnOperationDto, userId: string): Promise<KilnOperation> {
     const op = await this.findOne(id);
+    const prevBakedOutput = Number(op.bakedBricksOutput || 0);
+    const prevRawEntered = Number(op.rawBricksEntered || 0);
+    const prevRawSource = op.rawBrickSource;
+
     Object.assign(op, dto);
-    const saved = await this.kilnOperationRepository.save(op);
+
+    const saved = await this.dataSource.transaction(async (manager) => {
+      const savedOp = await manager.save(KilnOperation, op);
+
+      const newBakedOutput = Number(savedOp.bakedBricksOutput || 0);
+      const bakedDelta = newBakedOutput - prevBakedOutput;
+      if (bakedDelta !== 0) {
+        const bakedStock = await manager.findOne(Stock, { where: { brickType: BrickType.BAKED_BRICK } });
+        if (!bakedStock) throw new NotFoundException('BAKED_BRICK stock not found');
+        const prev = bakedStock.quantity;
+        bakedStock.quantity = Math.max(0, bakedStock.quantity + bakedDelta);
+        await manager.save(Stock, bakedStock);
+        await manager.save(StockMovement, manager.create(StockMovement, {
+          type: StockMovementType.MANUAL_ADJUSTMENT,
+          brickType: BrickType.BAKED_BRICK,
+          quantity: Math.abs(bakedDelta),
+          previousQuantity: prev,
+          newQuantity: bakedStock.quantity,
+          reason: `Humbuz operatsiyasi tahrirlandi: ${savedOp.kilnName}`,
+          createdById: userId,
+        }));
+      }
+
+      const newRawEntered = Number(savedOp.rawBricksEntered || 0);
+      const newRawSource = savedOp.rawBrickSource;
+
+      // Net how much should be drawn from RESERVE before vs. after this edit, and apply
+      // a single adjustment - two separate inserts in the same transaction would tie on
+      // createdAt (Postgres now() is transaction-start time), making "latest balance"
+      // lookups ambiguous between them.
+      const prevReserveDraw = prevRawEntered > 0 && prevRawSource === RawBrickSource.RESERVE ? prevRawEntered : 0;
+      const newReserveDraw = newRawEntered > 0 && newRawSource === RawBrickSource.RESERVE ? newRawEntered : 0;
+      const reserveDelta = newReserveDraw - prevReserveDraw;
+
+      if (reserveDelta !== 0) {
+        const lastReserve = await manager
+          .createQueryBuilder(ReserveMovement, 'rm')
+          .where('rm.brickType = :bt', { bt: BrickType.RAW_BRICK })
+          .orderBy('rm.createdAt', 'DESC')
+          .getOne();
+        const currentBalance = lastReserve ? lastReserve.newQuantity : 0;
+        if (reserveDelta > 0 && currentBalance < reserveDelta) {
+          throw new BadRequestException(`Zaxirada yetarli xom g'isht yo'q. Mavjud: ${currentBalance} dona`);
+        }
+        await manager.save(ReserveMovement, manager.create(ReserveMovement, {
+          brickType: BrickType.RAW_BRICK,
+          movementType: reserveDelta > 0 ? ReserveMovementType.TO_KILN : ReserveMovementType.ADD,
+          quantity: Math.abs(reserveDelta),
+          previousQuantity: currentBalance,
+          newQuantity: currentBalance - reserveDelta,
+          reason: `Humbuz operatsiyasi tahrirlandi: ${savedOp.kilnName}`,
+          date: savedOp.date,
+          createdById: userId,
+        }));
+      }
+
+      return savedOp;
+    });
 
     await this.syncWorkerPayments(saved, userId);
 

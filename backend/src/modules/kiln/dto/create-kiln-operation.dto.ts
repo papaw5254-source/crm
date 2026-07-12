@@ -21,13 +21,13 @@ export class CreateKilnOperationDto {
   @IsOptional()
   @IsInt()
   @Min(0)
-  rawBricksEntered?: number = 0;
+  rawBricksEntered?: number;
 
   @ApiPropertyOptional({ example: 4500, description: 'Humbuzdan chiqqan pishgan g\'isht soni' })
   @IsOptional()
   @IsInt()
   @Min(0)
-  bakedBricksOutput?: number = 0;
+  bakedBricksOutput?: number;
 
   @ApiPropertyOptional({ enum: RawBrickSource, description: 'Xom g\'isht manbai: FIELD yoki RESERVE' })
   @ValidateIf((o) => o.rawBricksEntered > 0)
