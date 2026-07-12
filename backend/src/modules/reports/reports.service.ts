@@ -47,9 +47,8 @@ export class ReportsService {
     return latest ? latest.newQuantity : 0;
   }
 
-  // Computes current stock from all operations (avoids stale stock table)
   private async computeBakedStock(): Promise<number> {
-    const [kiln, sold, reserveAdded] = await Promise.all([
+    const [kiln, sold, reserveAdded, reserveRemoved] = await Promise.all([
       this.kilnRepo.createQueryBuilder('k').select('SUM(k.bakedBricksOutput)', 'v').getRawOne(),
       this.saleRepo.createQueryBuilder('s').select('SUM(s.quantity)', 'v')
         .where('s.brickType = :bt AND (s.isReserveSale = false OR s.isReserveSale IS NULL)', { bt: BrickType.BAKED_BRICK })
@@ -57,15 +56,22 @@ export class ReportsService {
       this.reserveRepo.createQueryBuilder('r').select('SUM(r.quantity)', 'v')
         .where('r.brickType = :bt AND r.movementType = :mt', { bt: BrickType.BAKED_BRICK, mt: ReserveMovementType.ADD })
         .getRawOne(),
+      this.reserveRepo.createQueryBuilder('r').select('SUM(r.quantity)', 'v')
+        .where('r.brickType = :bt AND r.movementType = :mt', { bt: BrickType.BAKED_BRICK, mt: ReserveMovementType.REMOVE })
+        .getRawOne(),
     ]);
-    return Math.max(0, (parseInt(kiln?.v) || 0) - (parseInt(sold?.v) || 0) - (parseInt(reserveAdded?.v) || 0));
+    return Math.max(0,
+      (parseInt(kiln?.v) || 0)
+      - (parseInt(sold?.v) || 0)
+      - (parseInt(reserveAdded?.v) || 0)
+      + (parseInt(reserveRemoved?.v) || 0),
+    );
   }
 
   private async computeRawStock(): Promise<number> {
-    const [produced, sold, kilnUsed, reserveAdded] = await Promise.all([
-      this.inventoryRepo.createQueryBuilder('i').select('SUM(i.quantity)', 'v')
-        .where('i.brickType = :bt', { bt: BrickType.RAW_BRICK })
-        .getRawOne(),
+    const [produced, sold, kilnUsed, reserveAdded, reserveRemoved] = await Promise.all([
+      // No brickType filter: old records have DB default BAKED_BRICK but represent raw brick production
+      this.inventoryRepo.createQueryBuilder('i').select('SUM(i.quantity)', 'v').getRawOne(),
       this.saleRepo.createQueryBuilder('s').select('SUM(s.quantity)', 'v')
         .where('s.brickType = :bt AND (s.isReserveSale = false OR s.isReserveSale IS NULL)', { bt: BrickType.RAW_BRICK })
         .getRawOne(),
@@ -75,8 +81,17 @@ export class ReportsService {
       this.reserveRepo.createQueryBuilder('r').select('SUM(r.quantity)', 'v')
         .where('r.brickType = :bt AND r.movementType = :mt', { bt: BrickType.RAW_BRICK, mt: ReserveMovementType.ADD })
         .getRawOne(),
+      this.reserveRepo.createQueryBuilder('r').select('SUM(r.quantity)', 'v')
+        .where('r.brickType = :bt AND r.movementType = :mt', { bt: BrickType.RAW_BRICK, mt: ReserveMovementType.REMOVE })
+        .getRawOne(),
     ]);
-    return Math.max(0, (parseInt(produced?.v) || 0) - (parseInt(sold?.v) || 0) - (parseInt(kilnUsed?.v) || 0) - (parseInt(reserveAdded?.v) || 0));
+    return Math.max(0,
+      (parseInt(produced?.v) || 0)
+      - (parseInt(sold?.v) || 0)
+      - (parseInt(kilnUsed?.v) || 0)
+      - (parseInt(reserveAdded?.v) || 0)
+      + (parseInt(reserveRemoved?.v) || 0),
+    );
   }
 
   private async computeReserveBalance(brickType: BrickType): Promise<number> {
