@@ -59,6 +59,12 @@ export default function PerechisleniyaPage() {
   const [depositDate, setDepositDate] = useState(new Date().toISOString().split('T')[0])
   const [depositDesc, setDepositDesc] = useState('')
   const [deleteDepositId, setDeleteDepositId] = useState<string | null>(null)
+  const [oldDebtOpen, setOldDebtOpen] = useState(false)
+  const [oldDebtFirm, setOldDebtFirm] = useState('')
+  const [oldDebtAmount, setOldDebtAmount] = useState('')
+  const [oldDebtDate, setOldDebtDate] = useState(new Date().toISOString().split('T')[0])
+  const [oldDebtDesc, setOldDebtDesc] = useState('')
+  const [deleteOldDebtId, setDeleteOldDebtId] = useState<string | null>(null)
 
   const { data: firms = [], isLoading } = useQuery({
     queryKey: ['bank-transfer-firms'],
@@ -76,6 +82,12 @@ export default function PerechisleniyaPage() {
   })
   const allDeposits: MoneyIncome[] = depositsData?.data ?? []
 
+  const { data: oldDebtsData } = useQuery({
+    queryKey: ['firm-old-debts'],
+    queryFn: () => moneyIncomesService.getAll({ source: 'FIRM_OLD_DEBT', limit: 1000 }),
+  })
+  const allOldDebts: MoneyIncome[] = oldDebtsData?.data ?? []
+
   const { data: firmSales = [], isLoading: firmSalesLoading } = useQuery({
     queryKey: ['firm-sales', selectedFirm, 'BANK_TRANSFER'],
     queryFn: () => salesService.getFirmSales(selectedFirm!, 'BANK_TRANSFER'),
@@ -83,6 +95,10 @@ export default function PerechisleniyaPage() {
   })
 
   const firmDeposits = allDeposits.filter(d => d.fromWhom === selectedFirm)
+  const firmOldDebts = allOldDebts.filter(d => d.fromWhom === selectedFirm)
+
+  const getOldDebt = (firmName: string) =>
+    allOldDebts.filter(d => d.fromWhom === firmName).reduce((s, d) => s + Number(d.amount), 0)
 
   const getBalance = (firmName: string) => {
     const deposited = allDeposits
@@ -90,12 +106,13 @@ export default function PerechisleniyaPage() {
       .reduce((s, d) => s + Number(d.amount), 0)
     const firm = (firms as BankTransferFirm[]).find(f => f.firmName === firmName)
     const sold = firm ? firm.totalAmount : 0
-    return deposited - sold
+    return deposited - sold - getOldDebt(firmName)
   }
 
   const allFirmNames: string[] = [...new Set([
     ...(firms as BankTransferFirm[]).map(f => f.firmName),
     ...allDeposits.map(d => d.fromWhom).filter(Boolean) as string[],
+    ...allOldDebts.map(d => d.fromWhom).filter(Boolean) as string[],
   ])]
 
   const form = useForm<SaleForm>({
@@ -181,6 +198,35 @@ export default function PerechisleniyaPage() {
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
+  const oldDebtMutation = useMutation({
+    mutationFn: () => moneyIncomesService.create({
+      amount: Number(oldDebtAmount),
+      source: 'FIRM_OLD_DEBT',
+      fromWhom: oldDebtFirm,
+      description: oldDebtDesc || `${oldDebtFirm} oldingi qarzi`,
+      date: oldDebtDate,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['firm-old-debts'] })
+      toast.success("Oldingi qarz qo'shildi")
+      setOldDebtOpen(false)
+      setOldDebtAmount('')
+      setOldDebtDesc('')
+      setOldDebtDate(new Date().toISOString().split('T')[0])
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const deleteOldDebtMutation = useMutation({
+    mutationFn: (id: string) => moneyIncomesService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['firm-old-debts'] })
+      toast.success("Oldingi qarz o'chirildi")
+      setDeleteOldDebtId(null)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
   const openAdd = (firmName?: string) => {
     setEditSale(null)
     form.reset({ ...defaultFormValues, customerName: firmName || '' })
@@ -213,9 +259,15 @@ export default function PerechisleniyaPage() {
     setDepositOpen(true)
   }
 
+  const openOldDebtDialog = (firmName: string) => {
+    setOldDebtFirm(firmName)
+    setOldDebtOpen(true)
+  }
+
   const totalDeposited = allDeposits.reduce((s, d) => s + Number(d.amount), 0)
   const totalSold = (firms as BankTransferFirm[]).reduce((s, f) => s + f.totalAmount, 0)
-  const totalBalance = totalDeposited - totalSold
+  const totalOldDebt = allOldDebts.reduce((s, d) => s + Number(d.amount), 0)
+  const totalBalance = totalDeposited - totalSold - totalOldDebt
 
   const firmColumns = [
     {
@@ -240,6 +292,16 @@ export default function PerechisleniyaPage() {
       },
     },
     {
+      key: 'oldDebt',
+      header: 'Oldingi qarz',
+      cell: (row: { firmName: string }) => {
+        const old = getOldDebt(row.firmName)
+        return old > 0
+          ? <span className="font-medium text-red-600 dark:text-red-400">-{formatCurrency(old)}</span>
+          : <span className="text-muted-foreground">—</span>
+      },
+    },
+    {
       key: 'balance',
       header: 'Balans',
       cell: (row: { firmName: string }) => {
@@ -256,6 +318,9 @@ export default function PerechisleniyaPage() {
       header: '',
       cell: (row: { firmName: string }) => (
         <div className="flex gap-1 justify-end">
+          <Button variant="outline" size="sm" onClick={() => openOldDebtDialog(row.firmName)}>
+            <TrendingDown className="h-3.5 w-3.5 mr-1" /> Qarz
+          </Button>
           <Button variant="outline" size="sm" onClick={() => openDepositDialog(row.firmName)}>
             <Plus className="h-3.5 w-3.5 mr-1" /> Depozit
           </Button>
@@ -316,9 +381,27 @@ export default function PerechisleniyaPage() {
     },
   ]
 
+  const oldDebtColumns = [
+    { key: 'date', header: 'Sana', cell: (r: MoneyIncome) => <span className="font-medium">{formatDate(r.date)}</span> },
+    {
+      key: 'amount', header: 'Summa',
+      cell: (r: MoneyIncome) => <span className="font-bold text-red-600 dark:text-red-400">-{formatCurrency(Number(r.amount))}</span>,
+    },
+    { key: 'desc', header: 'Izoh', cell: (r: MoneyIncome) => <span className="text-xs text-muted-foreground">{r.description || '—'}</span> },
+    {
+      key: 'actions', header: '',
+      cell: (r: MoneyIncome) => isAdmin ? (
+        <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteOldDebtId(r.id)}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      ) : null,
+    },
+  ]
+
   const selectedBalance = selectedFirm ? getBalance(selectedFirm) : 0
   const selectedDeposited = firmDeposits.reduce((s, d) => s + Number(d.amount), 0)
   const selectedSold = (firms as BankTransferFirm[]).find(f => f.firmName === selectedFirm)?.totalAmount ?? 0
+  const selectedOldDebt = firmOldDebts.reduce((s, d) => s + Number(d.amount), 0)
 
   return (
     <div className="space-y-6">
@@ -327,6 +410,9 @@ export default function PerechisleniyaPage() {
         description="Firma depozitlari va bank o'tkazmalari"
         actions={
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => { setOldDebtFirm(''); setOldDebtOpen(true) }}>
+              <TrendingDown className="h-4 w-4 mr-1" /> Oldingi qarz qo&apos;shish
+            </Button>
             <Button variant="outline" onClick={() => { setDepositFirm(''); setDepositOpen(true) }}>
               <Wallet className="h-4 w-4 mr-1" /> Depozit qo&apos;shish
             </Button>
@@ -337,9 +423,10 @@ export default function PerechisleniyaPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatsCard title="Jami depozit" value={totalDeposited} icon={TrendingUp} color="blue" />
         <StatsCard title="Jami berilgan" value={totalSold} icon={TrendingDown} color="red" />
+        <StatsCard title="Oldingi qarzlar" value={totalOldDebt} icon={TrendingDown} color="red" />
         <StatsCard title="Umumiy balans" value={totalBalance} icon={Wallet} color={totalBalance >= 0 ? 'emerald' : 'red'} />
       </div>
 
@@ -371,7 +458,7 @@ export default function PerechisleniyaPage() {
           {selectedFirm && (
             <div className="space-y-4 flex-1 min-h-0 overflow-y-auto">
               {/* Balance summary */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 p-3 text-center">
                   <div className="text-xs text-muted-foreground mb-1">Jami depozit</div>
                   <div className="font-bold text-lg text-blue-600 dark:text-blue-400">+{formatCurrency(selectedDeposited)}</div>
@@ -379,6 +466,10 @@ export default function PerechisleniyaPage() {
                 <div className="rounded-lg bg-red-50 dark:bg-red-950/30 p-3 text-center">
                   <div className="text-xs text-muted-foreground mb-1">Berilgan g&apos;isht</div>
                   <div className="font-bold text-lg text-red-600 dark:text-red-400">-{formatCurrency(selectedSold)}</div>
+                </div>
+                <div className="rounded-lg bg-red-50 dark:bg-red-950/30 p-3 text-center">
+                  <div className="text-xs text-muted-foreground mb-1">Oldingi qarz</div>
+                  <div className="font-bold text-lg text-red-600 dark:text-red-400">-{formatCurrency(selectedOldDebt)}</div>
                 </div>
                 <div className={`rounded-lg p-3 text-center ${selectedBalance >= 0 ? 'bg-emerald-50 dark:bg-emerald-950/30' : 'bg-red-50 dark:bg-red-950/30'}`}>
                   <div className="text-xs text-muted-foreground mb-1">Balans</div>
@@ -392,6 +483,9 @@ export default function PerechisleniyaPage() {
               </div>
 
               <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => openOldDebtDialog(selectedFirm)}>
+                  <TrendingDown className="h-3.5 w-3.5 mr-1" /> Oldingi qarz qo&apos;shish
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => openDepositDialog(selectedFirm)}>
                   <Wallet className="h-3.5 w-3.5 mr-1" /> Depozit qo&apos;shish
                 </Button>
@@ -403,6 +497,7 @@ export default function PerechisleniyaPage() {
               <Tabs defaultValue="deposits">
                 <TabsList>
                   <TabsTrigger value="deposits">Depozitlar ({firmDeposits.length})</TabsTrigger>
+                  <TabsTrigger value="oldDebts">Oldingi qarzlar ({firmOldDebts.length})</TabsTrigger>
                   <TabsTrigger value="sales">Sotuvlar ({firmSales.length})</TabsTrigger>
                 </TabsList>
                 <TabsContent value="deposits" className="mt-2">
@@ -410,6 +505,13 @@ export default function PerechisleniyaPage() {
                     <p className="text-center text-muted-foreground py-6 text-sm">Depozit yo&apos;q</p>
                   ) : (
                     <DataTable columns={depositColumns} data={firmDeposits} />
+                  )}
+                </TabsContent>
+                <TabsContent value="oldDebts" className="mt-2">
+                  {firmOldDebts.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-6 text-sm">Oldingi qarz yo&apos;q</p>
+                  ) : (
+                    <DataTable columns={oldDebtColumns} data={firmOldDebts} />
                   )}
                 </TabsContent>
                 <TabsContent value="sales" className="mt-2">
@@ -468,6 +570,58 @@ export default function PerechisleniyaPage() {
               onClick={() => depositMutation.mutate()}
             >
               {depositMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Old debt dialog */}
+      <Dialog open={oldDebtOpen} onOpenChange={(o) => { if (!o) { setOldDebtOpen(false); setOldDebtAmount(''); setOldDebtDesc('') } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Firma oldingi qarzini qo&apos;shish</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Firma nomi *</Label>
+              <Input
+                list="old-debt-firm-names"
+                value={oldDebtFirm}
+                onChange={(e) => setOldDebtFirm(e.target.value)}
+                placeholder="Firma nomi..."
+                autoComplete="off"
+              />
+              <datalist id="old-debt-firm-names">
+                {allFirmNames.map(name => <option key={name} value={name} />)}
+                {(firmNames as string[]).map((name: string) => <option key={name} value={name} />)}
+              </datalist>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Summa (so&apos;m) *</Label>
+              <Input type="number" value={oldDebtAmount} onChange={(e) => setOldDebtAmount(e.target.value)} placeholder="5000000" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Sana *</Label>
+              <Input type="date" value={oldDebtDate} onChange={(e) => setOldDebtDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Izoh</Label>
+              <Input value={oldDebtDesc} onChange={(e) => setOldDebtDesc(e.target.value)} placeholder="Oldingi qarz..." />
+            </div>
+            {oldDebtAmount && Number(oldDebtAmount) > 0 && (
+              <div className="rounded-lg bg-red-50 dark:bg-red-950/20 px-3 py-2 text-sm">
+                <span className="text-muted-foreground">Oldingi qarz: </span>
+                <span className="font-bold text-red-600">-{formatCurrency(Number(oldDebtAmount))}</span>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOldDebtOpen(false)}>Bekor qilish</Button>
+            <Button
+              disabled={!oldDebtFirm || !oldDebtAmount || Number(oldDebtAmount) <= 0 || oldDebtMutation.isPending}
+              onClick={() => oldDebtMutation.mutate()}
+            >
+              {oldDebtMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -594,6 +748,15 @@ export default function PerechisleniyaPage() {
         description="Bu amal orqaga qaytarib bo'lmaydi."
         onConfirm={() => deleteDepositId && deleteDepositMutation.mutate(deleteDepositId)}
         loading={deleteDepositMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!deleteOldDebtId}
+        onOpenChange={(o) => !o && setDeleteOldDebtId(null)}
+        title="Oldingi qarzni o'chirishni tasdiqlang"
+        description="Bu amal orqaga qaytarib bo'lmaydi."
+        onConfirm={() => deleteOldDebtId && deleteOldDebtMutation.mutate(deleteOldDebtId)}
+        loading={deleteOldDebtMutation.isPending}
       />
     </div>
   )

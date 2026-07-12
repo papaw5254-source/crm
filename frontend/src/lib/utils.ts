@@ -141,6 +141,7 @@ export function moneyIncomeSourceLabel(source: string): string {
     DAILY_SALE: 'Kunlik savdo',
     DEBT_RETURN: 'Qaytarilgan qarz',
     FIRM_DEPOSIT: 'Firma depoziti',
+    FIRM_OLD_DEBT: 'Firma oldingi qarzi',
     OTHER: 'Boshqa',
   }
   return labels[source] || source
@@ -153,6 +154,7 @@ export function moneyIncomeSourceColor(source: string): string {
     DAILY_SALE: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
     DEBT_RETURN: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
     FIRM_DEPOSIT: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+    FIRM_OLD_DEBT: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
     OTHER: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
   }
   return colors[source] || 'bg-muted text-muted-foreground'

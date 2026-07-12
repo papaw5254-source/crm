@@ -4,5 +4,6 @@ export enum MoneyIncomeSource {
   DAILY_SALE = 'DAILY_SALE',
   DEBT_RETURN = 'DEBT_RETURN',
   FIRM_DEPOSIT = 'FIRM_DEPOSIT',
+  FIRM_OLD_DEBT = 'FIRM_OLD_DEBT',
   OTHER = 'OTHER',
 }

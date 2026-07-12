@@ -120,7 +120,7 @@ export class ReportsService {
       .reduce((s, x) => s + Number(x.totalAmount), 0);
   }
 
-  private readonly reportExcludedSources = ['DAILY_SALE', 'DEBT_RETURN', 'FIRM_DEPOSIT'];
+  private readonly reportExcludedSources = ['DAILY_SALE', 'DEBT_RETURN', 'FIRM_DEPOSIT', 'FIRM_OLD_DEBT'];
 
   private moneyIncomeAmount(incomes: MoneyIncome[]): number {
     return incomes.filter(x => !this.reportExcludedSources.includes(x.source)).reduce((s, x) => s + Number(x.amount), 0);
@@ -589,7 +589,7 @@ export class ReportsService {
     const prepaymentPaid = prepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const founderIncome = moneyIncomes.filter(x => x.source === 'FOUNDER').reduce((s, x) => s + Number(x.amount), 0);
     const bankIncome = moneyIncomes.filter(x => x.source === 'BANK').reduce((s, x) => s + Number(x.amount), 0);
-    const otherIncome = moneyIncomes.filter(x => !['FOUNDER', 'BANK', 'DAILY_SALE', 'DEBT_RETURN', 'FIRM_DEPOSIT'].includes(x.source)).reduce((s, x) => s + Number(x.amount), 0);
+    const otherIncome = moneyIncomes.filter(x => !['FOUNDER', 'BANK', 'DAILY_SALE', 'DEBT_RETURN', 'FIRM_DEPOSIT', 'FIRM_OLD_DEBT'].includes(x.source)).reduce((s, x) => s + Number(x.amount), 0);
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
     const workerPaid = workerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
 
