@@ -52,7 +52,7 @@ export class WorkerPaymentsService {
       .createQueryBuilder('wp')
       .where('wp.category = :category', { category })
       .andWhere('wp.workerName = :workerName', { workerName })
-      .andWhere('wp.date < :date', { date })
+      .andWhere('wp.date <= :date', { date })
       .andWhere('wp.remainingDebt > 0')
       .orderBy('wp.date', 'ASC')
       .addOrderBy('wp.createdAt', 'ASC');
