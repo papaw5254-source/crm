@@ -101,6 +101,7 @@ export class SalesService {
         phone: saved.customerPhone,
         amount: Number(saved.totalAmount),
         saleId: saved.id,
+        date: saved.date,
       });
     }
 

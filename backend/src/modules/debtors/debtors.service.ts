@@ -34,6 +34,7 @@ export class DebtorsService {
     phone?: string;
     amount: number;
     saleId: string;
+    date?: string;
   }): Promise<Debtor> {
     let debtor: Debtor;
 
@@ -49,6 +50,9 @@ export class DebtorsService {
       debtor.totalDebt = Number(debtor.totalDebt) + data.amount;
       debtor.remainingDebt = Number(debtor.totalDebt) - Number(debtor.paidAmount);
       debtor.isPaid = debtor.remainingDebt <= 0;
+      if (data.date && (!debtor.lastDebtDate || data.date > debtor.lastDebtDate)) {
+        debtor.lastDebtDate = data.date;
+      }
     } else {
       debtor = this.debtorRepository.create({
         fullName: data.fullName,
@@ -57,6 +61,7 @@ export class DebtorsService {
         paidAmount: 0,
         remainingDebt: data.amount,
         isPaid: false,
+        lastDebtDate: data.date,
       });
     }
 
@@ -233,14 +238,17 @@ export class DebtorsService {
       order: { createdAt: 'ASC' },
     });
 
-    const groups = new Map<string, { fullName: string; phone?: string; amount: number }>();
+    const groups = new Map<string, { fullName: string; phone?: string; amount: number; lastDebtDate?: string }>();
 
     for (const sale of sales) {
       const fullName = (sale.customerName || 'Unknown').trim() || 'Unknown';
       const phone = sale.customerPhone?.trim() || undefined;
       const key = phone ? `phone:${phone}` : `name:${fullName.toLowerCase()}`;
-      const group = groups.get(key) || { fullName, phone, amount: 0 };
+      const group = groups.get(key) || { fullName, phone, amount: 0, lastDebtDate: undefined };
       group.amount += Number(sale.totalAmount || 0);
+      if (sale.date && (!group.lastDebtDate || sale.date > group.lastDebtDate)) {
+        group.lastDebtDate = sale.date;
+      }
       groups.set(key, group);
     }
 
@@ -273,6 +281,7 @@ export class DebtorsService {
           paidAmount: 0,
           remainingDebt: group.amount,
           isPaid: group.amount <= 0,
+          lastDebtDate: group.lastDebtDate,
         });
       } else {
         debtor.fullName = debtor.fullName || group.fullName;
@@ -280,6 +289,7 @@ export class DebtorsService {
         debtor.totalDebt = group.amount;
         debtor.remainingDebt = group.amount - Number(debtor.paidAmount || 0);
         debtor.isPaid = debtor.remainingDebt <= 0;
+        debtor.lastDebtDate = group.lastDebtDate;
       }
 
       await this.debtorRepository.save(debtor);

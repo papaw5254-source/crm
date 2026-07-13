@@ -34,6 +34,9 @@ export class Debtor {
   @Column({ nullable: true })
   notes: string;
 
+  @Column({ name: 'last_debt_date', type: 'date', nullable: true })
+  lastDebtDate: string;
+
   @OneToMany(() => DebtPayment, (payment) => payment.debtor)
   payments: DebtPayment[];
 

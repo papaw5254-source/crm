@@ -123,6 +123,7 @@ export interface Debtor {
   remainingDebt: number
   isPaid: boolean
   notes?: string
+  lastDebtDate?: string
   payments?: DebtPayment[]
   createdAt: string
   updatedAt: string

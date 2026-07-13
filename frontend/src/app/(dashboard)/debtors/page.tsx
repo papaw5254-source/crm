@@ -177,7 +177,7 @@ export default function DebtorsPage() {
                           Qolgan: {formatCurrency(remaining)}
                         </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">{formatDate(debtor.createdAt)}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(debtor.lastDebtDate || debtor.createdAt)}</p>
                       <div className="flex gap-2">
                         <Button
                           size="sm"
