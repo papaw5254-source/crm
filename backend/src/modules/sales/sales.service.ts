@@ -33,11 +33,15 @@ export class SalesService {
     const pricePerBrick = Number(createDto.pricePerBrick ?? createDto.pricePerUnit ?? 0);
     if (pricePerBrick <= 0) throw new BadRequestException('Price per brick is required');
     const totalAmount = Number((createDto.quantity * pricePerBrick).toFixed(2));
+    // Regular (non-reserve) sales only ever track loading-worker cost for RAW_BRICK.
+    // Reserve sales (Zaxira) track it for any brick type - the worker cost there is
+    // for loading/delivering out of the reserve warehouse, not brick-type specific.
+    const trackWorkerCost = brickType === BrickType.RAW_BRICK || !!createDto.isReserveSale;
     const workerRate = Number(createDto.workerRatePerBrick || 0);
     const totalWorkerCost = workerRate > 0 ? createDto.quantity * workerRate : 0;
     const workerPaidAmount = Number(createDto.workerPaidAmount || 0);
-    const workerOldDebt = brickType === BrickType.RAW_BRICK ? Number(createDto.workerOldDebt || 0) : 0;
-    const workerDebt = brickType === BrickType.RAW_BRICK ? Math.max(0, workerOldDebt + totalWorkerCost - workerPaidAmount) : 0;
+    const workerOldDebt = trackWorkerCost ? Number(createDto.workerOldDebt || 0) : 0;
+    const workerDebt = trackWorkerCost ? Math.max(0, workerOldDebt + totalWorkerCost - workerPaidAmount) : 0;
 
     if (createDto.isReserveSale) {
       await this.reserveService.createMovement(
@@ -65,15 +69,15 @@ export class SalesService {
       brickType,
       pricePerBrick,
       totalAmount,
-      totalWorkerCost: brickType === BrickType.RAW_BRICK ? totalWorkerCost : 0,
-      workerPaidAmount: brickType === BrickType.RAW_BRICK ? workerPaidAmount : 0,
+      totalWorkerCost: trackWorkerCost ? totalWorkerCost : 0,
+      workerPaidAmount: trackWorkerCost ? workerPaidAmount : 0,
       workerOldDebt,
       workerDebt,
       createdById: userId,
     });
     const saved = await this.saleRepository.save(sale);
 
-    if (brickType === BrickType.RAW_BRICK && (totalWorkerCost > 0 || workerOldDebt > 0)) {
+    if (trackWorkerCost && (totalWorkerCost > 0 || workerOldDebt > 0)) {
       const wpCategory = createDto.isReserveSale
         ? WorkerPaymentCategory.RESERVE_SALE_LOADING
         : WorkerPaymentCategory.FIELD_RAW_LOADING;
@@ -194,14 +198,15 @@ export class SalesService {
       updateDto.workerPaidAmount !== undefined ||
       updateDto.workerOldDebt !== undefined
     ) {
+      const trackWorkerCost = sale.brickType === BrickType.RAW_BRICK || !!sale.isReserveSale;
       const qty = updateDto.quantity ?? sale.quantity;
       const workerRate = Number(updateDto.workerRatePerBrick ?? sale.workerRatePerBrick ?? 0);
-      const workerPaid = Number(updateDto.workerPaidAmount ?? sale.workerPaidAmount ?? 0);
-      const workerOld = sale.brickType === BrickType.RAW_BRICK ? Number(updateDto.workerOldDebt ?? sale.workerOldDebt ?? 0) : 0;
-      sale.totalWorkerCost = sale.brickType === BrickType.RAW_BRICK && workerRate > 0 ? qty * workerRate : 0;
+      const workerPaid = trackWorkerCost ? Number(updateDto.workerPaidAmount ?? sale.workerPaidAmount ?? 0) : 0;
+      const workerOld = trackWorkerCost ? Number(updateDto.workerOldDebt ?? sale.workerOldDebt ?? 0) : 0;
+      sale.totalWorkerCost = trackWorkerCost && workerRate > 0 ? qty * workerRate : 0;
       sale.workerPaidAmount = workerPaid;
       sale.workerOldDebt = workerOld;
-      sale.workerDebt = sale.brickType === BrickType.RAW_BRICK ? Math.max(0, workerOld + Number(sale.totalWorkerCost) - workerPaid) : 0;
+      sale.workerDebt = trackWorkerCost ? Math.max(0, workerOld + Number(sale.totalWorkerCost) - workerPaid) : 0;
     }
 
     if (updateDto.quantity !== undefined && updateDto.quantity !== oldQuantity) {
@@ -251,7 +256,7 @@ export class SalesService {
       [sale.id, 'SALE'],
     );
 
-    if (sale.brickType !== BrickType.RAW_BRICK) return;
+    if (sale.brickType !== BrickType.RAW_BRICK && !sale.isReserveSale) return;
 
     const workerRate = Number(sale.workerRatePerBrick || 0);
     const totalWorkerCost = workerRate > 0 ? sale.quantity * workerRate : 0;
