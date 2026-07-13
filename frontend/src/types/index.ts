@@ -385,6 +385,7 @@ export interface MonthlyReport {
   totalExpenses: number
   workerAccrued: number
   workerPaid: number
+  prepaymentPaid: number
   netProfit: number
   paperProfit: number
   groupedByDay: Record<string, DayData>
@@ -405,6 +406,7 @@ export interface YearlyReport {
   totalExpenses: number
   workerAccrued: number
   workerPaid: number
+  prepaymentPaid: number
   netProfit: number
   paperProfit: number
   groupedByMonth: Record<string, MonthData>
@@ -419,6 +421,7 @@ export interface DayData {
   addedBricks: number
   expenses: number
   workerAccrued: number
+  prepaymentPaid: number
   cashReceived: number
   profit: number
 }
@@ -429,6 +432,7 @@ export interface MonthData {
   addedBricks: number
   expenses: number
   workerAccrued: number
+  prepaymentPaid: number
   cashReceived: number
   profit: number
 }

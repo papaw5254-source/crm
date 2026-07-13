@@ -363,6 +363,7 @@ export class ReportsService {
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
     const workerAccrued = workerPayments.reduce((s, x) => s + Number(x.amount), 0);
     const workerPaid = workerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
+    const prepaymentPaid = prepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const netProfit = cashReceived - totalExpenses - workerPaid;
     const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
 
@@ -376,9 +377,10 @@ export class ReportsService {
       const dMoneyIncomes = moneyIncomes.filter(x => x.date === dayStr);
       const dWorkerPayments = workerPayments.filter(x => x.date === dayStr);
       const dPrepayments = prepayments.filter(x => x.date === dayStr);
+      const dPrepaymentPaid = dPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
       const dCashReceived = this.cashSaleAmount(dSales)
         + dDebtPayments.reduce((s, x) => s + Number(x.amount), 0)
-        + dPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0)
+        + dPrepaymentPaid
         + this.moneyIncomeAmount(dMoneyIncomes);
       const dExpenses = dExp.reduce((s, x) => s + Number(x.amount), 0);
       const dWorkerAccrued = dWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
@@ -388,6 +390,7 @@ export class ReportsService {
         addedBricks: dInc.reduce((s, x) => s + x.quantity, 0),
         expenses: dExpenses,
         workerAccrued: dWorkerAccrued,
+        prepaymentPaid: dPrepaymentPaid,
         cashReceived: dCashReceived,
         profit: dCashReceived - dExpenses - dWorkerAccrued,
       };
@@ -401,7 +404,7 @@ export class ReportsService {
       totalAddedBricks: incomes.reduce((s, x) => s + x.quantity, 0),
       totalSoldBricks: sales.reduce((s, x) => s + x.quantity, 0),
       reserveSoldBricks, reserveSalesAmount,
-      totalSalesAmount, cashReceived, debtSalesAmount, totalExpenses, workerAccrued, workerPaid, netProfit, paperProfit,
+      totalSalesAmount, cashReceived, debtSalesAmount, totalExpenses, workerAccrued, workerPaid, prepaymentPaid, netProfit, paperProfit,
       groupedByDay: dailyData,
       expenseByCategory,
       bestSalesDay: Object.entries(dailyData).sort((a, b) => b[1].salesAmount - a[1].salesAmount)[0]
@@ -437,6 +440,7 @@ export class ReportsService {
     const totalExpenses = expenses.reduce((s, x) => s + Number(x.amount), 0);
     const workerAccrued = workerPayments.reduce((s, x) => s + Number(x.amount), 0);
     const workerPaid = workerPayments.reduce((s, x) => s + Number(x.paidAmount), 0);
+    const prepaymentPaid = prepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const netProfit = cashReceived - totalExpenses - workerPaid;
     const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
 
@@ -451,9 +455,10 @@ export class ReportsService {
       const mMoneyIncomes = moneyIncomes.filter(x => x.date.startsWith(prefix));
       const mWorkerPayments = workerPayments.filter(x => x.date.startsWith(prefix));
       const mPrepayments = prepayments.filter(x => x.date.startsWith(prefix));
+      const mPrepaymentPaid = mPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
       const mCashReceived = this.cashSaleAmount(mSales)
         + mDebtPayments.reduce((s, x) => s + Number(x.amount), 0)
-        + mPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0)
+        + mPrepaymentPaid
         + this.moneyIncomeAmount(mMoneyIncomes);
       const mExpenses = mExp.reduce((s, x) => s + Number(x.amount), 0);
       const mWorkerAccrued = mWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
@@ -463,6 +468,7 @@ export class ReportsService {
         addedBricks: mInc.reduce((s, x) => s + x.quantity, 0),
         expenses: mExpenses,
         workerAccrued: mWorkerAccrued,
+        prepaymentPaid: mPrepaymentPaid,
         cashReceived: mCashReceived,
         profit: mCashReceived - mExpenses - mWorkerAccrued,
       };
@@ -477,7 +483,7 @@ export class ReportsService {
       reserveSoldBricks, reserveSalesAmount,
       totalSalesAmount, cashReceived,
       debtSalesAmount: sales.filter(x => x.paymentType === PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0),
-      totalExpenses, workerAccrued, workerPaid, netProfit, paperProfit,
+      totalExpenses, workerAccrued, workerPaid, prepaymentPaid, netProfit, paperProfit,
       groupedByMonth: monthlyData, expenseByCategory,
     };
   }

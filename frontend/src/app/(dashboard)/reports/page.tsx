@@ -157,6 +157,7 @@ export default function ReportsPage() {
                     <StatRow label="Perechisleniya" value={formatCurrency(Number(daily?.bankTransferSales ?? 0))} highlight="green" />
                     <StatRow label="Nasiya sotuvlar" value={formatCurrency(Number(daily?.debtSalesAmount ?? 0))} highlight="red" />
                     <StatRow label="Qarz to'lovlari" value={formatCurrency(Number(daily?.debtPayments ?? 0))} highlight="green" />
+                    <StatRow label="Zalog puli" value={formatCurrency(Number(daily?.prepaymentPaid ?? 0))} highlight="green" />
                     <StatRow label="Pul kirimlari" value={formatCurrency(Number(daily?.moneyIncomes ?? 0))} highlight="green" />
                     <StatRow label="Qog'oziy foyda" value={formatCurrency(Number(daily?.paperProfit ?? 0))} />
                   </CardContent>
@@ -233,6 +234,7 @@ export default function ReportsPage() {
                     <StatRow label="Zaxira sotuvidan summa" value={formatCurrency(Number(monthly.reserveSalesAmount ?? 0))} />
                     <StatRow label="Nasiya sotuvlar" value={formatCurrency(Number(monthly.debtSalesAmount))} highlight="red" />
                     <StatRow label="Naqd tushum" value={formatCurrency(Number(monthly.cashReceived))} highlight="green" />
+                    <StatRow label="Zalog puli" value={formatCurrency(Number(monthly.prepaymentPaid ?? 0))} highlight="green" />
                     <StatRow label="Xarajatlar" value={formatCurrency(Number(monthly.totalExpenses))} highlight="red" />
                     <StatRow label="Ishchi puli (hisoblangan)" value={formatCurrency(Number(monthly.workerAccrued ?? 0))} highlight="red" />
                     <StatRow label="Ishchi puli (to'langan)" value={formatCurrency(Number(monthly.workerPaid ?? 0))} highlight="green" />
@@ -290,6 +292,19 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
           </div>
+
+          {monthly?.groupedByDay && Object.entries(monthly.groupedByDay).some(([, d]) => Number((d as DayData).prepaymentPaid ?? 0) > 0) && (
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base">Kunlar bo&apos;yicha zalog puli</CardTitle></CardHeader>
+              <CardContent className="p-4 divide-y divide-border">
+                {(Object.entries(monthly.groupedByDay) as [string, DayData][])
+                  .filter(([, d]) => Number(d.prepaymentPaid ?? 0) > 0)
+                  .map(([date, d]) => (
+                    <StatRow key={date} label={formatDate(date)} value={formatCurrency(Number(d.prepaymentPaid))} highlight="green" />
+                  ))}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* ── Yearly (admin) ───────────────────────────────────────────────── */}
@@ -320,6 +335,7 @@ export default function ReportsPage() {
                       <StatRow label="Zaxira sotuvidan summa" value={formatCurrency(Number(yearly.reserveSalesAmount ?? 0))} />
                       <StatRow label="Nasiya sotuvlar" value={formatCurrency(Number(yearly.debtSalesAmount))} highlight="red" />
                       <StatRow label="Naqd tushum" value={formatCurrency(Number(yearly.cashReceived))} highlight="green" />
+                      <StatRow label="Zalog puli" value={formatCurrency(Number(yearly.prepaymentPaid ?? 0))} highlight="green" />
                       <StatRow label="Xarajatlar" value={formatCurrency(Number(yearly.totalExpenses))} highlight="red" />
                       <StatRow label="Ishchi puli (hisoblangan)" value={formatCurrency(Number(yearly.workerAccrued ?? 0))} highlight="red" />
                       <StatRow label="Ishchi puli (to'langan)" value={formatCurrency(Number(yearly.workerPaid ?? 0))} highlight="green" />
@@ -351,6 +367,19 @@ export default function ReportsPage() {
                 ) : <div className="h-64 flex items-center justify-center text-muted-foreground">Ma&apos;lumot yo&apos;q</div>}
               </CardContent>
             </Card>
+
+            {yearly?.groupedByMonth && Object.entries(yearly.groupedByMonth).some(([, m]) => Number((m as MonthData).prepaymentPaid ?? 0) > 0) && (
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-base">Oylar bo&apos;yicha zalog puli</CardTitle></CardHeader>
+                <CardContent className="p-4 divide-y divide-border">
+                  {(Object.entries(yearly.groupedByMonth) as [string, MonthData][])
+                    .filter(([, m]) => Number(m.prepaymentPaid ?? 0) > 0)
+                    .map(([key, m]) => (
+                      <StatRow key={key} label={`${key.split('-')[1]}-oy`} value={formatCurrency(Number(m.prepaymentPaid))} highlight="green" />
+                    ))}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         )}
 
