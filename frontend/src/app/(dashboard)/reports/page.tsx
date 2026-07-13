@@ -140,7 +140,7 @@ export default function ReportsPage() {
                 <StatsCard title="Jami sotuv" value={Number(daily?.totalSalesAmount ?? 0)} icon={TrendingUp} color="emerald" />
                 <StatsCard title="Naqd tushum" value={Number(daily?.receivedCash ?? 0)} icon={Banknote} color="blue" />
                 <StatsCard title="Xarajat + Ishchi puli" value={Number(daily?.totalExpenses ?? 0) + Number(daily?.workerPayments ?? 0)} icon={TrendingDown} color="red" />
-                <StatsCard title="Sof foyda" value={Number(daily?.netProfit ?? 0)} icon={BarChart3} color={Number(daily?.netProfit ?? 0) >= 0 ? 'emerald' : 'red'} />
+                <StatsCard title="Kun oxiriga qolgan pul" value={Number(daily?.endOfDayBalance ?? 0)} icon={BarChart3} color={Number(daily?.endOfDayBalance ?? 0) >= 0 ? 'emerald' : 'red'} />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -225,7 +225,7 @@ export default function ReportsPage() {
                 <StatsCard title="Jami sotuv" value={Number(monthly?.totalSalesAmount ?? 0)} icon={TrendingUp} color="emerald" />
                 <StatsCard title="Naqd tushum" value={Number(monthly?.cashReceived ?? 0)} icon={Banknote} color="blue" />
                 <StatsCard title="Xarajat + Ishchi puli" value={Number(monthly?.totalExpenses ?? 0) + Number(monthly?.workerPaid ?? 0)} icon={TrendingDown} color="red" />
-                <StatsCard title="Sof foyda" value={Number(monthly?.netProfit ?? 0)} icon={BarChart3} color={Number(monthly?.netProfit ?? 0) >= 0 ? 'emerald' : 'red'} />
+                <StatsCard title="Kun oxiriga qolgan pul" value={Number(monthly?.endOfDayBalance ?? 0)} icon={BarChart3} color={Number(monthly?.endOfDayBalance ?? 0) >= 0 ? 'emerald' : 'red'} />
               </div>
               {monthly && (
                 <Card>
@@ -241,7 +241,7 @@ export default function ReportsPage() {
                     <StatRow label="Ishchi puli (hisoblangan)" value={formatCurrency(Number(monthly.workerAccrued ?? 0))} highlight="red" />
                     <StatRow label="Ishchi puli (to'langan)" value={formatCurrency(Number(monthly.workerPaid ?? 0))} highlight="green" />
                     <StatRow label="Qog'oziy foyda" value={formatCurrency(Number(monthly.paperProfit ?? 0))} />
-                    <StatRow label="Sof foyda" value={formatCurrency(Number(monthly.netProfit))} highlight={Number(monthly.netProfit) >= 0 ? 'green' : 'red'} />
+                    <StatRow label="Kun oxiriga qolgan pul" value={formatCurrency(Number(monthly.endOfDayBalance ?? 0))} highlight={Number(monthly.endOfDayBalance ?? 0) >= 0 ? 'green' : 'red'} />
                   </CardContent>
                 </Card>
               )}
@@ -340,7 +340,7 @@ export default function ReportsPage() {
                   <StatsCard title="Jami sotuv" value={Number(yearly?.totalSalesAmount ?? 0)} icon={TrendingUp} color="emerald" />
                   <StatsCard title="Naqd tushum" value={Number(yearly?.cashReceived ?? 0)} icon={Banknote} color="blue" />
                   <StatsCard title="Xarajat + Ishchi puli" value={Number(yearly?.totalExpenses ?? 0) + Number(yearly?.workerPaid ?? 0)} icon={TrendingDown} color="red" />
-                  <StatsCard title="Sof foyda" value={Number(yearly?.netProfit ?? 0)} icon={BarChart3} color={Number(yearly?.netProfit ?? 0) >= 0 ? 'emerald' : 'red'} />
+                  <StatsCard title="Kun oxiriga qolgan pul" value={Number(yearly?.endOfDayBalance ?? 0)} icon={BarChart3} color={Number(yearly?.endOfDayBalance ?? 0) >= 0 ? 'emerald' : 'red'} />
                 </div>
                 {yearly && (
                   <Card>
@@ -356,7 +356,7 @@ export default function ReportsPage() {
                       <StatRow label="Ishchi puli (hisoblangan)" value={formatCurrency(Number(yearly.workerAccrued ?? 0))} highlight="red" />
                       <StatRow label="Ishchi puli (to'langan)" value={formatCurrency(Number(yearly.workerPaid ?? 0))} highlight="green" />
                       <StatRow label="Qog'oziy foyda" value={formatCurrency(Number(yearly.paperProfit ?? 0))} />
-                      <StatRow label="Sof foyda" value={formatCurrency(Number(yearly.netProfit))} highlight={Number(yearly.netProfit) >= 0 ? 'green' : 'red'} />
+                      <StatRow label="Kun oxiriga qolgan pul" value={formatCurrency(Number(yearly.endOfDayBalance ?? 0))} highlight={Number(yearly.endOfDayBalance ?? 0) >= 0 ? 'green' : 'red'} />
                     </CardContent>
                   </Card>
                 )}

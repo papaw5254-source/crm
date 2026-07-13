@@ -142,6 +142,7 @@ export function moneyIncomeSourceLabel(source: string): string {
     DEBT_RETURN: 'Qaytarilgan qarz',
     FIRM_DEPOSIT: 'Firma depoziti',
     FIRM_OLD_DEBT: 'Firma oldingi qarzi',
+    END_OF_DAY_BALANCE: 'Kun oxiriga qolgan pul',
     OTHER: 'Boshqa',
   }
   return labels[source] || source
@@ -155,6 +156,7 @@ export function moneyIncomeSourceColor(source: string): string {
     DEBT_RETURN: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
     FIRM_DEPOSIT: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
     FIRM_OLD_DEBT: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    END_OF_DAY_BALANCE: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
     OTHER: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
   }
   return colors[source] || 'bg-muted text-muted-foreground'

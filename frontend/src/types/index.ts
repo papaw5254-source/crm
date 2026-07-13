@@ -263,7 +263,7 @@ export interface PrepaymentDelivery {
 }
 
 // ─── Money Incomes / Pul kirimlari ───────────────────────────────────────────
-export type MoneyIncomeSource = 'FOUNDER' | 'BANK' | 'DAILY_SALE' | 'DEBT_RETURN' | 'FIRM_DEPOSIT' | 'FIRM_OLD_DEBT' | 'OTHER'
+export type MoneyIncomeSource = 'FOUNDER' | 'BANK' | 'DAILY_SALE' | 'DEBT_RETURN' | 'FIRM_DEPOSIT' | 'FIRM_OLD_DEBT' | 'END_OF_DAY_BALANCE' | 'OTHER'
 
 export interface MoneyIncome {
   id: string
@@ -368,6 +368,8 @@ export interface DailyReport {
   totalExpenses: number
   netProfit: number
   paperProfit: number
+  previousDayBalance: number
+  endOfDayBalance: number
   stockAtEndOfDay: number
 }
 
@@ -390,6 +392,7 @@ export interface MonthlyReport {
   prepaymentDeliveredBricks: number
   netProfit: number
   paperProfit: number
+  endOfDayBalance: number
   groupedByDay: Record<string, DayData>
   bestSalesDay: { date: string; salesAmount: number; soldBricks: number } | null
   highestExpenseCategory: { category: string; amount: number } | null
@@ -412,6 +415,7 @@ export interface YearlyReport {
   prepaymentDeliveredBricks: number
   netProfit: number
   paperProfit: number
+  endOfDayBalance: number
   groupedByMonth: Record<string, MonthData>
   bestMonth: { month: string; salesAmount: number; soldBricks: number } | null
   highestExpenseCategory: { category: string; amount: number } | null
@@ -428,6 +432,7 @@ export interface DayData {
   prepaymentDeliveredBricks: number
   cashReceived: number
   profit: number
+  endOfDayBalance: number
 }
 
 export interface MonthData {
@@ -440,6 +445,7 @@ export interface MonthData {
   prepaymentDeliveredBricks: number
   cashReceived: number
   profit: number
+  endOfDayBalance: number
 }
 
 export interface DebtReport {
