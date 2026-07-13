@@ -64,7 +64,10 @@ export class KilnService {
       const bakedWorkerDebt = Math.max(0, bakedWorkerCost - bakedPaid);
       const qachigarDebt = Math.max(0, qachigarCost - qachigarPaid);
 
-      if (rawWorkerCost > 0) {
+      // Also create a row when a payment was made despite zero computed cost (e.g. the rate
+      // was never entered) - otherwise a paid amount with no cost silently vanishes instead
+      // of showing up anywhere.
+      if (rawWorkerCost > 0 || rawPaid > 0) {
         await manager.save(WorkerPayment, manager.create(WorkerPayment, {
           workerName: 'Ishchilar (humbuz kirdi)',
           category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
@@ -80,7 +83,7 @@ export class KilnService {
           }));
         }
 
-      if (bakedWorkerCost > 0) {
+      if (bakedWorkerCost > 0 || bakedPaid > 0) {
         await manager.save(WorkerPayment, manager.create(WorkerPayment, {
           workerName: 'Ishchilar (humbuz chiqdi)',
           category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
@@ -96,7 +99,7 @@ export class KilnService {
           }));
         }
 
-      if (qachigarCost > 0) {
+      if (qachigarCost > 0 || qachigarPaid > 0) {
         await manager.save(WorkerPayment, manager.create(WorkerPayment, {
           workerName: 'Qachigar',
           category: WorkerPaymentCategory.QACHIGAR,
@@ -112,7 +115,7 @@ export class KilnService {
         }));
       }
 
-      if (rawWorkerCost > 0 || bakedWorkerCost > 0 || qachigarCost > 0) {
+      if (rawWorkerCost > 0 || bakedWorkerCost > 0 || qachigarCost > 0 || rawPaid > 0 || bakedPaid > 0 || qachigarPaid > 0) {
         saved.rawWorkerRatePerBrick = rawRate || null;
         saved.rawWorkerTotalCost = rawWorkerCost;
         saved.rawWorkerPaidAmount = rawPaid;
@@ -370,7 +373,7 @@ export class KilnService {
           sourceId: operation.id,
         });
 
-      if (rawWorkerCost > 0) {
+      if (rawWorkerCost > 0 || rawPaid > 0) {
         await manager.save(WorkerPayment, manager.create(WorkerPayment, {
           workerName: 'Ishchilar (humbuz kirdi)',
           category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
@@ -387,7 +390,7 @@ export class KilnService {
         }));
       }
 
-      if (bakedWorkerCost > 0) {
+      if (bakedWorkerCost > 0 || bakedPaid > 0) {
         await manager.save(WorkerPayment, manager.create(WorkerPayment, {
           workerName: 'Ishchilar (humbuz chiqdi)',
           category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
@@ -404,7 +407,7 @@ export class KilnService {
         }));
       }
 
-      if (qachigarCost > 0) {
+      if (qachigarCost > 0 || qachigarPaid > 0) {
         await manager.save(WorkerPayment, manager.create(WorkerPayment, {
           workerName: 'Qachigar',
           category: WorkerPaymentCategory.QACHIGAR,
