@@ -229,7 +229,7 @@ export class ReportsService {
   async getDailyReport(query: DailyReportDto) {
     const date = query.date || new Date().toISOString().split('T')[0];
 
-    const [sales, incomes, expenses, debtPayments, kilnOps, reserveMovements, moneyIncomes, workerPayments, prepayments] = await Promise.all([
+    const [sales, incomes, expenses, debtPayments, kilnOps, reserveMovements, moneyIncomes, workerPayments, prepayments, prepaymentDeliveries] = await Promise.all([
       this.saleRepo.createQueryBuilder('s').where('s.date = :date', { date }).getMany(),
       this.inventoryRepo.createQueryBuilder('i').where('i.date = :date', { date }).getMany(),
       this.expenseRepo.createQueryBuilder('e').where('e.date = :date', { date }).getMany(),
@@ -239,7 +239,14 @@ export class ReportsService {
       this.moneyIncomeRepo.createQueryBuilder('mi').where('mi.date = :date', { date }).getMany(),
       this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date = :date', { date }).getMany(),
       this.prepaymentRepo.createQueryBuilder('p').where('p.date = :date', { date }).getMany(),
+      this.deliveryRepo.createQueryBuilder('pd').leftJoinAndSelect('pd.prepayment', 'p').where('pd.date = :date', { date }).getMany(),
     ]);
+
+    const rawDeliveries = prepaymentDeliveries.filter(x => x.prepayment?.brickType === BrickType.RAW_BRICK);
+    const bakedDeliveries = prepaymentDeliveries.filter(x => x.prepayment?.brickType !== BrickType.RAW_BRICK);
+    const prepaymentDeliveredRaw = rawDeliveries.reduce((s, x) => s + x.quantity, 0);
+    const prepaymentDeliveredBaked = bakedDeliveries.reduce((s, x) => s + x.quantity, 0);
+    const prepaymentDeliveredBricks = prepaymentDeliveredRaw + prepaymentDeliveredBaked;
 
     const rawSales = sales.filter(s => s.brickType === BrickType.RAW_BRICK);
     const bakedSales = sales.filter(s => s.brickType === BrickType.BAKED_BRICK);
@@ -294,8 +301,8 @@ export class ReportsService {
       rawBrickToKiln: kilnOps.reduce((s, x) => s + x.rawBricksEntered, 0),
       rawBrickToKilnFromReserve: kilnOps.filter(x => x.rawBrickSource === 'RESERVE').reduce((s, x) => s + x.rawBricksEntered, 0),
       rawBrickToKilnFromField: kilnOps.filter(x => x.rawBrickSource === 'FIELD').reduce((s, x) => s + x.rawBricksEntered, 0),
-      rawBrickSold: rawSales.reduce((s, x) => s + x.quantity, 0),
-      bakedBrickSold: bakedSales.reduce((s, x) => s + x.quantity, 0),
+      rawBrickSold: rawSales.reduce((s, x) => s + x.quantity, 0) + prepaymentDeliveredRaw,
+      bakedBrickSold: bakedSales.reduce((s, x) => s + x.quantity, 0) + prepaymentDeliveredBaked,
       reserveRawAdded: rawReserveMoves.filter(x => x.movementType === ReserveMovementType.ADD).reduce((s, x) => s + x.quantity, 0),
       reserveBakedAdded: bakedReserveMoves.filter(x => x.movementType === ReserveMovementType.ADD).reduce((s, x) => s + x.quantity, 0),
       reserveRawSold: rawReserveSales.reduce((s, x) => s + x.quantity, 0),
@@ -304,8 +311,9 @@ export class ReportsService {
       reserveRawRemoved: rawReserveMoves.filter(x => x.movementType === ReserveMovementType.REMOVE).reduce((s, x) => s + x.quantity, 0),
       reserveBakedRemoved: bakedReserveMoves.filter(x => x.movementType === ReserveMovementType.REMOVE).reduce((s, x) => s + x.quantity, 0),
       totalAddedBricks: incomes.reduce((s, x) => s + x.quantity, 0),
-      totalSoldBricks: sales.reduce((s, x) => s + x.quantity, 0),
+      totalSoldBricks: sales.reduce((s, x) => s + x.quantity, 0) + prepaymentDeliveredBricks,
       reserveSoldBricks: reserveSales.reduce((s, x) => s + x.quantity, 0),
+      prepaymentDeliveredBricks,
       totalSalesAmount,
       cashSales,
       cardSales,
@@ -340,7 +348,7 @@ export class ReportsService {
     const lastDay = new Date(year, month, 0).getDate();
     const dateTo = `${year}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
-    const [sales, expenses, debtPayments, incomes, moneyIncomes, workerPayments, prepayments] = await Promise.all([
+    const [sales, expenses, debtPayments, incomes, moneyIncomes, workerPayments, prepayments, prepaymentDeliveries] = await Promise.all([
       this.saleRepo.createQueryBuilder('s').where('s.date >= :df AND s.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.expenseRepo.createQueryBuilder('e').where('e.date >= :df AND e.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.debtPaymentRepo.createQueryBuilder('dp').where('dp.date >= :df AND dp.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
@@ -348,11 +356,13 @@ export class ReportsService {
       this.moneyIncomeRepo.createQueryBuilder('mi').where('mi.date >= :df AND mi.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date >= :df AND wp.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.prepaymentRepo.createQueryBuilder('p').where('p.date >= :df AND p.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
+      this.deliveryRepo.createQueryBuilder('pd').leftJoinAndSelect('pd.prepayment', 'p').where('pd.date >= :df AND pd.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
     ]);
 
     const reserveSales = sales.filter(x => x.isReserveSale);
     const reserveSoldBricks = reserveSales.reduce((s, x) => s + x.quantity, 0);
     const reserveSalesAmount = reserveSales.reduce((s, x) => s + Number(x.totalAmount), 0);
+    const prepaymentDeliveredBricks = prepaymentDeliveries.reduce((s, x) => s + x.quantity, 0);
 
     const totalSalesAmount = sales.reduce((s, x) => s + Number(x.totalAmount), 0);
     const cashReceived = this.cashSaleAmount(sales)
@@ -378,6 +388,8 @@ export class ReportsService {
       const dWorkerPayments = workerPayments.filter(x => x.date === dayStr);
       const dPrepayments = prepayments.filter(x => x.date === dayStr);
       const dPrepaymentPaid = dPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
+      const dPrepaymentDeliveries = prepaymentDeliveries.filter(x => x.date === dayStr);
+      const dPrepaymentDeliveredBricks = dPrepaymentDeliveries.reduce((s, x) => s + x.quantity, 0);
       const dCashReceived = this.cashSaleAmount(dSales)
         + dDebtPayments.reduce((s, x) => s + Number(x.amount), 0)
         + dPrepaymentPaid
@@ -386,11 +398,12 @@ export class ReportsService {
       const dWorkerAccrued = dWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
       dailyData[dayStr] = {
         salesAmount: dSales.reduce((s, x) => s + Number(x.totalAmount), 0),
-        soldBricks: dSales.reduce((s, x) => s + x.quantity, 0),
+        soldBricks: dSales.reduce((s, x) => s + x.quantity, 0) + dPrepaymentDeliveredBricks,
         addedBricks: dInc.reduce((s, x) => s + x.quantity, 0),
         expenses: dExpenses,
         workerAccrued: dWorkerAccrued,
         prepaymentPaid: dPrepaymentPaid,
+        prepaymentDeliveredBricks: dPrepaymentDeliveredBricks,
         cashReceived: dCashReceived,
         profit: dCashReceived - dExpenses - dWorkerAccrued,
       };
@@ -402,7 +415,8 @@ export class ReportsService {
     return {
       year, month, dateFrom, dateTo,
       totalAddedBricks: incomes.reduce((s, x) => s + x.quantity, 0),
-      totalSoldBricks: sales.reduce((s, x) => s + x.quantity, 0),
+      totalSoldBricks: sales.reduce((s, x) => s + x.quantity, 0) + prepaymentDeliveredBricks,
+      prepaymentDeliveredBricks,
       reserveSoldBricks, reserveSalesAmount,
       totalSalesAmount, cashReceived, debtSalesAmount, totalExpenses, workerAccrued, workerPaid, prepaymentPaid, netProfit, paperProfit,
       groupedByDay: dailyData,
@@ -418,7 +432,7 @@ export class ReportsService {
     const dateFrom = `${year}-01-01`;
     const dateTo = `${year}-12-31`;
 
-    const [sales, expenses, debtPayments, incomes, moneyIncomes, workerPayments, prepayments] = await Promise.all([
+    const [sales, expenses, debtPayments, incomes, moneyIncomes, workerPayments, prepayments, prepaymentDeliveries] = await Promise.all([
       this.saleRepo.createQueryBuilder('s').where('s.date >= :df AND s.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.expenseRepo.createQueryBuilder('e').where('e.date >= :df AND e.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.debtPaymentRepo.createQueryBuilder('dp').where('dp.date >= :df AND dp.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
@@ -426,11 +440,13 @@ export class ReportsService {
       this.moneyIncomeRepo.createQueryBuilder('mi').where('mi.date >= :df AND mi.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date >= :df AND wp.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.prepaymentRepo.createQueryBuilder('p').where('p.date >= :df AND p.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
+      this.deliveryRepo.createQueryBuilder('pd').leftJoinAndSelect('pd.prepayment', 'p').where('pd.date >= :df AND pd.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
     ]);
 
     const reserveSales = sales.filter(x => x.isReserveSale);
     const reserveSoldBricks = reserveSales.reduce((s, x) => s + x.quantity, 0);
     const reserveSalesAmount = reserveSales.reduce((s, x) => s + Number(x.totalAmount), 0);
+    const prepaymentDeliveredBricks = prepaymentDeliveries.reduce((s, x) => s + x.quantity, 0);
 
     const totalSalesAmount = sales.reduce((s, x) => s + Number(x.totalAmount), 0);
     const cashReceived = this.cashSaleAmount(sales)
@@ -456,6 +472,8 @@ export class ReportsService {
       const mWorkerPayments = workerPayments.filter(x => x.date.startsWith(prefix));
       const mPrepayments = prepayments.filter(x => x.date.startsWith(prefix));
       const mPrepaymentPaid = mPrepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
+      const mPrepaymentDeliveries = prepaymentDeliveries.filter(x => x.date.startsWith(prefix));
+      const mPrepaymentDeliveredBricks = mPrepaymentDeliveries.reduce((s, x) => s + x.quantity, 0);
       const mCashReceived = this.cashSaleAmount(mSales)
         + mDebtPayments.reduce((s, x) => s + Number(x.amount), 0)
         + mPrepaymentPaid
@@ -464,11 +482,12 @@ export class ReportsService {
       const mWorkerAccrued = mWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
       monthlyData[prefix] = {
         salesAmount: mSales.reduce((s, x) => s + Number(x.totalAmount), 0),
-        soldBricks: mSales.reduce((s, x) => s + x.quantity, 0),
+        soldBricks: mSales.reduce((s, x) => s + x.quantity, 0) + mPrepaymentDeliveredBricks,
         addedBricks: mInc.reduce((s, x) => s + x.quantity, 0),
         expenses: mExpenses,
         workerAccrued: mWorkerAccrued,
         prepaymentPaid: mPrepaymentPaid,
+        prepaymentDeliveredBricks: mPrepaymentDeliveredBricks,
         cashReceived: mCashReceived,
         profit: mCashReceived - mExpenses - mWorkerAccrued,
       };
@@ -479,7 +498,8 @@ export class ReportsService {
 
     return {
       year, totalAddedBricks: incomes.reduce((s, x) => s + x.quantity, 0),
-      totalSoldBricks: sales.reduce((s, x) => s + x.quantity, 0),
+      totalSoldBricks: sales.reduce((s, x) => s + x.quantity, 0) + prepaymentDeliveredBricks,
+      prepaymentDeliveredBricks,
       reserveSoldBricks, reserveSalesAmount,
       totalSalesAmount, cashReceived,
       debtSalesAmount: sales.filter(x => x.paymentType === PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0),
