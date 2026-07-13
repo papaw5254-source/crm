@@ -166,7 +166,7 @@ export function workerPaymentCategoryLabel(category: string): string {
     HUMBUZ_ESHIKCHI: 'Humbuz eshikchi',
     PRESS: 'Press',
     FIELD_RAW_LOADING: 'Dala xom yuklash',
-    RESERVE_RAW_LOADING: 'Xom bosish',
+    RESERVE_RAW_LOADING: 'Zaxiraga xom bosish',
     RESERVE_BAKED_LOADING: 'Zaxira pishgan bosish',
     RESERVE_SALE_LOADING: 'Zaxira sotuv yuklash',
     ROAD_PAYMENT: "Yo'l to'lovi",
