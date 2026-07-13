@@ -89,6 +89,7 @@ export default function SalesPage() {
       page: filterDate ? 1 : page,
       limit: filterDate ? 500 : limit,
       search: debouncedSearch,
+      isReserveSale: false,
       ...(filterDate ? { dateFrom: filterDate, dateTo: filterDate } : {}),
     }),
   })
@@ -207,19 +208,18 @@ export default function SalesPage() {
     else createMutation.mutate(data)
   }
 
-  const allRows = (data?.data ?? []).filter((s: Sale) => {
-    const v = (s as any).isReserveSale
-    return v !== true && v !== 'true' && v !== 1 && v !== 't'
-  })
+  const allRows = data?.data ?? []
 
   const filteredData = paymentTypeFilter === 'ALL'
     ? allRows
     : allRows.filter((s: Sale) => s.paymentType === paymentTypeFilter)
 
-  const totalAmount = allRows.reduce((s: number, x: Sale) => s + Number(x.totalAmount), 0)
-  const totalQty = allRows.reduce((s: number, x: Sale) => s + x.quantity, 0)
-  const rawQty = allRows.filter((s: Sale) => s.brickType === 'RAW_BRICK').reduce((s: number, x: Sale) => s + x.quantity, 0)
-  const bakedQty = allRows.filter((s: Sale) => s.brickType === 'BAKED_BRICK' || !s.brickType).reduce((s: number, x: Sale) => s + x.quantity, 0)
+  // Backend-computed totals span every filtered row, not just the current page
+  // (allRows.reduce() here would only ever cover the current page's ~10 rows).
+  const totalAmount = data?.meta?.totalAmount ?? 0
+  const totalQty = data?.meta?.totalQuantity ?? 0
+  const rawQty = data?.meta?.totalRawQuantity ?? 0
+  const bakedQty = data?.meta?.totalBakedQuantity ?? 0
 
   const columns = [
     { key: 'date', header: 'Sana', cell: (r: Sale) => <span className="font-medium">{formatDate(r.date)}</span> },

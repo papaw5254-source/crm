@@ -129,7 +129,7 @@ export class SalesService {
 
     if (search) {
       qb.where(
-        'sale.customerName ILIKE :search OR sale.customerPhone ILIKE :search OR sale.description ILIKE :search',
+        '(sale.customerName ILIKE :search OR sale.customerPhone ILIKE :search OR sale.description ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -147,6 +147,8 @@ export class SalesService {
       .clone()
       .select('COALESCE(SUM(sale.totalAmount), 0)', 'totalAmount')
       .addSelect('COALESCE(SUM(sale.quantity), 0)', 'totalQuantity')
+      .addSelect(`COALESCE(SUM(CASE WHEN sale.brickType = 'RAW_BRICK' THEN sale.quantity ELSE 0 END), 0)`, 'totalRawQuantity')
+      .addSelect(`COALESCE(SUM(CASE WHEN sale.brickType = 'BAKED_BRICK' OR sale.brickType IS NULL THEN sale.quantity ELSE 0 END), 0)`, 'totalBakedQuantity')
       .getRawOne();
 
     qb.orderBy(`sale.${sortBy}`, sortOrder as 'ASC' | 'DESC').skip(skip).take(limit);
@@ -161,6 +163,8 @@ export class SalesService {
         totalPages: Math.ceil(total / limit),
         totalAmount: Number(totals?.totalAmount ?? totals?.totalamount ?? 0),
         totalQuantity: Number(totals?.totalQuantity ?? totals?.totalquantity ?? 0),
+        totalRawQuantity: Number(totals?.totalRawQuantity ?? totals?.totalrawquantity ?? 0),
+        totalBakedQuantity: Number(totals?.totalBakedQuantity ?? totals?.totalbakedquantity ?? 0),
       },
     };
   }

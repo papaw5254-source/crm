@@ -18,10 +18,14 @@ export class SalesQueryDto extends PaginationDto {
 
   @ApiPropertyOptional({ type: Boolean })
   @IsOptional()
-  @Transform(({ value }) => {
-    if (value === true || value === 'true') return true;
-    if (value === false || value === 'false') return false;
-    return value;
+  @Transform(({ obj, key }) => {
+    // Read the raw source value rather than `value`: with enableImplicitConversion
+    // enabled globally, `value` may already have been coerced via Boolean(str),
+    // which turns the string "false" into `true` before this transform even runs.
+    const raw = obj[key];
+    if (raw === true || raw === 'true') return true;
+    if (raw === false || raw === 'false') return false;
+    return raw;
   })
   @IsBoolean()
   isReserveSale?: boolean;

@@ -492,6 +492,10 @@ export interface PaginatedResponse<T> {
     page: number
     limit: number
     totalPages: number
+    totalAmount?: number
+    totalQuantity?: number
+    totalRawQuantity?: number
+    totalBakedQuantity?: number
   }
 }
 
