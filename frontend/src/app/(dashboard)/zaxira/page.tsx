@@ -70,6 +70,13 @@ export default function ZaxiraPage() {
   const [saleDialogOpen, setSaleDialogOpen] = useState(false)
   const { page: salePage, limit: saleLimit, setPage: setSalePage } = usePagination()
 
+  // eski zaxira — xom/pishgan g'isht qoldig'ini ishchi pulisiz qo'shish
+  const [oldStockDialogOpen, setOldStockDialogOpen] = useState(false)
+  const [oldStockBrickType, setOldStockBrickType] = useState<BrickType>('RAW_BRICK')
+  const [oldStockQtyStr, setOldStockQtyStr] = useState('')
+  const [oldStockDate, setOldStockDate] = useState(new Date().toISOString().split('T')[0])
+  const [oldStockReason, setOldStockReason] = useState('')
+
   // eski qarz — harakati
   const [debtDialogOpen, setDebtDialogOpen] = useState(false)
   const [debtAmountStr, setDebtAmountStr] = useState('')
@@ -288,6 +295,29 @@ export default function ZaxiraPage() {
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
+  const oldStockMutation = useMutation({
+    mutationFn: () =>
+      reserveService.create({
+        brickType: oldStockBrickType,
+        movementType: 'ADD',
+        quantity: Number(oldStockQtyStr),
+        date: oldStockDate,
+        reason: oldStockReason || 'Eski zaxira qoldig\'i',
+        // No workerRatePerBrick/workerPaidAmount - this is a stock backfill/correction,
+        // not a new loading event, so it must not create a worker payment.
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reserve-movements'] })
+      queryClient.invalidateQueries({ queryKey: ['reserve-balance'] })
+      toast.success("Eski zaxira qo'shildi")
+      setOldStockDialogOpen(false)
+      setOldStockQtyStr('')
+      setOldStockReason('')
+      setOldStockDate(new Date().toISOString().split('T')[0])
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
   const oldDebtMutation = useMutation({
     mutationFn: ({ date, amount }: { date: string; amount: number }) =>
       workerPaymentsService.create({
@@ -452,9 +482,14 @@ export default function ZaxiraPage() {
         title="Zaxira boshqaruvi"
         description="Xom va pishgan g'isht zaxirasi"
         actions={
-          <Button variant="outline" onClick={() => setDebtDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Eski qarz qo&apos;shish
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => setOldStockDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Eski zaxira qo&apos;shish
+            </Button>
+            <Button variant="outline" onClick={() => setDebtDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Eski qarz qo&apos;shish
+            </Button>
+          </div>
         }
       />
 
@@ -862,6 +897,48 @@ export default function ZaxiraPage() {
       </Dialog>
 
       {/* Eski qarz dialog — harakati */}
+      {/* Eski zaxira qo'shish — xom/pishgan g'isht qoldig'i, ishchi pulisiz */}
+      <Dialog open={oldStockDialogOpen} onOpenChange={(o: boolean) => { setOldStockDialogOpen(o); if (!o) { setOldStockQtyStr(''); setOldStockReason(''); setOldStockDate(new Date().toISOString().split('T')[0]) } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Eski zaxira qo&apos;shish</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>G&apos;isht turi</Label>
+              <Select value={oldStockBrickType} onValueChange={(v: string) => setOldStockBrickType(v as BrickType)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="RAW_BRICK">Xom g&apos;isht</SelectItem>
+                  <SelectItem value="BAKED_BRICK">Pishgan g&apos;isht</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Miqdor (dona)</Label>
+              <Input type="number" placeholder="0" value={oldStockQtyStr} onChange={(e) => setOldStockQtyStr(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Sana</Label>
+              <Input type="date" value={oldStockDate} onChange={(e) => setOldStockDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Izoh</Label>
+              <Input placeholder="Eski zaxira qoldig'i..." value={oldStockReason} onChange={(e) => setOldStockReason(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOldStockDialogOpen(false)}>Bekor qilish</Button>
+            <Button
+              disabled={!oldStockQtyStr || Number(oldStockQtyStr) <= 0 || oldStockMutation.isPending}
+              onClick={() => oldStockMutation.mutate()}
+            >
+              {oldStockMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={debtDialogOpen} onOpenChange={(o: boolean) => { setDebtDialogOpen(o); if (!o) { setDebtAmountStr(''); setDebtDate(new Date().toISOString().split('T')[0]) } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
