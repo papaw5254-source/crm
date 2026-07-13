@@ -48,6 +48,7 @@ export default function DebtorsPage() {
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [showActive, setShowActive] = useState(true)
+  const [filterDate, setFilterDate] = useState('')
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -101,6 +102,7 @@ export default function DebtorsPage() {
       d.fullName.toLowerCase().includes(search.toLowerCase()) ||
       (d.phone && d.phone.includes(search))
     )
+    .filter((d: Debtor) => !filterDate || d.lastDebtDate === filterDate)
 
   const totalDebt = debtors.reduce((s: number, d: Debtor) => s + Number(d.totalDebt), 0)
   const totalPaid = debtors.reduce((s: number, d: Debtor) => s + Number(d.paidAmount), 0)
@@ -136,7 +138,18 @@ export default function DebtorsPage() {
                 Barchasi
               </Button>
             </div>
+            <div className="flex gap-2 items-center">
+              <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-40" />
+              {filterDate && (
+                <Button variant="outline" size="sm" onClick={() => setFilterDate('')}>✕ Tozalash</Button>
+              )}
+            </div>
           </div>
+          {filterDate && (
+            <p className="text-xs text-muted-foreground">
+              Faqat oxirgi nasiya sanasi <span className="font-medium">{formatDate(filterDate)}</span> bo&apos;lgan qarzdorlar ko&apos;rsatilmoqda.
+            </p>
+          )}
 
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
