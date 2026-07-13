@@ -350,6 +350,10 @@ export class ReportsService {
       this.prepaymentRepo.createQueryBuilder('p').where('p.date >= :df AND p.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
     ]);
 
+    const reserveSales = sales.filter(x => x.isReserveSale);
+    const reserveSoldBricks = reserveSales.reduce((s, x) => s + x.quantity, 0);
+    const reserveSalesAmount = reserveSales.reduce((s, x) => s + Number(x.totalAmount), 0);
+
     const totalSalesAmount = sales.reduce((s, x) => s + Number(x.totalAmount), 0);
     const cashReceived = this.cashSaleAmount(sales)
       + debtPayments.reduce((s, x) => s + Number(x.amount), 0)
@@ -396,6 +400,7 @@ export class ReportsService {
       year, month, dateFrom, dateTo,
       totalAddedBricks: incomes.reduce((s, x) => s + x.quantity, 0),
       totalSoldBricks: sales.reduce((s, x) => s + x.quantity, 0),
+      reserveSoldBricks, reserveSalesAmount,
       totalSalesAmount, cashReceived, debtSalesAmount, totalExpenses, workerAccrued, workerPaid, netProfit, paperProfit,
       groupedByDay: dailyData,
       expenseByCategory,
@@ -419,6 +424,10 @@ export class ReportsService {
       this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date >= :df AND wp.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.prepaymentRepo.createQueryBuilder('p').where('p.date >= :df AND p.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
     ]);
+
+    const reserveSales = sales.filter(x => x.isReserveSale);
+    const reserveSoldBricks = reserveSales.reduce((s, x) => s + x.quantity, 0);
+    const reserveSalesAmount = reserveSales.reduce((s, x) => s + Number(x.totalAmount), 0);
 
     const totalSalesAmount = sales.reduce((s, x) => s + Number(x.totalAmount), 0);
     const cashReceived = this.cashSaleAmount(sales)
@@ -465,6 +474,7 @@ export class ReportsService {
     return {
       year, totalAddedBricks: incomes.reduce((s, x) => s + x.quantity, 0),
       totalSoldBricks: sales.reduce((s, x) => s + x.quantity, 0),
+      reserveSoldBricks, reserveSalesAmount,
       totalSalesAmount, cashReceived,
       debtSalesAmount: sales.filter(x => x.paymentType === PaymentType.DEBT).reduce((s, x) => s + Number(x.totalAmount), 0),
       totalExpenses, workerAccrued, workerPaid, netProfit, paperProfit,
@@ -633,6 +643,9 @@ export class ReportsService {
       sales: {
         rawBrickSold: daily.rawBrickSold,
         bakedBrickSold: daily.bakedBrickSold,
+        reserveSoldBricks: daily.reserveSoldBricks,
+        reserveRawSold: daily.reserveRawSold,
+        reserveBakedSold: daily.reserveBakedSold,
         cashSales: daily.cashSales,
         cardSales: daily.cardSales,
         bankTransferSales: daily.bankTransferSales,

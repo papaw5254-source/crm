@@ -151,6 +151,7 @@ export default function ReportsPage() {
                     <StatRow label="Pishgan g'isht chiqdi (humbuz)" value={formatNumber(daily?.bakedBrickProduced ?? 0) + ' dona'} />
                     <StatRow label="Xom g'isht sotildi" value={formatNumber(daily?.rawBrickSold ?? 0) + ' dona'} />
                     <StatRow label="Pishgan g'isht sotildi" value={formatNumber(daily?.bakedBrickSold ?? 0) + ' dona'} />
+                    <StatRow label="Zaxira sotuvidan g'isht sotildi" value={formatNumber(daily?.reserveSoldBricks ?? 0) + ' dona'} />
                     <StatRow label="Naqd sotuvlar" value={formatCurrency(Number(daily?.cashSales ?? 0))} highlight="green" />
                     <StatRow label="Karta sotuvlar" value={formatCurrency(Number(daily?.cardSales ?? 0))} highlight="green" />
                     <StatRow label="Perechisleniya" value={formatCurrency(Number(daily?.bankTransferSales ?? 0))} highlight="green" />
@@ -228,6 +229,8 @@ export default function ReportsPage() {
                 <Card>
                   <CardContent className="p-4 divide-y divide-border">
                     <StatRow label="Jami sotuv (qog'oz)" value={formatCurrency(Number(monthly.totalSalesAmount))} />
+                    <StatRow label="Zaxira sotuvidan sotilgan g'isht" value={formatNumber(Number(monthly.reserveSoldBricks ?? 0)) + ' dona'} />
+                    <StatRow label="Zaxira sotuvidan summa" value={formatCurrency(Number(monthly.reserveSalesAmount ?? 0))} />
                     <StatRow label="Nasiya sotuvlar" value={formatCurrency(Number(monthly.debtSalesAmount))} highlight="red" />
                     <StatRow label="Naqd tushum" value={formatCurrency(Number(monthly.cashReceived))} highlight="green" />
                     <StatRow label="Xarajatlar" value={formatCurrency(Number(monthly.totalExpenses))} highlight="red" />
@@ -313,6 +316,8 @@ export default function ReportsPage() {
                   <Card>
                     <CardContent className="p-4 divide-y divide-border">
                       <StatRow label="Jami sotuv (qog'oz)" value={formatCurrency(Number(yearly.totalSalesAmount))} />
+                      <StatRow label="Zaxira sotuvidan sotilgan g'isht" value={formatNumber(Number(yearly.reserveSoldBricks ?? 0)) + ' dona'} />
+                      <StatRow label="Zaxira sotuvidan summa" value={formatCurrency(Number(yearly.reserveSalesAmount ?? 0))} />
                       <StatRow label="Nasiya sotuvlar" value={formatCurrency(Number(yearly.debtSalesAmount))} highlight="red" />
                       <StatRow label="Naqd tushum" value={formatCurrency(Number(yearly.cashReceived))} highlight="green" />
                       <StatRow label="Xarajatlar" value={formatCurrency(Number(yearly.totalExpenses))} highlight="red" />

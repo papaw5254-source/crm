@@ -348,6 +348,9 @@ export interface DailyReport {
   bakedBrickProduced: number
   rawBrickSold: number
   bakedBrickSold: number
+  reserveSoldBricks: number
+  reserveRawSold: number
+  reserveBakedSold: number
   totalSoldBricks: number
   totalAddedBricks: number
   totalSalesAmount: number
@@ -375,6 +378,8 @@ export interface MonthlyReport {
   dateTo: string
   totalAddedBricks: number
   totalSoldBricks: number
+  reserveSoldBricks: number
+  reserveSalesAmount: number
   totalSalesAmount: number
   cashReceived: number
   debtSalesAmount: number
@@ -393,6 +398,8 @@ export interface YearlyReport {
   year: number
   totalAddedBricks: number
   totalSoldBricks: number
+  reserveSoldBricks: number
+  reserveSalesAmount: number
   totalSalesAmount: number
   cashReceived: number
   debtSalesAmount: number
