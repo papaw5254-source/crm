@@ -301,8 +301,7 @@ export interface WorkerPayment {
   amount: number
   paidAmount: number
   remainingDebt: number
-  month: number
-  year: number
+  month: string
   date: string
   description?: string
   sourceType?: string

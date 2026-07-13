@@ -110,8 +110,16 @@ export default function IshchilarPage() {
   const paidAmount = watch('paidAmount') ?? 0
   const remainingDebt = Number(debtPrev) + Number(amount) - Number(paidAmount)
 
+  // The backend only knows `month` as a "YYYY-MM" string derived from `date`; it has no
+  // `year` field at all. Sending the form's separate month/year numbers as-is gets the
+  // whole request rejected (year isn't whitelisted) - build the real API payload here.
+  const toPayload = (d: FormData) => {
+    const { year, month, ...rest } = d
+    return { ...rest, month: `${year}-${String(month).padStart(2, '0')}` }
+  }
+
   const createMutation = useMutation({
-    mutationFn: (d: FormData) => workerPaymentsService.create(d as Parameters<typeof workerPaymentsService.create>[0]),
+    mutationFn: (d: FormData) => workerPaymentsService.create(toPayload(d) as Parameters<typeof workerPaymentsService.create>[0]),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
@@ -123,7 +131,7 @@ export default function IshchilarPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: (d: FormData) => workerPaymentsService.update(editItem!.id, d as Parameters<typeof workerPaymentsService.update>[1]),
+    mutationFn: (d: FormData) => workerPaymentsService.update(editItem!.id, toPayload(d) as Parameters<typeof workerPaymentsService.update>[1]),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
       toast.success("Ishchi to'lovi yangilandi")
@@ -151,8 +159,11 @@ export default function IshchilarPage() {
     setValue('debtFromPreviousMonth', Number(item.debtFromPreviousMonth))
     setValue('amount', Number(item.amount))
     setValue('paidAmount', Number(item.paidAmount))
-    setValue('month', item.month)
-    setValue('year', item.year)
+    // item.month is a "YYYY-MM" string (or absent) - split it back into the two number
+    // dropdowns the form actually edits, falling back to the row's own date.
+    const [itemYear, itemMonth] = (item.month || item.date.slice(0, 7)).split('-').map(Number)
+    setValue('month', itemMonth || currentMonth)
+    setValue('year', itemYear || currentYear)
     setValue('date', item.date)
     setValue('description', item.description || '')
     setDialogOpen(true)
@@ -175,7 +186,13 @@ export default function IshchilarPage() {
         </span>
       ),
     },
-    { key: 'month', header: 'Oy', cell: (r: WorkerPayment) => <span className="text-sm">{MONTHS[r.month - 1]} {r.year}</span> },
+    {
+      key: 'month', header: 'Oy',
+      cell: (r: WorkerPayment) => {
+        const [y, m] = (r.month || r.date.slice(0, 7)).split('-').map(Number)
+        return <span className="text-sm">{MONTHS[m - 1]} {y}</span>
+      },
+    },
     { key: 'amount', header: "Hisoblangan", cell: (r: WorkerPayment) => <span className="font-medium">{formatCurrency(Number(r.amount))}</span> },
     {
       key: 'paid',
@@ -216,6 +233,10 @@ export default function IshchilarPage() {
       ),
     },
   ]
+
+  const [editYear, editMonth] = editItem
+    ? (editItem.month || editItem.date.slice(0, 7)).split('-').map(Number)
+    : [currentYear, currentMonth]
 
   return (
     <div className="space-y-6">
@@ -323,7 +344,7 @@ export default function IshchilarPage() {
 
       {/* Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg" key={editItem?.id ?? 'new'}>
           <DialogHeader>
             <DialogTitle>{editItem ? "To'lovni tahrirlash" : "To'lov qo'shish"}</DialogTitle>
           </DialogHeader>
@@ -348,7 +369,7 @@ export default function IshchilarPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Oy</Label>
-                <Select defaultValue={String(editItem?.month ?? currentMonth)} onValueChange={(v: string) => setValue('month', Number(v))}>
+                <Select defaultValue={String(editMonth)} onValueChange={(v: string) => setValue('month', Number(v))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {MONTHS.map((m, i) => <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>)}
@@ -357,7 +378,7 @@ export default function IshchilarPage() {
               </div>
               <div className="space-y-2">
                 <Label>Yil</Label>
-                <Select defaultValue={String(editItem?.year ?? currentYear)} onValueChange={(v: string) => setValue('year', Number(v))}>
+                <Select defaultValue={String(editYear)} onValueChange={(v: string) => setValue('year', Number(v))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {[2023, 2024, 2025, 2026].map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
