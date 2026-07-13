@@ -45,6 +45,7 @@ export default function PressPage() {
   const [eskiQarzOpen, setEskiQarzOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteWpId, setDeleteWpId] = useState<string | null>(null)
+  const [filterDate, setFilterDate] = useState('')
 
   const { data: wpReport } = useQuery({
     queryKey: ['worker-payments-report', THIS_MONTH, THIS_YEAR],
@@ -57,6 +58,7 @@ export default function PressPage() {
     queryKey: ['worker-payments', 'PRESS', THIS_MONTH, THIS_YEAR],
     queryFn: () => workerPaymentsService.getAll({ category: 'PRESS', month: THIS_MONTH, year: THIS_YEAR, limit: 100 }),
   })
+  const filteredPayments = (payments?.data ?? []).filter((r: WorkerPayment) => !filterDate || r.date === filterDate)
 
   const { data: kirimlar } = useQuery({
     queryKey: ['inventory-all'],
@@ -240,9 +242,32 @@ export default function PressPage() {
         </Card>
       )}
 
+      {/* Sana bo'yicha filtr */}
+      <div className="flex items-center gap-2">
+        <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-40" />
+        {filterDate && (
+          <Button variant="outline" size="sm" onClick={() => setFilterDate('')}>✕ Tozalash</Button>
+        )}
+      </div>
+
+      {filterDate && (
+        <div className="grid grid-cols-2 gap-4">
+          <StatsCard
+            title={`${formatDate(filterDate)} — hisoblangan`}
+            value={filteredPayments.reduce((s, r) => s + Number(r.amount), 0)}
+            icon={HardHat} color="amber"
+          />
+          <StatsCard
+            title={`${formatDate(filterDate)} — berildi`}
+            value={filteredPayments.reduce((s, r) => s + Number(r.paidAmount), 0)}
+            icon={HardHat} color="emerald"
+          />
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-4">
-          <DataTable columns={columns} data={payments?.data ?? []} loading={isLoading} />
+          <DataTable columns={columns} data={filteredPayments} loading={isLoading} />
         </CardContent>
       </Card>
 

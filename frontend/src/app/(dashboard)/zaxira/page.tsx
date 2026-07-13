@@ -65,6 +65,7 @@ export default function ZaxiraPage() {
   const [movementDialogOpen, setMovementDialogOpen] = useState(false)
   const [editMovement, setEditMovement] = useState<ReserveMovement | null>(null)
   const { page: movPage, limit: movLimit, setPage: setMovPage } = usePagination()
+  const [filterDate, setFilterDate] = useState('')
 
   // sale tab state
   const [saleDialogOpen, setSaleDialogOpen] = useState(false)
@@ -145,17 +146,23 @@ export default function ZaxiraPage() {
   })
 
   const { data: movements, isLoading: movLoading } = useQuery({
-    queryKey: ['reserve-movements', movPage, movLimit, brickTypeFilter],
+    queryKey: ['reserve-movements', movPage, movLimit, brickTypeFilter, filterDate],
     queryFn: () =>
       reserveService.getAll({
-        page: movPage,
-        limit: movLimit,
+        page: filterDate ? 1 : movPage,
+        limit: filterDate ? 500 : movLimit,
+        ...(filterDate ? { dateFrom: filterDate, dateTo: filterDate } : {}),
       }),
   })
 
   const { data: reserveSales, isLoading: salesLoading } = useQuery({
-    queryKey: ['reserve-sales', salePage, saleLimit, true],
-    queryFn: () => salesService.getAll({ page: salePage, limit: saleLimit, isReserveSale: true }),
+    queryKey: ['reserve-sales', salePage, saleLimit, true, filterDate],
+    queryFn: () => salesService.getAll({
+      page: filterDate ? 1 : salePage,
+      limit: filterDate ? 500 : saleLimit,
+      isReserveSale: true,
+      ...(filterDate ? { dateFrom: filterDate, dateTo: filterDate } : {}),
+    }),
   })
 
   // ─── Movement form ─────────────────────────────────────────────────────────
@@ -601,6 +608,14 @@ export default function ZaxiraPage() {
         )}
       </div>
 
+      {/* Sana bo'yicha filtr */}
+      <div className="flex items-center gap-2">
+        <Input type="date" value={filterDate} onChange={(e) => { setFilterDate(e.target.value); setMovPage(1); setSalePage(1) }} className="w-40" />
+        {filterDate && (
+          <Button variant="outline" size="sm" onClick={() => { setFilterDate(''); setMovPage(1); setSalePage(1) }}>✕ Tozalash</Button>
+        )}
+      </div>
+
       {/* Main Tabs */}
       <Tabs defaultValue="harakatlar">
         <TabsList>
@@ -624,6 +639,21 @@ export default function ZaxiraPage() {
               <Plus className="h-4 w-4 mr-1" /> Harakat qo&apos;shish
             </Button>
           </div>
+
+          {filterDate && (
+            <div className="grid grid-cols-2 gap-4">
+              <StatsCard
+                title={`${formatDate(filterDate)} — qo'shildi`}
+                value={movementRows.filter((m: ReserveMovement) => m.movementType === 'ADD').reduce((s: number, x: ReserveMovement) => s + Number(x.quantity), 0)}
+                icon={Warehouse} color="emerald" format="number" suffix="dona"
+              />
+              <StatsCard
+                title={`${formatDate(filterDate)} — kamaydi`}
+                value={movementRows.filter((m: ReserveMovement) => m.movementType !== 'ADD').reduce((s: number, x: ReserveMovement) => s + Number(x.quantity), 0)}
+                icon={Warehouse} color="red" format="number" suffix="dona"
+              />
+            </div>
+          )}
 
           <Tabs value={brickTypeFilter} onValueChange={(v: string) => { setBrickTypeFilter(v as BrickType | 'ALL'); setMovPage(1) }}>
             <TabsList>

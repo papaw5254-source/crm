@@ -44,14 +44,18 @@ export default function InventoryPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<InventoryIncome | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [filterDate, setFilterDate] = useState('')
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
 
   const today = new Date().toISOString().split('T')[0]
 
   const { data, isLoading } = useQuery({
-    queryKey: ['inventory', page, limit, debouncedSearch],
-    queryFn: () => inventoryService.getAll({ page, limit, search: debouncedSearch }),
+    queryKey: ['inventory', page, limit, debouncedSearch, filterDate],
+    queryFn: () => inventoryService.getAll({
+      page, limit, search: debouncedSearch,
+      ...(filterDate ? { dateFrom: filterDate, dateTo: filterDate } : {}),
+    }),
   })
 
   // ── Inventory form ──────────────────────────────────────────────────────────
@@ -199,14 +203,21 @@ export default function InventoryPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <StatsCard title="Jami kirimlar" value={data?.meta?.total ?? 0} icon={PackagePlus} color="emerald" format="number" suffix="ta" />
+        <StatsCard title="Jami miqdor" value={data?.meta?.totalQuantity ?? 0} icon={PackagePlus} color="amber" format="number" suffix="dona" />
       </div>
 
       {/* Kirim table */}
       <Card>
         <CardContent className="p-4 space-y-4">
-          <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Izoh bo'yicha qidirish..." className="max-w-sm" />
+          <div className="flex flex-wrap gap-2 items-center">
+            <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Izoh bo'yicha qidirish..." className="max-w-sm" />
+            <Input type="date" value={filterDate} onChange={(e) => { setFilterDate(e.target.value); setPage(1) }} className="w-40" />
+            {filterDate && (
+              <Button variant="outline" size="sm" onClick={() => { setFilterDate(''); setPage(1) }}>✕ Tozalash</Button>
+            )}
+          </div>
           {data?.data.length === 0 && !isLoading ? (
             <EmptyState icon={PackagePlus} title="Kirim yo'q" description="Birinchi kirimni qo'shing"
               action={<Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" />Kirim qo&apos;shish</Button>}

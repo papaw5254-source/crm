@@ -49,6 +49,7 @@ export default function HumbuzPage() {
   const isAdmin = user?.role === 'ADMIN'
   const queryClient = useQueryClient()
   const [kilnFilter, setKilnFilter] = useState<KilnName | 'ALL'>('ALL')
+  const [filterDate, setFilterDate] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<KilnOperation | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -200,7 +201,9 @@ export default function HumbuzPage() {
   }
 
   const allOpsRaw = (allOpsData?.data ?? []) as KilnOperation[]
-  const allOps = kilnFilter === 'ALL' ? allOpsRaw : allOpsRaw.filter((op) => op.kilnName === kilnFilter)
+  const allOps = allOpsRaw
+    .filter((op) => kilnFilter === 'ALL' || op.kilnName === kilnFilter)
+    .filter((op) => !filterDate || op.date === filterDate)
   const totalRawIn = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.rawBricksEntered), 0)
   const totalBakedOut = allOps.reduce((s: number, x: KilnOperation) => s + Number(x.bakedBricksOutput), 0)
 
@@ -334,6 +337,14 @@ export default function HumbuzPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Sana bo'yicha filtr */}
+      <div className="flex items-center gap-2">
+        <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-40" />
+        {filterDate && (
+          <Button variant="outline" size="sm" onClick={() => setFilterDate('')}>✕ Tozalash</Button>
+        )}
+      </div>
 
       {/* Kiln filter tabs */}
       <div className="flex gap-1 border-b">

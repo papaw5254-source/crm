@@ -62,6 +62,7 @@ export default function IshchilarPage() {
   const [editItem, setEditItem] = useState<WorkerPayment | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<WorkerPaymentCategory | 'ALL'>('ALL')
+  const [filterDate, setFilterDate] = useState('')
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
   const currentMonth = new Date().getMonth() + 1
@@ -70,18 +71,20 @@ export default function IshchilarPage() {
   const [reportYear, setReportYear] = useState(currentYear)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['worker-payments', page, limit, debouncedSearch, categoryFilter],
+    queryKey: ['worker-payments', page, limit, debouncedSearch, categoryFilter, filterDate],
     queryFn: () => workerPaymentsService.getAll({
       page, limit, search: debouncedSearch,
       ...(categoryFilter !== 'ALL' ? { category: categoryFilter } : {}),
+      ...(filterDate ? { dateFrom: filterDate, dateTo: filterDate } : {}),
     }),
   })
 
   // Separate query for accurate totals (all records, no pagination)
   const { data: allData } = useQuery({
-    queryKey: ['worker-payments-all-totals', debouncedSearch, categoryFilter],
+    queryKey: ['worker-payments-all-totals', debouncedSearch, categoryFilter, filterDate],
     queryFn: () => workerPaymentsService.getAll({
       page: 1, limit: 9999, search: debouncedSearch,
+      ...(filterDate ? { dateFrom: filterDate, dateTo: filterDate } : {}),
       ...(categoryFilter !== 'ALL' ? { category: categoryFilter } : {}),
     }),
   })
@@ -274,6 +277,10 @@ export default function IshchilarPage() {
                     {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{workerPaymentCategoryLabel(c)}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                <Input type="date" value={filterDate} onChange={(e) => { setFilterDate(e.target.value); setPage(1) }} className="w-40" />
+                {filterDate && (
+                  <Button variant="outline" size="sm" onClick={() => { setFilterDate(''); setPage(1) }}>✕ Tozalash</Button>
+                )}
               </div>
               {allItems.length === 0 && !isLoading ? (
                 <EmptyState icon={HardHat} title="Ishchi yo'q" description="Birinchi ishchi to'lovini qo'shing" action={<Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />To&apos;lov qo&apos;shish</Button>} />

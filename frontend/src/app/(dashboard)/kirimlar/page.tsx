@@ -44,6 +44,7 @@ export default function KirimlarPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [sourceFilter, setSourceFilter] = useState<MoneyIncomeSource | 'ALL'>('ALL')
+  const [filterDate, setFilterDate] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<MoneyIncome | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -51,13 +52,14 @@ export default function KirimlarPage() {
   const debouncedSearch = useDebounce(search)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['money-incomes', page, limit, debouncedSearch, sourceFilter],
+    queryKey: ['money-incomes', page, limit, debouncedSearch, sourceFilter, filterDate],
     queryFn: () =>
       moneyIncomesService.getAll({
-        page,
-        limit,
+        page: filterDate ? 1 : page,
+        limit: filterDate ? 500 : limit,
         search: debouncedSearch,
         source: sourceFilter !== 'ALL' ? sourceFilter : undefined,
+        ...(filterDate ? { dateFrom: filterDate, dateTo: filterDate } : {}),
       }),
   })
 
@@ -192,7 +194,13 @@ export default function KirimlarPage() {
 
       <Card>
         <CardContent className="p-4 space-y-4">
-          <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Kimdan yoki izoh bo'yicha..." className="max-w-sm" />
+          <div className="flex flex-wrap gap-2 items-center">
+            <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1) }} placeholder="Kimdan yoki izoh bo'yicha..." className="max-w-sm" />
+            <Input type="date" value={filterDate} onChange={(e) => { setFilterDate(e.target.value); setPage(1) }} className="w-40" />
+            {filterDate && (
+              <Button variant="outline" size="sm" onClick={() => { setFilterDate(''); setPage(1) }}>✕ Tozalash</Button>
+            )}
+          </div>
           {(data?.data ?? []).length === 0 && !isLoading ? (
             <EmptyState icon={Banknote} title="Kirim yo'q" description="Birinchi kirimni qo'shing" action={<Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />Kirim qo&apos;shish</Button>} />
           ) : (

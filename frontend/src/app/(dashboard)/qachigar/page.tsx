@@ -48,6 +48,7 @@ export default function QachigarPage() {
   const [debtDialogOpen, setDebtDialogOpen] = useState(false)
   const [debtDateState, setDebtDateState] = useState(new Date().toISOString().split('T')[0])
   const [debtAmountStr, setDebtAmountStr] = useState('')
+  const [filterDate, setFilterDate] = useState('')
   const { page, limit, setPage } = usePagination()
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -102,7 +103,9 @@ export default function QachigarPage() {
 
   const filteredAll = (payments?.data ?? []).filter((p: WorkerPayment) => p.category === 'QACHIGAR')
   const eskiQarzEntries = filteredAll.filter((r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0)
-  const regularPayments = filteredAll.filter((r: WorkerPayment) => Number(r.amount) > 0 || Number(r.paidAmount) > 0)
+  const regularPayments = filteredAll.filter((r: WorkerPayment) =>
+    (Number(r.amount) > 0 || Number(r.paidAmount) > 0) && (!filterDate || r.date === filterDate)
+  )
   const totalPages = Math.ceil(regularPayments.length / limit) || 1
   const allPayments = regularPayments.slice((page - 1) * limit, page * limit)
 
@@ -287,6 +290,29 @@ export default function QachigarPage() {
         <StatsCard title="Oldingi qarz" value={totalPrevDebtStat} icon={HardHat} color="amber" />
         <StatsCard title="Jami qarz" value={totalRemainingDebt} icon={HardHat} color="red" />
       </div>
+
+      {/* Sana bo'yicha filtr */}
+      <div className="flex items-center gap-2">
+        <Input type="date" value={filterDate} onChange={(e) => { setFilterDate(e.target.value); setPage(1) }} className="w-40" />
+        {filterDate && (
+          <Button variant="outline" size="sm" onClick={() => { setFilterDate(''); setPage(1) }}>✕ Tozalash</Button>
+        )}
+      </div>
+
+      {filterDate && (
+        <div className="grid grid-cols-2 gap-4">
+          <StatsCard
+            title={`${formatDate(filterDate)} — hisoblangan`}
+            value={regularPayments.reduce((s: number, r: WorkerPayment) => s + Number(r.amount), 0)}
+            icon={HardHat} color="amber"
+          />
+          <StatsCard
+            title={`${formatDate(filterDate)} — berildi`}
+            value={regularPayments.reduce((s: number, r: WorkerPayment) => s + Number(r.paidAmount), 0)}
+            icon={HardHat} color="emerald"
+          />
+        </div>
+      )}
 
       {eskiQarzEntries.length > 0 && (
         <Card>

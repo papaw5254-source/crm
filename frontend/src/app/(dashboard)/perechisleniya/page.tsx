@@ -65,6 +65,7 @@ export default function PerechisleniyaPage() {
   const [oldDebtDate, setOldDebtDate] = useState(new Date().toISOString().split('T')[0])
   const [oldDebtDesc, setOldDebtDesc] = useState('')
   const [deleteOldDebtId, setDeleteOldDebtId] = useState<string | null>(null)
+  const [filterDate, setFilterDate] = useState('')
 
   const { data: firms = [], isLoading } = useQuery({
     queryKey: ['bank-transfer-firms'],
@@ -93,6 +94,15 @@ export default function PerechisleniyaPage() {
     queryFn: () => salesService.getFirmSales(selectedFirm!, 'BANK_TRANSFER'),
     enabled: !!selectedFirm,
   })
+
+  // Sana bo'yicha kunlik xulosa uchun
+  const { data: dailySalesData } = useQuery({
+    queryKey: ['perechisleniya-daily-sales', filterDate],
+    queryFn: () => salesService.getAll({ dateFrom: filterDate, dateTo: filterDate, limit: 500, isReserveSale: false }),
+    enabled: !!filterDate,
+  })
+  const dailySales: Sale[] = (dailySalesData?.data ?? []).filter((s: Sale) => s.paymentType === 'BANK_TRANSFER')
+  const dailyDeposits = allDeposits.filter((d) => d.date === filterDate)
 
   const firmDeposits = allDeposits.filter(d => d.fromWhom === selectedFirm)
   const firmOldDebts = allOldDebts.filter(d => d.fromWhom === selectedFirm)
@@ -429,6 +439,29 @@ export default function PerechisleniyaPage() {
         <StatsCard title="Oldingi qarzlar" value={totalOldDebt} icon={TrendingDown} color="red" />
         <StatsCard title="Umumiy balans" value={totalBalance} icon={Wallet} color={totalBalance >= 0 ? 'emerald' : 'red'} />
       </div>
+
+      {/* Sana bo'yicha filtr */}
+      <div className="flex items-center gap-2">
+        <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-40" />
+        {filterDate && (
+          <Button variant="outline" size="sm" onClick={() => setFilterDate('')}>✕ Tozalash</Button>
+        )}
+      </div>
+
+      {filterDate && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <StatsCard
+            title={`${formatDate(filterDate)} — depozit qilindi`}
+            value={dailyDeposits.reduce((s, d) => s + Number(d.amount), 0)}
+            icon={TrendingUp} color="blue"
+          />
+          <StatsCard
+            title={`${formatDate(filterDate)} — perechisleniya sotuvi`}
+            value={dailySales.reduce((s, x) => s + Number(x.totalAmount), 0)}
+            icon={TrendingDown} color="red"
+          />
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-4">

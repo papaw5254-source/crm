@@ -54,6 +54,7 @@ export default function EshikchPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteWpId, setDeleteWpId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>('all')
+  const [filterDate, setFilterDate] = useState('')
 
   const { data: wpReport } = useQuery({
     queryKey: ['worker-payments-report', THIS_MONTH, THIS_YEAR],
@@ -73,7 +74,7 @@ export default function EshikchPage() {
 
   const allPayments: WorkerPayment[] = payments?.data ?? []
   const regularPayments = allPayments.filter(
-    (r) => Number(r.amount) > 0 || Number(r.paidAmount) > 0
+    (r) => (Number(r.amount) > 0 || Number(r.paidAmount) > 0) && (!filterDate || r.date === filterDate)
   )
 
   const eskiQarzList = (eskiQarzData?.data ?? []).filter(
@@ -273,6 +274,14 @@ export default function EshikchPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Sana bo'yicha filtr */}
+      <div className="flex items-center gap-2">
+        <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-40" />
+        {filterDate && (
+          <Button variant="outline" size="sm" onClick={() => setFilterDate('')}>✕ Tozalash</Button>
+        )}
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
