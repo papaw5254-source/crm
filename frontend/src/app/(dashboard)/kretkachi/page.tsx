@@ -56,15 +56,10 @@ export default function KretkachPage() {
 
   const { data: payments, isLoading } = useQuery({
     queryKey: ['worker-payments', 'KRETKACHI', THIS_MONTH, THIS_YEAR],
-    queryFn: () => workerPaymentsService.getAll({ category: 'KRETKACHI', month: THIS_MONTH, year: THIS_YEAR, limit: 100 }),
+    queryFn: () => workerPaymentsService.getAll({ category: 'KRETKACHI', month: THIS_MONTH, year: THIS_YEAR, limit: 9999 }),
   })
   const filteredPayments = (payments?.data ?? []).filter((r: WorkerPayment) => !filterDate || r.date === filterDate)
-
-  const { data: allTimePayments } = useQuery({
-    queryKey: ['worker-payments-all-time', 'KRETKACHI'],
-    queryFn: () => workerPaymentsService.getAll({ category: 'KRETKACHI', page: 1, limit: 9999 }),
-  })
-  const totalPressedBricks = (allTimePayments?.data ?? []).reduce((s: number, r: WorkerPayment) => s + Number(r.quantity || 0), 0)
+  const totalPressedBricks = (payments?.data ?? []).reduce((s: number, r: WorkerPayment) => s + Number(r.quantity || 0), 0)
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -85,7 +80,6 @@ export default function KretkachPage() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
     queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
-    queryClient.invalidateQueries({ queryKey: ['worker-payments-all-time'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard'] })
   }
 
@@ -195,7 +189,7 @@ export default function KretkachPage() {
       />
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <StatsCard title="Jami bosilgan g'isht" value={totalPressedBricks} icon={HardHat} color="blue" format="number" suffix="dona" />
+        <StatsCard title="Bu oy bosilgan xom g'isht" value={totalPressedBricks} icon={HardHat} color="blue" format="number" suffix="dona" />
         <StatsCard title="Bu oy hisoblangan" value={Number(stats.amount)} icon={HardHat} color="amber" />
         <StatsCard title="Berildi" value={Number(stats.paid)} icon={HardHat} color="emerald" />
         <StatsCard title="Oldingi qarz" value={Number(stats.carriedDebt)} icon={HardHat} color="slate" />
