@@ -17,13 +17,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
+import { LoadingBlock } from '@/components/ui/spinner'
 import { formatCurrency, formatDate, formatNumber, expenseCategoryLabel } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
 import type { DayData, MonthData, Debtor } from '@/types'
 
 function ChartSkeleton() {
-  return <Skeleton className="h-64 w-full" />
+  return <LoadingBlock minHeight="min-h-64" />
 }
 
 function StatRow({ label, value, highlight }: { label: string; value: string | number; highlight?: 'green' | 'red' }) {
@@ -133,7 +133,7 @@ export default function ReportsPage() {
           </div>
 
           {dailyLoading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-28" />)}</div>
+            <LoadingBlock />
           ) : (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -218,7 +218,7 @@ export default function ReportsPage() {
           </div>
 
           {monthlyLoading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}</div>
+            <LoadingBlock />
           ) : (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -333,7 +333,7 @@ export default function ReportsPage() {
             </div>
 
             {yearlyLoading ? (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}</div>
+              <LoadingBlock />
             ) : (
               <>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -415,7 +415,7 @@ export default function ReportsPage() {
         {/* ── Stock ─────────────────────────────────────────────────────── */}
         <TabsContent value="stock" className="space-y-6 mt-4">
           {stockLoading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}</div>
+            <LoadingBlock />
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <StatsCard title="Pishgan g'isht (ombor)" value={stock?.bakedBrickStock ?? 0} icon={Package} color="red" format="number" suffix="dona" />
@@ -440,7 +440,7 @@ export default function ReportsPage() {
         {/* ── Debts ─────────────────────────────────────────────────────── */}
         <TabsContent value="debts" className="space-y-6 mt-4">
           {debtsLoading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}</div>
+            <LoadingBlock />
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <StatsCard title="Qarzdorlar soni" value={debts?.totalDebtors ?? 0} icon={BarChart3} color="amber" format="number" suffix="ta" />
@@ -494,7 +494,7 @@ export default function ReportsPage() {
           </div>
 
           {cfLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28" />)}</div>
+            <LoadingBlock />
           ) : cashflow ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

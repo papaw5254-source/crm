@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
+import { LoadingBlock } from '@/components/ui/spinner'
 import { formatDate, formatCurrency, getErrorMessage } from '@/lib/utils'
 import type { Debtor, DebtPayment } from '@/types'
 
@@ -152,11 +153,7 @@ export default function DebtorsPage() {
           )}
 
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-40 rounded-xl bg-muted/40 animate-pulse" />
-              ))}
-            </div>
+            <LoadingBlock />
           ) : visibleDebtors.length === 0 ? (
             <EmptyState icon={Users} title="Qarzdor yo'q" description="Nasiya sotuvlar bu yerda ko'rinadi" />
           ) : (
@@ -282,9 +279,7 @@ export default function DebtorsPage() {
           </DialogHeader>
           <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
             {paymentsLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-16 rounded-xl bg-muted/40 animate-pulse" />
-              ))
+              <LoadingBlock minHeight="min-h-24" size="sm" />
             ) : payments.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">To&apos;lov yo&apos;q</p>
             ) : (

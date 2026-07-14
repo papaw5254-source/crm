@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
 import { formatDate, formatNumber, formatCurrency, kilnNameLabel, getErrorMessage } from '@/lib/utils'
 import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
@@ -409,7 +410,7 @@ export default function QachigarPage() {
                     Shu sanada pishgan g&apos;isht:
                   </p>
                   {loadingBaked ? (
-                    <p className="text-sm text-muted-foreground animate-pulse">Yuklanmoqda...</p>
+                    <Spinner size="sm" />
                   ) : bakedOutput !== undefined ? (
                     bakedCount > 0 ? (
                       <p className="text-2xl font-bold text-emerald-600">{formatNumber(bakedCount)} dona</p>

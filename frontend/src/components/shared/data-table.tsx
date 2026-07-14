@@ -1,6 +1,6 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Spinner } from '@/components/ui/spinner'
 
 interface Column<T> {
   key: string
@@ -13,10 +13,9 @@ interface DataTableProps<T> {
   columns: Column<T>[]
   data: T[]
   loading?: boolean
-  skeletonRows?: number
 }
 
-export function DataTable<T>({ columns, data, loading, skeletonRows = 5 }: DataTableProps<T>) {
+export function DataTable<T>({ columns, data, loading }: DataTableProps<T>) {
   const safeData = Array.isArray(data) ? data.filter(Boolean) : []
 
   return (
@@ -39,34 +38,34 @@ export function DataTable<T>({ columns, data, loading, skeletonRows = 5 }: DataT
             </tr>
           </thead>
           <tbody>
-            {loading
-              ? Array.from({ length: skeletonRows }).map((_, i) => (
-                  <tr key={i} className="border-b">
-                    {columns.map((col) => (
-                      <td key={col.key} className="px-4 py-3">
-                        <Skeleton className="h-4 w-full max-w-[120px]" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              : safeData.map((row, i) => (
-                  <tr
-                    key={i}
-                    className="border-b last:border-0 hover:bg-muted/30 transition-colors"
-                  >
-                    {columns.map((col) => (
-                      <td key={col.key} className={cn('px-4 py-3', col.className)}>
-                        {(() => {
-                          try {
-                            return col.cell(row)
-                          } catch {
-                            return <span className="text-muted-foreground">—</span>
-                          }
-                        })()}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
+            {loading ? (
+              <tr>
+                <td colSpan={columns.length} className="py-10">
+                  <div className="flex items-center justify-center">
+                    <Spinner size="lg" />
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              safeData.map((row, i) => (
+                <tr
+                  key={i}
+                  className="border-b last:border-0 hover:bg-muted/30 transition-colors"
+                >
+                  {columns.map((col) => (
+                    <td key={col.key} className={cn('px-4 py-3', col.className)}>
+                      {(() => {
+                        try {
+                          return col.cell(row)
+                        } catch {
+                          return <span className="text-muted-foreground">—</span>
+                        }
+                      })()}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

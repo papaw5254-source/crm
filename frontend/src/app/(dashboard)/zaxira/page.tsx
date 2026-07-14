@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Spinner } from '@/components/ui/spinner'
 import { cn, formatDate, formatNumber, formatCurrency, brickTypeLabel, brickTypeColor, reserveMovementTypeLabel, reserveMovementTypeColor, paymentTypeLabel, paymentTypeColor, getErrorMessage } from '@/lib/utils'
 import { usePagination } from '@/hooks/use-pagination'
 import type { ReserveMovement, BrickType, ReserveMovementType, Sale, WorkerPayment } from '@/types'
@@ -508,7 +509,7 @@ export default function ZaxiraPage() {
           </CardHeader>
           <CardContent>
             {balanceLoading ? (
-              <div className="h-8 w-32 bg-muted animate-pulse rounded" />
+              <Spinner size="sm" />
             ) : (
               <>
                   <p className="text-3xl font-bold">{formatNumber(rawReserveBalance)}</p>
@@ -527,7 +528,7 @@ export default function ZaxiraPage() {
           </CardHeader>
           <CardContent>
             {balanceLoading ? (
-              <div className="h-8 w-32 bg-muted animate-pulse rounded" />
+              <Spinner size="sm" />
             ) : (
               <>
                   <p className="text-3xl font-bold">{formatNumber(bakedReserveBalance)}</p>

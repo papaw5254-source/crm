@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { Navbar } from '@/components/layout/navbar'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useAuth } from '@/providers/auth-provider'
-import { Skeleton } from '@/components/ui/skeleton'
+import { LoadingBlock } from '@/components/ui/spinner'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -20,15 +20,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [isLoading, isAuthenticated, router])
 
   if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="space-y-4 w-64">
-          <Skeleton className="h-8 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
-        </div>
-      </div>
-    )
+    return <LoadingBlock minHeight="min-h-screen" size="lg" />
   }
 
   if (!isAuthenticated) return null
