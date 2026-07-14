@@ -121,6 +121,13 @@ export class ReportsService {
       .reduce((s, x) => s + Number(x.totalAmount), 0);
   }
 
+  // Kun oxiriga qolgan pul uchun — perechisleniya (BANK_TRANSFER) va boshqa pul kirimlari hisobga olinmaydi
+  private cashOnHandSaleAmount(sales: Sale[]): number {
+    return sales
+      .filter((x) => [PaymentType.CASH, PaymentType.CARD].includes(x.paymentType))
+      .reduce((s, x) => s + Number(x.totalAmount), 0);
+  }
+
   private readonly reportExcludedSources = ['DAILY_SALE', 'DEBT_RETURN', 'FIRM_DEPOSIT', 'FIRM_OLD_DEBT', 'END_OF_DAY_BALANCE'];
 
   private moneyIncomeAmount(incomes: MoneyIncome[]): number {
@@ -297,7 +304,8 @@ export class ReportsService {
     const receivedCash = cashSales + cardSales + bankTransferSales + debtPaymentsTotal + prepaymentPaid + moneyIncomesTotal;
     const netProfit = receivedCash - totalExpenses - workerPaid;
     const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
-    const endOfDayBalance = previousDayBalance + netProfit;
+    const cashBasisIncome = cashSales + cardSales + debtPaymentsTotal + prepaymentPaid;
+    const endOfDayBalance = previousDayBalance + cashBasisIncome - totalExpenses - workerPaid;
 
     const [bakedStock, rawStock, reserveRaw, reserveBaked] = await Promise.all([
       this.getStockBalance(BrickType.BAKED_BRICK),
@@ -394,7 +402,10 @@ export class ReportsService {
     const prepaymentPaid = prepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const netProfit = cashReceived - totalExpenses - workerPaid;
     const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
-    const endOfDayBalance = (balanceByDate[this.addDays(dateFrom, -1)] || 0) + netProfit;
+    const cashBasisIncome = this.cashOnHandSaleAmount(sales)
+      + debtPayments.reduce((s, x) => s + Number(x.amount), 0)
+      + prepaymentPaid;
+    const endOfDayBalance = (balanceByDate[this.addDays(dateFrom, -1)] || 0) + cashBasisIncome - totalExpenses - workerPaid;
 
     const dailyData: Record<string, any> = {};
     for (let d = 1; d <= lastDay; d++) {
@@ -416,6 +427,9 @@ export class ReportsService {
       const dExpenses = dExp.reduce((s, x) => s + Number(x.amount), 0);
       const dWorkerAccrued = dWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
       const dProfit = dCashReceived - dExpenses - dWorkerAccrued;
+      const dCashBasisIncome = this.cashOnHandSaleAmount(dSales)
+        + dDebtPayments.reduce((s, x) => s + Number(x.amount), 0)
+        + dPrepaymentPaid;
       dailyData[dayStr] = {
         salesAmount: dSales.reduce((s, x) => s + Number(x.totalAmount), 0),
         soldBricks: dSales.reduce((s, x) => s + x.quantity, 0) + dPrepaymentDeliveredBricks,
@@ -426,7 +440,7 @@ export class ReportsService {
         prepaymentDeliveredBricks: dPrepaymentDeliveredBricks,
         cashReceived: dCashReceived,
         profit: dProfit,
-        endOfDayBalance: (balanceByDate[this.addDays(dayStr, -1)] || 0) + dProfit,
+        endOfDayBalance: (balanceByDate[this.addDays(dayStr, -1)] || 0) + dCashBasisIncome - dExpenses - dWorkerAccrued,
       };
     }
 
@@ -484,7 +498,10 @@ export class ReportsService {
     const prepaymentPaid = prepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const netProfit = cashReceived - totalExpenses - workerPaid;
     const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
-    const endOfDayBalance = (balanceByDate[this.addDays(dateFrom, -1)] || 0) + netProfit;
+    const cashBasisIncome = this.cashOnHandSaleAmount(sales)
+      + debtPayments.reduce((s, x) => s + Number(x.amount), 0)
+      + prepaymentPaid;
+    const endOfDayBalance = (balanceByDate[this.addDays(dateFrom, -1)] || 0) + cashBasisIncome - totalExpenses - workerPaid;
 
     const monthlyData: Record<string, any> = {};
     for (let m = 1; m <= 12; m++) {
@@ -508,6 +525,9 @@ export class ReportsService {
       const mExpenses = mExp.reduce((s, x) => s + Number(x.amount), 0);
       const mWorkerAccrued = mWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
       const mProfit = mCashReceived - mExpenses - mWorkerAccrued;
+      const mCashBasisIncome = this.cashOnHandSaleAmount(mSales)
+        + mDebtPayments.reduce((s, x) => s + Number(x.amount), 0)
+        + mPrepaymentPaid;
       monthlyData[prefix] = {
         salesAmount: mSales.reduce((s, x) => s + Number(x.totalAmount), 0),
         soldBricks: mSales.reduce((s, x) => s + x.quantity, 0) + mPrepaymentDeliveredBricks,
@@ -518,7 +538,7 @@ export class ReportsService {
         prepaymentDeliveredBricks: mPrepaymentDeliveredBricks,
         cashReceived: mCashReceived,
         profit: mProfit,
-        endOfDayBalance: (balanceByDate[this.addDays(monthStart, -1)] || 0) + mProfit,
+        endOfDayBalance: (balanceByDate[this.addDays(monthStart, -1)] || 0) + mCashBasisIncome - mExpenses - mWorkerAccrued,
       };
     }
 
