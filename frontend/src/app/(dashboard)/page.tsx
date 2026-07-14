@@ -18,8 +18,6 @@ type StockItem = {
 }
 
 type DashboardStats = {
-  rawBrickStock?: number | string
-  bakedBrickStock?: number | string
   todayIncome?: number | string
   todayExpense?: number | string
   todayProfit?: number | string
@@ -89,8 +87,8 @@ export default function DashboardPage() {
   const stocks = useMemo(() => toArray<StockItem>(stockResponse), [stockResponse])
   const stats: DashboardStats = statsResponse?.data ?? statsResponse ?? {}
 
-  const rawStock = stats.rawBrickStock ?? stocks.find((item) => item?.brickType === 'RAW_BRICK')?.quantity ?? 0
-  const bakedStock = stats.bakedBrickStock ?? stocks.find((item) => item?.brickType === 'BAKED_BRICK')?.quantity ?? 0
+  const rawStock = stocks.find((item) => item?.brickType === 'RAW_BRICK')?.quantity ?? 0
+  const bakedStock = stocks.find((item) => item?.brickType === 'BAKED_BRICK')?.quantity ?? 0
 
   const cards = [
     {

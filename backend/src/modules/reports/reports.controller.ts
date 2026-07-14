@@ -91,13 +91,6 @@ export class ReportsController {
     return this.reportsService.getStockReport();
   }
 
-  @Post('admin/recalculate-stock')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Ombor qoldiqlarini mavjud ma\'lumotlardan qayta hisoblash (Admin only)' })
-  recalculateStockBalances() {
-    return this.reportsService.recalculateStockBalances();
-  }
-
   @Get('debts')
   @ApiOperation({ summary: 'Qarzdorlar hisoboti (mijozlar + ishchilar)' })
   getDebtReport() {
