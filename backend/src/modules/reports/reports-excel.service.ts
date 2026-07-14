@@ -8,7 +8,28 @@ const HEADER_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: 
 const HIGHLIGHT_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2EFDA' } };
 const NUM_FMT = '#,##0" so\'m"';
 const QTY_FMT = '#,##0" dona"';
-const LAST_COL = 5;
+const LAST_COL = 3;
+
+const CATEGORY_LABELS: Record<string, string> = {
+  HUMBUZ_KIRDI_CHIQDI: 'Humbuz',
+  HUMBUZ_ESHIKCHI: 'Humbuz eshikchi',
+  ESHIKCHI: 'Eshikchi',
+  KRETKACHI: 'Kretkachi',
+  PRESS: 'Press',
+  QACHIGAR: 'Qachigar',
+  YUKLAGCHI: 'Yuklagchi',
+  FIELD_RAW_LOADING: 'Dala xom yuklash',
+  RESERVE_RAW_LOADING: 'Zaxiraga xom bosish',
+  RESERVE_BAKED_LOADING: 'Zaxira pishgan bosish',
+  RESERVE_SALE_LOADING: 'Zaxira sotuvidan yuklash',
+  ROAD_PAYMENT: "Yo'l to'lovi",
+  ADVANCE: 'Avans',
+  OTHER: 'Boshqa',
+};
+
+function categoryLabel(category: string): string {
+  return CATEGORY_LABELS[category] || category;
+}
 
 @Injectable()
 export class ReportsExcelService {
@@ -60,33 +81,43 @@ export class ReportsExcelService {
     widths.forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
   }
 
+  private addWorkerSection(sheet: ExcelJS.Worksheet, byCategory: Record<string, { accrued: number; paid: number }>) {
+    this.addSection(sheet, 'ISHCHI PULI');
+    this.addTableHeader(sheet, ["Bo'lim", 'Hisoblandi', "To'landi"]);
+    const entries = Object.entries(byCategory);
+    if (entries.length === 0) {
+      sheet.addRow(["Bu davrda ishchi puli yo'q"]);
+      return;
+    }
+    let totalAccrued = 0, totalPaid = 0;
+    for (const [category, v] of entries) {
+      const row = sheet.addRow([categoryLabel(category), v.accrued, v.paid]);
+      row.getCell(2).numFmt = NUM_FMT;
+      row.getCell(3).numFmt = NUM_FMT;
+      totalAccrued += v.accrued;
+      totalPaid += v.paid;
+    }
+    const totalRow = sheet.addRow(['JAMI', totalAccrued, totalPaid]);
+    totalRow.eachCell((cell) => { cell.font = { bold: true }; });
+    totalRow.getCell(2).numFmt = NUM_FMT;
+    totalRow.getCell(3).numFmt = NUM_FMT;
+  }
+
   private addDebtorsSection(sheet: ExcelJS.Worksheet, unpaidDebtors: any[]) {
     this.addSection(sheet, "QARZDORLAR (faol)");
-    this.addTableHeader(sheet, ["Ism", 'Telefon', 'Jami qarz', "To'langan", 'Qolgan qarz']);
-    let totalDebt = 0, totalPaid = 0, totalRemaining = 0;
+    this.addTableHeader(sheet, ["Ism", "Qolgan qarz", '']);
+    let totalRemaining = 0;
     for (const d of unpaidDebtors) {
-      const row = sheet.addRow([
-        d.fullName || '—',
-        d.phone || '—',
-        Number(d.totalDebt) || 0,
-        Number(d.paidAmount) || 0,
-        Number(d.remainingDebt) || 0,
-      ]);
-      row.getCell(3).numFmt = NUM_FMT;
-      row.getCell(4).numFmt = NUM_FMT;
-      row.getCell(5).numFmt = NUM_FMT;
-      totalDebt += Number(d.totalDebt) || 0;
-      totalPaid += Number(d.paidAmount) || 0;
+      const row = sheet.addRow([d.fullName || '—', Number(d.remainingDebt) || 0]);
+      row.getCell(2).numFmt = NUM_FMT;
       totalRemaining += Number(d.remainingDebt) || 0;
     }
     if (unpaidDebtors.length === 0) {
       sheet.addRow(["Faol qarzdorlar yo'q"]);
     } else {
-      const totalRow = sheet.addRow(['JAMI', '', totalDebt, totalPaid, totalRemaining]);
+      const totalRow = sheet.addRow(['JAMI', totalRemaining]);
       totalRow.eachCell((cell) => { cell.font = { bold: true }; });
-      totalRow.getCell(3).numFmt = NUM_FMT;
-      totalRow.getCell(4).numFmt = NUM_FMT;
-      totalRow.getCell(5).numFmt = NUM_FMT;
+      totalRow.getCell(2).numFmt = NUM_FMT;
     }
   }
 
@@ -98,7 +129,7 @@ export class ReportsExcelService {
 
     const wb = new ExcelJS.Workbook();
     const sheet = wb.addWorksheet('Kunlik hisobot');
-    this.setColumnWidths(sheet, [32, 18, 18, 18, 18]);
+    this.setColumnWidths(sheet, [32, 18, 18]);
 
     this.addTitle(sheet, `KUNLIK HISOBOT — ${date}`);
 
@@ -107,25 +138,15 @@ export class ReportsExcelService {
     this.addKV(sheet, "Pishgan g'isht chiqdi (humbuz)", report.bakedBrickProduced, QTY_FMT);
     this.addKV(sheet, "Xom g'isht sotildi", report.rawBrickSold, QTY_FMT);
     this.addKV(sheet, "Pishgan g'isht sotildi", report.bakedBrickSold, QTY_FMT);
-    this.addKV(sheet, "Zaxira sotuvidan g'isht sotildi", report.reserveSoldBricks, QTY_FMT);
-    this.addKV(sheet, "Zalog g'ishti yetkazildi", report.prepaymentDeliveredBricks, QTY_FMT);
     this.addSpacer(sheet);
 
     this.addSection(sheet, 'MOLIYA');
     this.addKV(sheet, 'Jami sotuv', report.totalSalesAmount, NUM_FMT);
-    this.addKV(sheet, 'Naqd sotuvlar', report.cashSales, NUM_FMT);
-    this.addKV(sheet, 'Karta sotuvlar', report.cardSales, NUM_FMT);
-    this.addKV(sheet, 'Perechisleniya', report.bankTransferSales, NUM_FMT);
-    this.addKV(sheet, 'Nasiya sotuvlar', report.debtSalesAmount, NUM_FMT);
-    this.addKV(sheet, "Qarz to'lovlari", report.debtPayments, NUM_FMT);
-    this.addKV(sheet, 'Zalog puli', report.prepaymentPaid, NUM_FMT);
-    this.addKV(sheet, 'Pul kirimlari', report.moneyIncomes, NUM_FMT);
-    this.addKV(sheet, 'Naqd tushum', report.receivedCash, NUM_FMT);
     this.addKV(sheet, 'Xarajatlar', report.totalExpenses, NUM_FMT);
-    this.addKV(sheet, 'Ishchi puli (hisoblangan)', report.workerAccrued, NUM_FMT);
-    this.addKV(sheet, "Ishchi puli (to'langan)", report.workerPayments, NUM_FMT);
-    this.addKV(sheet, 'Sof foyda', report.netProfit, NUM_FMT);
     this.addKV(sheet, 'Kun oxiriga qolgan pul', report.endOfDayBalance, NUM_FMT, true);
+    this.addSpacer(sheet);
+
+    this.addWorkerSection(sheet, report.workerByCategory || {});
     this.addSpacer(sheet);
 
     this.addDebtorsSection(sheet, debts.unpaidDebtors);
@@ -138,44 +159,36 @@ export class ReportsExcelService {
       this.reportsService.getMonthlyReport({ year, month }),
       this.reportsService.getDebtReport(),
     ]);
+    const byCategory = await this.reportsService.getWorkerByCategory(report.dateFrom, report.dateTo);
 
     const wb = new ExcelJS.Workbook();
     const sheet = wb.addWorksheet('Oylik hisobot');
-    this.setColumnWidths(sheet, [32, 18, 18, 18, 18]);
+    this.setColumnWidths(sheet, [32, 18, 18]);
 
     this.addTitle(sheet, `OYLIK HISOBOT — ${report.year}-yil ${String(report.month).padStart(2, '0')}-oy`);
 
     this.addSection(sheet, 'ISHLAB CHIQARISH');
     this.addKV(sheet, "Ishlab chiqarilgan g'isht", report.totalAddedBricks, QTY_FMT);
     this.addKV(sheet, "Sotilgan g'isht", report.totalSoldBricks, QTY_FMT);
-    this.addKV(sheet, "Zaxira sotuvidan g'isht sotildi", report.reserveSoldBricks, QTY_FMT);
-    this.addKV(sheet, "Zalog g'ishti yetkazildi", report.prepaymentDeliveredBricks, QTY_FMT);
     this.addSpacer(sheet);
 
     this.addSection(sheet, 'MOLIYA');
-    this.addKV(sheet, "Jami sotuv (qog'oz)", report.totalSalesAmount, NUM_FMT);
-    this.addKV(sheet, 'Nasiya sotuvlar', report.debtSalesAmount, NUM_FMT);
-    this.addKV(sheet, 'Zalog puli', report.prepaymentPaid, NUM_FMT);
-    this.addKV(sheet, 'Pul kirimlari', report.moneyIncomes, NUM_FMT);
-    this.addKV(sheet, 'Naqd tushum', report.cashReceived, NUM_FMT);
+    this.addKV(sheet, "Jami sotuv", report.totalSalesAmount, NUM_FMT);
     this.addKV(sheet, 'Xarajatlar', report.totalExpenses, NUM_FMT);
-    this.addKV(sheet, 'Ishchi puli (hisoblangan)', report.workerAccrued, NUM_FMT);
-    this.addKV(sheet, "Ishchi puli (to'langan)", report.workerPaid, NUM_FMT);
-    this.addKV(sheet, 'Sof foyda', report.netProfit, NUM_FMT);
     this.addKV(sheet, 'Kun oxiriga qolgan pul', report.endOfDayBalance, NUM_FMT, true);
+    this.addSpacer(sheet);
+
+    this.addWorkerSection(sheet, byCategory);
     this.addSpacer(sheet);
 
     this.addDebtorsSection(sheet, debts.unpaidDebtors);
     this.addSpacer(sheet);
 
     this.addSection(sheet, "KUNLAR BO'YICHA");
-    this.addTableHeader(sheet, ['Sana', 'Sotuv', 'Xarajat', 'Ishchi puli', 'Kun oxiriga qolgan pul']);
+    this.addTableHeader(sheet, ['Sana', 'Sotuv', '']);
     for (const [day, d] of Object.entries(report.groupedByDay) as [string, any][]) {
-      const row = sheet.addRow([day, d.salesAmount, d.expenses, d.workerAccrued, d.endOfDayBalance]);
+      const row = sheet.addRow([day, d.salesAmount]);
       row.getCell(2).numFmt = NUM_FMT;
-      row.getCell(3).numFmt = NUM_FMT;
-      row.getCell(4).numFmt = NUM_FMT;
-      row.getCell(5).numFmt = NUM_FMT;
     }
 
     return wb.xlsx.writeBuffer() as unknown as Promise<Buffer>;
@@ -186,44 +199,36 @@ export class ReportsExcelService {
       this.reportsService.getYearlyReport({ year }),
       this.reportsService.getDebtReport(),
     ]);
+    const byCategory = await this.reportsService.getWorkerByCategory(`${year}-01-01`, `${year}-12-31`);
 
     const wb = new ExcelJS.Workbook();
     const sheet = wb.addWorksheet('Yillik hisobot');
-    this.setColumnWidths(sheet, [32, 18, 18, 18, 18]);
+    this.setColumnWidths(sheet, [32, 18, 18]);
 
     this.addTitle(sheet, `YILLIK HISOBOT — ${report.year}-yil`);
 
     this.addSection(sheet, 'ISHLAB CHIQARISH');
     this.addKV(sheet, "Ishlab chiqarilgan g'isht", report.totalAddedBricks, QTY_FMT);
     this.addKV(sheet, "Sotilgan g'isht", report.totalSoldBricks, QTY_FMT);
-    this.addKV(sheet, "Zaxira sotuvidan g'isht sotildi", report.reserveSoldBricks, QTY_FMT);
-    this.addKV(sheet, "Zalog g'ishti yetkazildi", report.prepaymentDeliveredBricks, QTY_FMT);
     this.addSpacer(sheet);
 
     this.addSection(sheet, 'MOLIYA');
-    this.addKV(sheet, "Jami sotuv (qog'oz)", report.totalSalesAmount, NUM_FMT);
-    this.addKV(sheet, 'Nasiya sotuvlar', report.debtSalesAmount, NUM_FMT);
-    this.addKV(sheet, 'Zalog puli', report.prepaymentPaid, NUM_FMT);
-    this.addKV(sheet, 'Pul kirimlari', report.moneyIncomes, NUM_FMT);
-    this.addKV(sheet, 'Naqd tushum', report.cashReceived, NUM_FMT);
+    this.addKV(sheet, "Jami sotuv", report.totalSalesAmount, NUM_FMT);
     this.addKV(sheet, 'Xarajatlar', report.totalExpenses, NUM_FMT);
-    this.addKV(sheet, 'Ishchi puli (hisoblangan)', report.workerAccrued, NUM_FMT);
-    this.addKV(sheet, "Ishchi puli (to'langan)", report.workerPaid, NUM_FMT);
-    this.addKV(sheet, 'Sof foyda', report.netProfit, NUM_FMT);
     this.addKV(sheet, 'Kun oxiriga qolgan pul', report.endOfDayBalance, NUM_FMT, true);
+    this.addSpacer(sheet);
+
+    this.addWorkerSection(sheet, byCategory);
     this.addSpacer(sheet);
 
     this.addDebtorsSection(sheet, debts.unpaidDebtors);
     this.addSpacer(sheet);
 
     this.addSection(sheet, "OYLAR BO'YICHA");
-    this.addTableHeader(sheet, ['Oy', 'Sotuv', 'Xarajat', 'Ishchi puli', 'Kun oxiriga qolgan pul']);
+    this.addTableHeader(sheet, ['Oy', 'Sotuv', '']);
     for (const [monthKey, m] of Object.entries(report.groupedByMonth) as [string, any][]) {
-      const row = sheet.addRow([monthKey, m.salesAmount, m.expenses, m.workerAccrued, m.endOfDayBalance]);
+      const row = sheet.addRow([monthKey, m.salesAmount]);
       row.getCell(2).numFmt = NUM_FMT;
-      row.getCell(3).numFmt = NUM_FMT;
-      row.getCell(4).numFmt = NUM_FMT;
-      row.getCell(5).numFmt = NUM_FMT;
     }
 
     return wb.xlsx.writeBuffer() as unknown as Promise<Buffer>;

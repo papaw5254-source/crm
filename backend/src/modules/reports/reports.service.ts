@@ -677,6 +677,20 @@ export class ReportsService {
     };
   }
 
+  async getWorkerByCategory(dateFrom: string, dateTo: string): Promise<Record<string, { accrued: number; paid: number }>> {
+    const payments = await this.workerPaymentRepo
+      .createQueryBuilder('wp')
+      .where('wp.date >= :df AND wp.date <= :dt', { df: dateFrom, dt: dateTo })
+      .getMany();
+    const byCategory: Record<string, { accrued: number; paid: number }> = {};
+    for (const p of payments) {
+      if (!byCategory[p.category]) byCategory[p.category] = { accrued: 0, paid: 0 };
+      byCategory[p.category].accrued += Number(p.amount);
+      byCategory[p.category].paid += Number(p.paidAmount);
+    }
+    return byCategory;
+  }
+
   async getExpenseReport(query: DateRangeDto) {
     const dateFrom = query.dateFrom || new Date().toISOString().split('T')[0].substring(0, 7) + '-01';
     const dateTo = query.dateTo || new Date().toISOString().split('T')[0];

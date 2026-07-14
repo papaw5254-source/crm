@@ -71,14 +71,16 @@ async function getReport(path: string, params?: QueryParams) {
 }
 
 async function downloadFile(path: string, params: QueryParams | undefined, fallbackFilename: string) {
-  const response = await api.get(path, {
-    params: cleanParams(params),
-    responseType: 'blob',
-  })
-  const blob = new Blob([response.data], { type: String(response.headers['content-type'] || 'application/octet-stream') })
-  const disposition = response.headers['content-disposition'] as string | undefined
-  const match = disposition?.match(/filename="?([^"]+)"?/)
-  const filename = match?.[1] || fallbackFilename
+  const response = await api.get(path, { params: cleanParams(params) })
+  const payload = unwrap(response.data) ?? {}
+  const base64: string = payload.base64
+  const filename: string = payload.filename || fallbackFilename
+
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+
+  const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url

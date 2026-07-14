@@ -1,6 +1,5 @@
-import { Controller, Get, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -8,8 +7,6 @@ import { Role } from '../../common/enums/role.enum';
 import { DateRangeDto, DailyReportDto, MonthlyReportDto, YearlyReportDto } from './dto/report-filter.dto';
 import { ReportsExcelService } from './reports-excel.service';
 import { ReportsService } from './reports.service';
-
-const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 @ApiTags('reports')
 @ApiBearerAuth()
@@ -48,35 +45,29 @@ export class ReportsController {
 
   @Get('daily/excel')
   @ApiOperation({ summary: "Kunlik hisobotni Excel (.xlsx) formatida yuklab olish" })
-  async downloadDailyExcel(@Query() query: DailyReportDto, @Res() res: Response) {
+  async downloadDailyExcel(@Query() query: DailyReportDto) {
     const date = query.date || new Date().toISOString().split('T')[0];
     const buffer = await this.reportsExcelService.generateDailyExcel(date);
-    res.setHeader('Content-Type', XLSX_CONTENT_TYPE);
-    res.setHeader('Content-Disposition', `attachment; filename="kunlik-hisobot-${date}.xlsx"`);
-    res.send(buffer);
+    return { filename: `kunlik-hisobot-${date}.xlsx`, base64: buffer.toString('base64') };
   }
 
   @Get('monthly/excel')
   @ApiOperation({ summary: "Oylik hisobotni Excel (.xlsx) formatida yuklab olish" })
-  async downloadMonthlyExcel(@Query() query: MonthlyReportDto, @Res() res: Response) {
+  async downloadMonthlyExcel(@Query() query: MonthlyReportDto) {
     const now = new Date();
     const year = query.year || now.getFullYear();
     const month = query.month || now.getMonth() + 1;
     const buffer = await this.reportsExcelService.generateMonthlyExcel(year, month);
-    res.setHeader('Content-Type', XLSX_CONTENT_TYPE);
-    res.setHeader('Content-Disposition', `attachment; filename="oylik-hisobot-${year}-${String(month).padStart(2, '0')}.xlsx"`);
-    res.send(buffer);
+    return { filename: `oylik-hisobot-${year}-${String(month).padStart(2, '0')}.xlsx`, base64: buffer.toString('base64') };
   }
 
   @Get('yearly/excel')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Yillik hisobotni Excel (.xlsx) formatida yuklab olish (Admin only)' })
-  async downloadYearlyExcel(@Query() query: YearlyReportDto, @Res() res: Response) {
+  async downloadYearlyExcel(@Query() query: YearlyReportDto) {
     const year = query.year || new Date().getFullYear();
     const buffer = await this.reportsExcelService.generateYearlyExcel(year);
-    res.setHeader('Content-Type', XLSX_CONTENT_TYPE);
-    res.setHeader('Content-Disposition', `attachment; filename="yillik-hisobot-${year}.xlsx"`);
-    res.send(buffer);
+    return { filename: `yillik-hisobot-${year}.xlsx`, base64: buffer.toString('base64') };
   }
 
   @Get('inventory')
