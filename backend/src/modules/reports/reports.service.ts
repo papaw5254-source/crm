@@ -424,6 +424,7 @@ export class ReportsService {
       netProfit,
       paperProfit,
       previousDayBalance,
+      cashBasisIncome,
       endOfDayBalance,
       bakedBrickStock: bakedStock,
       rawBrickStock: rawStock,

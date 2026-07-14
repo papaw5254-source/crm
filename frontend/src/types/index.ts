@@ -371,6 +371,7 @@ export interface DailyReport {
   netProfit: number
   paperProfit: number
   previousDayBalance: number
+  cashBasisIncome: number
   endOfDayBalance: number
   stockAtEndOfDay: number
 }

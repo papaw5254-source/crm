@@ -22,6 +22,7 @@ import {
   ChevronRight,
   Landmark,
   Settings,
+  Banknote,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
@@ -63,6 +64,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Moliya',
     items: [
+      { href: '/kassa', icon: Banknote, label: 'Kassa' },
       { href: '/debtors', icon: CreditCard, label: 'Qarzdorlar' },
       { href: '/perechisleniya', icon: Landmark, label: 'Perechisleniya' },
       { href: '/zalog', icon: Wallet, label: 'Zalog / Oldindan' },
