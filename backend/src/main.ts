@@ -2,8 +2,11 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { runPreflightMigrations } from './database/preflight-migrations';
 
 async function bootstrap() {
+  await runPreflightMigrations();
+
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix('api');

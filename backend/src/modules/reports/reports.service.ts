@@ -38,11 +38,6 @@ export class ReportsService {
     @InjectRepository(WorkerPayment) private readonly workerPaymentRepo: Repository<WorkerPayment>,
   ) {}
 
-  private async getStockBalance(brickType: BrickType): Promise<number> {
-    const s = await this.stockRepo.findOne({ where: { brickType } });
-    return s ? s.quantity : 0;
-  }
-
   private async getReserveBalance(brickType: BrickType): Promise<number> {
     const latest = await this.reserveRepo.findOne({ where: { brickType }, order: { createdAt: 'DESC' } });
     return latest ? latest.newQuantity : 0;
@@ -385,8 +380,8 @@ export class ReportsService {
     const endOfDayBalance = balanceMap[date] ?? (previousDayBalance + cashBasisIncome - totalExpenses - workerPaid);
 
     const [bakedStock, rawStock, reserveRaw, reserveBaked] = await Promise.all([
-      this.getStockBalance(BrickType.BAKED_BRICK),
-      this.getStockBalance(BrickType.RAW_BRICK),
+      this.computeBakedStock(),
+      this.computeRawStock(),
       this.getReserveBalance(BrickType.RAW_BRICK),
       this.getReserveBalance(BrickType.BAKED_BRICK),
     ]);
@@ -632,8 +627,8 @@ export class ReportsService {
       this.inventoryRepo.createQueryBuilder('i').select('SUM(i.quantity)', 'total').where('i.brickType = :bt AND i.date >= :df AND i.date <= :dt', { bt: BrickType.RAW_BRICK, df: dateFrom, dt: dateTo }).getRawOne(),
       this.saleRepo.createQueryBuilder('s').select('SUM(s.quantity)', 'total').where('s.brickType = :bt AND s.date >= :df AND s.date <= :dt', { bt: BrickType.BAKED_BRICK, df: dateFrom, dt: dateTo }).getRawOne(),
       this.saleRepo.createQueryBuilder('s').select('SUM(s.quantity)', 'total').where('s.brickType = :bt AND s.date >= :df AND s.date <= :dt', { bt: BrickType.RAW_BRICK, df: dateFrom, dt: dateTo }).getRawOne(),
-      this.getStockBalance(BrickType.BAKED_BRICK),
-      this.getStockBalance(BrickType.RAW_BRICK),
+      this.computeBakedStock(),
+      this.computeRawStock(),
     ]);
 
     return {
@@ -779,8 +774,8 @@ export class ReportsService {
     const daily = await this.getDailyReport(query);
 
     const [bakedStock, rawStock, reserveRaw, reserveBaked] = await Promise.all([
-      this.getStockBalance(BrickType.BAKED_BRICK),
-      this.getStockBalance(BrickType.RAW_BRICK),
+      this.computeBakedStock(),
+      this.computeRawStock(),
       this.getReserveBalance(BrickType.RAW_BRICK),
       this.getReserveBalance(BrickType.BAKED_BRICK),
     ]);
@@ -865,13 +860,12 @@ export class ReportsService {
   }
 
   async getStockReport() {
-    const [stocks, reserveRaw, reserveBaked] = await Promise.all([
-      this.stockRepo.find(),
+    const [rawBrickStock, bakedBrickStock, reserveRaw, reserveBaked] = await Promise.all([
+      this.computeRawStock(),
+      this.computeBakedStock(),
       this.getReserveBalance(BrickType.RAW_BRICK),
       this.getReserveBalance(BrickType.BAKED_BRICK),
     ]);
-    const rawBrickStock = stocks.find((s) => s.brickType === BrickType.RAW_BRICK)?.quantity ?? 0;
-    const bakedBrickStock = stocks.find((s) => s.brickType === BrickType.BAKED_BRICK)?.quantity ?? 0;
     return {
       rawBrickStock,
       bakedBrickStock,

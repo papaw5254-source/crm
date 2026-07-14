@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
@@ -14,9 +15,10 @@ export class PrepaymentDelivery {
   id: string;
 
   @ManyToOne(() => Prepayment, (p) => p.deliveries, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'prepayment_id' })
   prepayment: Prepayment;
 
-  @Column({ name: 'prepayment_id' })
+  @Column({ name: 'prepayment_id', type: 'uuid' })
   prepaymentId: string;
 
   @Column({ type: 'int' })
