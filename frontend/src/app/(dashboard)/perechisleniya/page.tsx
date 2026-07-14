@@ -58,12 +58,14 @@ export default function PerechisleniyaPage() {
   const [depositAmount, setDepositAmount] = useState('')
   const [depositDate, setDepositDate] = useState(new Date().toISOString().split('T')[0])
   const [depositDesc, setDepositDesc] = useState('')
+  const [editDeposit, setEditDeposit] = useState<MoneyIncome | null>(null)
   const [deleteDepositId, setDeleteDepositId] = useState<string | null>(null)
   const [oldDebtOpen, setOldDebtOpen] = useState(false)
   const [oldDebtFirm, setOldDebtFirm] = useState('')
   const [oldDebtAmount, setOldDebtAmount] = useState('')
   const [oldDebtDate, setOldDebtDate] = useState(new Date().toISOString().split('T')[0])
   const [oldDebtDesc, setOldDebtDesc] = useState('')
+  const [editOldDebt, setEditOldDebt] = useState<MoneyIncome | null>(null)
   const [deleteOldDebtId, setDeleteOldDebtId] = useState<string | null>(null)
   const [filterDate, setFilterDate] = useState('')
 
@@ -198,6 +200,26 @@ export default function PerechisleniyaPage() {
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
+  const updateDepositMutation = useMutation({
+    mutationFn: () => moneyIncomesService.update(editDeposit!.id, {
+      amount: Number(depositAmount),
+      source: 'FIRM_DEPOSIT',
+      fromWhom: depositFirm,
+      description: depositDesc || `${depositFirm} oldindan to'lov`,
+      date: depositDate,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['firm-deposits'] })
+      toast.success("Depozit yangilandi")
+      setDepositOpen(false)
+      setEditDeposit(null)
+      setDepositAmount('')
+      setDepositDesc('')
+      setDepositDate(new Date().toISOString().split('T')[0])
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
   const deleteDepositMutation = useMutation({
     mutationFn: (id: string) => moneyIncomesService.delete(id),
     onSuccess: () => {
@@ -220,6 +242,26 @@ export default function PerechisleniyaPage() {
       queryClient.invalidateQueries({ queryKey: ['firm-old-debts'] })
       toast.success("Oldingi qarz qo'shildi")
       setOldDebtOpen(false)
+      setOldDebtAmount('')
+      setOldDebtDesc('')
+      setOldDebtDate(new Date().toISOString().split('T')[0])
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const updateOldDebtMutation = useMutation({
+    mutationFn: () => moneyIncomesService.update(editOldDebt!.id, {
+      amount: Number(oldDebtAmount),
+      source: 'FIRM_OLD_DEBT',
+      fromWhom: oldDebtFirm,
+      description: oldDebtDesc || `${oldDebtFirm} oldingi qarzi`,
+      date: oldDebtDate,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['firm-old-debts'] })
+      toast.success("Oldingi qarz yangilandi")
+      setOldDebtOpen(false)
+      setEditOldDebt(null)
       setOldDebtAmount('')
       setOldDebtDesc('')
       setOldDebtDate(new Date().toISOString().split('T')[0])
@@ -265,12 +307,32 @@ export default function PerechisleniyaPage() {
   }
 
   const openDepositDialog = (firmName: string) => {
+    setEditDeposit(null)
     setDepositFirm(firmName)
     setDepositOpen(true)
   }
 
   const openOldDebtDialog = (firmName: string) => {
+    setEditOldDebt(null)
     setOldDebtFirm(firmName)
+    setOldDebtOpen(true)
+  }
+
+  const openEditDeposit = (item: MoneyIncome) => {
+    setEditDeposit(item)
+    setDepositFirm(item.fromWhom || '')
+    setDepositAmount(String(item.amount ?? 0))
+    setDepositDate(item.date)
+    setDepositDesc(item.description || '')
+    setDepositOpen(true)
+  }
+
+  const openEditOldDebt = (item: MoneyIncome) => {
+    setEditOldDebt(item)
+    setOldDebtFirm(item.fromWhom || '')
+    setOldDebtAmount(String(item.amount ?? 0))
+    setOldDebtDate(item.date)
+    setOldDebtDesc(item.description || '')
     setOldDebtOpen(true)
   }
 
@@ -383,11 +445,18 @@ export default function PerechisleniyaPage() {
     { key: 'desc', header: 'Izoh', cell: (r: MoneyIncome) => <span className="text-xs text-muted-foreground">{r.description || '—'}</span> },
     {
       key: 'actions', header: '',
-      cell: (r: MoneyIncome) => isAdmin ? (
-        <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteDepositId(r.id)}>
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      ) : null,
+      cell: (r: MoneyIncome) => (
+        <div className="flex gap-1 justify-end">
+          <Button variant="ghost" size="icon-sm" onClick={() => openEditDeposit(r)}>
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          {isAdmin && (
+            <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteDepositId(r.id)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      ),
     },
   ]
 
@@ -400,17 +469,25 @@ export default function PerechisleniyaPage() {
     { key: 'desc', header: 'Izoh', cell: (r: MoneyIncome) => <span className="text-xs text-muted-foreground">{r.description || '—'}</span> },
     {
       key: 'actions', header: '',
-      cell: (r: MoneyIncome) => isAdmin ? (
-        <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteOldDebtId(r.id)}>
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      ) : null,
+      cell: (r: MoneyIncome) => (
+        <div className="flex gap-1 justify-end">
+          <Button variant="ghost" size="icon-sm" onClick={() => openEditOldDebt(r)}>
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          {isAdmin && (
+            <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteOldDebtId(r.id)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      ),
     },
   ]
 
   const selectedBalance = selectedFirm ? getBalance(selectedFirm) : 0
   const selectedDeposited = firmDeposits.reduce((s, d) => s + Number(d.amount), 0)
   const selectedSold = (firms as BankTransferFirm[]).find(f => f.firmName === selectedFirm)?.totalAmount ?? 0
+  const selectedSoldQuantity = (firmSales as Sale[]).reduce((s, sale) => s + Number(sale.quantity || 0), 0)
   const selectedOldDebt = firmOldDebts.reduce((s, d) => s + Number(d.amount), 0)
 
   return (
@@ -420,10 +497,10 @@ export default function PerechisleniyaPage() {
         description="Firma depozitlari va bank o'tkazmalari"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => { setOldDebtFirm(''); setOldDebtOpen(true) }}>
+            <Button variant="outline" onClick={() => { setEditOldDebt(null); setOldDebtFirm(''); setOldDebtOpen(true) }}>
               <TrendingDown className="h-4 w-4 mr-1" /> Oldingi qarz qo&apos;shish
             </Button>
-            <Button variant="outline" onClick={() => { setDepositFirm(''); setDepositOpen(true) }}>
+            <Button variant="outline" onClick={() => { setEditDeposit(null); setDepositFirm(''); setDepositOpen(true) }}>
               <Wallet className="h-4 w-4 mr-1" /> Depozit qo&apos;shish
             </Button>
             <Button onClick={() => openAdd()}>
@@ -498,7 +575,7 @@ export default function PerechisleniyaPage() {
                 </div>
                 <div className="rounded-lg bg-red-50 dark:bg-red-950/30 p-3 text-center">
                   <div className="text-xs text-muted-foreground mb-1">Berilgan g&apos;isht</div>
-                  <div className="font-bold text-lg text-red-600 dark:text-red-400">-{formatCurrency(selectedSold)}</div>
+                  <div className="font-bold text-lg text-red-600 dark:text-red-400">-{formatNumber(selectedSoldQuantity)} dona</div>
                 </div>
                 <div className="rounded-lg bg-red-50 dark:bg-red-950/30 p-3 text-center">
                   <div className="text-xs text-muted-foreground mb-1">Oldingi qarz</div>
@@ -557,10 +634,10 @@ export default function PerechisleniyaPage() {
       </Dialog>
 
       {/* Deposit dialog */}
-      <Dialog open={depositOpen} onOpenChange={(o) => { if (!o) { setDepositOpen(false); setDepositAmount(''); setDepositDesc('') } }}>
+      <Dialog open={depositOpen} onOpenChange={(o) => { if (!o) { setDepositOpen(false); setEditDeposit(null); setDepositAmount(''); setDepositDesc('') } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Firma depoziti qo&apos;shish</DialogTitle>
+            <DialogTitle>{editDeposit ? 'Firma depozitini tahrirlash' : 'Firma depoziti qo&apos;shish'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
@@ -599,20 +676,20 @@ export default function PerechisleniyaPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDepositOpen(false)}>Bekor qilish</Button>
             <Button
-              disabled={!depositFirm || !depositAmount || Number(depositAmount) <= 0 || depositMutation.isPending}
-              onClick={() => depositMutation.mutate()}
+              disabled={!depositFirm || !depositAmount || Number(depositAmount) <= 0 || depositMutation.isPending || updateDepositMutation.isPending}
+              onClick={() => editDeposit ? updateDepositMutation.mutate() : depositMutation.mutate()}
             >
-              {depositMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+              {depositMutation.isPending || updateDepositMutation.isPending ? 'Saqlanmoqda...' : editDeposit ? 'Saqlash' : "Qo'shish"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Old debt dialog */}
-      <Dialog open={oldDebtOpen} onOpenChange={(o) => { if (!o) { setOldDebtOpen(false); setOldDebtAmount(''); setOldDebtDesc('') } }}>
+      <Dialog open={oldDebtOpen} onOpenChange={(o) => { if (!o) { setOldDebtOpen(false); setEditOldDebt(null); setOldDebtAmount(''); setOldDebtDesc('') } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Firma oldingi qarzini qo&apos;shish</DialogTitle>
+            <DialogTitle>{editOldDebt ? 'Firma oldingi qarzini tahrirlash' : 'Firma oldingi qarzini qo&apos;shish'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
@@ -651,10 +728,10 @@ export default function PerechisleniyaPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOldDebtOpen(false)}>Bekor qilish</Button>
             <Button
-              disabled={!oldDebtFirm || !oldDebtAmount || Number(oldDebtAmount) <= 0 || oldDebtMutation.isPending}
-              onClick={() => oldDebtMutation.mutate()}
+              disabled={!oldDebtFirm || !oldDebtAmount || Number(oldDebtAmount) <= 0 || oldDebtMutation.isPending || updateOldDebtMutation.isPending}
+              onClick={() => editOldDebt ? updateOldDebtMutation.mutate() : oldDebtMutation.mutate()}
             >
-              {oldDebtMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
+              {oldDebtMutation.isPending || updateOldDebtMutation.isPending ? 'Saqlanmoqda...' : editOldDebt ? 'Saqlash' : "Qo'shish"}
             </Button>
           </DialogFooter>
         </DialogContent>
