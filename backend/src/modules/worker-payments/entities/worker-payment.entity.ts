@@ -26,6 +26,9 @@ export class WorkerPayment {
   @Column({ type: 'decimal', precision: 14, scale: 2 })
   amount: number;
 
+  @Column({ type: 'int', nullable: true })
+  quantity: number;
+
   @Column({ name: 'paid_amount', type: 'decimal', precision: 14, scale: 2, default: 0 })
   paidAmount: number;
 

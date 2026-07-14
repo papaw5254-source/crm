@@ -299,6 +299,7 @@ export interface WorkerPayment {
   category: WorkerPaymentCategory
   debtFromPreviousMonth: number
   amount: number
+  quantity?: number
   paidAmount: number
   remainingDebt: number
   month: string

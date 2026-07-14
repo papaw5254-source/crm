@@ -6,6 +6,7 @@ export interface CreateWorkerPaymentDto {
   category: string
   debtFromPreviousMonth?: number
   amount: number
+  quantity?: number
   paidAmount: number
   month?: string | number
   year?: number

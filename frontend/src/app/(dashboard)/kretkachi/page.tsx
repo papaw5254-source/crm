@@ -60,6 +60,12 @@ export default function KretkachPage() {
   })
   const filteredPayments = (payments?.data ?? []).filter((r: WorkerPayment) => !filterDate || r.date === filterDate)
 
+  const { data: allTimePayments } = useQuery({
+    queryKey: ['worker-payments-all-time', 'KRETKACHI'],
+    queryFn: () => workerPaymentsService.getAll({ category: 'KRETKACHI', page: 1, limit: 9999 }),
+  })
+  const totalPressedBricks = (allTimePayments?.data ?? []).reduce((s: number, r: WorkerPayment) => s + Number(r.quantity || 0), 0)
+
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { date: today, quantity: 0, ratePerBrick: 0, paid: 0, description: '' },
@@ -79,6 +85,7 @@ export default function KretkachPage() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
     queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+    queryClient.invalidateQueries({ queryKey: ['worker-payments-all-time'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard'] })
   }
 
@@ -90,6 +97,7 @@ export default function KretkachPage() {
         workerName: 'Kretkachi',
         category: 'KRETKACHI',
         amount: calcAmount,
+        quantity: qty,
         paidAmount: d.paid || 0,
         debtFromPreviousMonth: 0,
         month: d.date.slice(0, 7),
@@ -186,7 +194,8 @@ export default function KretkachPage() {
         }
       />
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <StatsCard title="Jami bosilgan g'isht" value={totalPressedBricks} icon={HardHat} color="blue" format="number" suffix="dona" />
         <StatsCard title="Bu oy hisoblangan" value={Number(stats.amount)} icon={HardHat} color="amber" />
         <StatsCard title="Berildi" value={Number(stats.paid)} icon={HardHat} color="emerald" />
         <StatsCard title="Oldingi qarz" value={Number(stats.carriedDebt)} icon={HardHat} color="slate" />

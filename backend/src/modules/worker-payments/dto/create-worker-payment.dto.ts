@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { WorkerPaymentCategory } from '../../../common/enums/worker-payment-category.enum';
 
 export class CreateWorkerPaymentDto {
@@ -21,6 +21,12 @@ export class CreateWorkerPaymentDto {
   @IsNumber()
   @Min(0)
   amount: number;
+
+  @ApiPropertyOptional({ example: 1000, description: 'Ishlangan g\'isht soni (dona)' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  quantity?: number;
 
   @ApiPropertyOptional({ example: 400000, description: 'Haqiqatda to\'langan miqdor' })
   @IsOptional()
