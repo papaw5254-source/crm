@@ -391,6 +391,7 @@ export interface MonthlyReport {
   workerPaid: number
   prepaymentPaid: number
   prepaymentDeliveredBricks: number
+  moneyIncomes: number
   netProfit: number
   paperProfit: number
   endOfDayBalance: number
@@ -414,6 +415,7 @@ export interface YearlyReport {
   workerPaid: number
   prepaymentPaid: number
   prepaymentDeliveredBricks: number
+  moneyIncomes: number
   netProfit: number
   paperProfit: number
   endOfDayBalance: number
@@ -431,6 +433,7 @@ export interface DayData {
   workerAccrued: number
   prepaymentPaid: number
   prepaymentDeliveredBricks: number
+  moneyIncomes: number
   cashReceived: number
   profit: number
   endOfDayBalance: number
@@ -444,6 +447,7 @@ export interface MonthData {
   workerAccrued: number
   prepaymentPaid: number
   prepaymentDeliveredBricks: number
+  moneyIncomes: number
   cashReceived: number
   profit: number
   endOfDayBalance: number

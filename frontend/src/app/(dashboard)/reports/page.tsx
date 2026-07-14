@@ -237,6 +237,7 @@ export default function ReportsPage() {
                     <StatRow label="Naqd tushum" value={formatCurrency(Number(monthly.cashReceived))} highlight="green" />
                     <StatRow label="Zalog puli" value={formatCurrency(Number(monthly.prepaymentPaid ?? 0))} highlight="green" />
                     <StatRow label="Zalog g'ishti yetkazildi" value={formatNumber(Number(monthly.prepaymentDeliveredBricks ?? 0)) + ' dona'} />
+                    <StatRow label="Pul kirimlari" value={formatCurrency(Number(monthly.moneyIncomes ?? 0))} highlight="green" />
                     <StatRow label="Xarajatlar" value={formatCurrency(Number(monthly.totalExpenses))} highlight="red" />
                     <StatRow label="Ishchi puli (hisoblangan)" value={formatCurrency(Number(monthly.workerAccrued ?? 0))} highlight="red" />
                     <StatRow label="Ishchi puli (to'langan)" value={formatCurrency(Number(monthly.workerPaid ?? 0))} highlight="green" />
@@ -352,6 +353,7 @@ export default function ReportsPage() {
                       <StatRow label="Naqd tushum" value={formatCurrency(Number(yearly.cashReceived))} highlight="green" />
                       <StatRow label="Zalog puli" value={formatCurrency(Number(yearly.prepaymentPaid ?? 0))} highlight="green" />
                       <StatRow label="Zalog g'ishti yetkazildi" value={formatNumber(Number(yearly.prepaymentDeliveredBricks ?? 0)) + ' dona'} />
+                      <StatRow label="Pul kirimlari" value={formatCurrency(Number(yearly.moneyIncomes ?? 0))} highlight="green" />
                       <StatRow label="Xarajatlar" value={formatCurrency(Number(yearly.totalExpenses))} highlight="red" />
                       <StatRow label="Ishchi puli (hisoblangan)" value={formatCurrency(Number(yearly.workerAccrued ?? 0))} highlight="red" />
                       <StatRow label="Ishchi puli (to'langan)" value={formatCurrency(Number(yearly.workerPaid ?? 0))} highlight="green" />
