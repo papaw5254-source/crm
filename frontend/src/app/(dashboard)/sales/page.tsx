@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { salesService } from '@/services/sales.service'
+import { debtorsService } from '@/services/debtors.service'
 import { workerPaymentsService } from '@/services/worker-payments.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
@@ -26,7 +27,7 @@ import { formatDate, formatCurrency, brickTypeLabel, brickTypeColor, paymentType
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePagination } from '@/hooks/use-pagination'
 import { useAuth } from '@/providers/auth-provider'
-import type { Sale, PaymentType, BrickType, WorkerPayment } from '@/types'
+import type { Sale, PaymentType, BrickType, WorkerPayment, Debtor } from '@/types'
 
 const schema = z.object({
   brickType: z.enum(['RAW_BRICK', 'BAKED_BRICK']),
@@ -82,6 +83,12 @@ export default function SalesPage() {
   const eskiQarzList = (eskiQarzData?.data ?? []).filter((r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0)
   const eskiQarzCarriedDebt = eskiQarzList.reduce((acc: number, r: WorkerPayment) => acc + Number(r.debtFromPreviousMonth), 0)
   const yuklagchiStats = { ...yuklagchiStatsRaw, carriedDebt: eskiQarzCarriedDebt }
+
+  const { data: debtorsResp } = useQuery({
+    queryKey: ['debtors-for-suggest'],
+    queryFn: () => debtorsService.getAll({ limit: 200 }),
+  })
+  const debtorSuggestions = debtorsResp?.data ?? []
 
   const scoped = !!filterDate || paymentTypeFilter !== 'ALL'
 
@@ -476,7 +483,23 @@ export default function SalesPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>{watch('paymentType') === 'BANK_TRANSFER' ? 'Firma nomi' : 'Mijoz ismi'}</Label>
-                  <Input {...register('customerName')} placeholder={watch('paymentType') === 'BANK_TRANSFER' ? 'OOO Firm' : 'Ahmadjon'} />
+                  <Input
+                    {...register('customerName', {
+                      onChange: (e) => {
+                        const match = debtorSuggestions.find((d: Debtor) => d.fullName === e.target.value)
+                        if (match?.phone && !watch('customerPhone')) {
+                          setValue('customerPhone', match.phone)
+                        }
+                      },
+                    })}
+                    list="debtor-name-suggestions"
+                    placeholder={watch('paymentType') === 'BANK_TRANSFER' ? 'OOO Firm' : 'Ahmadjon'}
+                  />
+                  <datalist id="debtor-name-suggestions">
+                    {debtorSuggestions.map((d: Debtor) => (
+                      <option key={d.id} value={d.fullName} />
+                    ))}
+                  </datalist>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Telefon</Label>
