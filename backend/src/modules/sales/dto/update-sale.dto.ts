@@ -8,9 +8,15 @@ import {
   IsString,
   Min,
 } from 'class-validator';
+import { BrickType } from '../../../common/enums/brick-type.enum';
 import { PaymentType } from '../../../common/enums/payment-type.enum';
 
 export class UpdateSaleDto {
+  @ApiPropertyOptional({ enum: BrickType })
+  @IsOptional()
+  @IsEnum(BrickType)
+  brickType?: BrickType;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
