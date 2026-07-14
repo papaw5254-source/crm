@@ -17,6 +17,11 @@ export const debtorsService = {
     return res.data.data
   },
 
+  async update(id: string, data: { fullName?: string; phone?: string; oldDebt?: number; lastDebtDate?: string; notes?: string }): Promise<Debtor> {
+    const res = await api.patch(`/debtors/${id}`, data)
+    return res.data.data
+  },
+
   async addPayment(id: string, data: { amount: number; description?: string; date: string }): Promise<DebtPayment> {
     const res = await api.post(`/debtors/${id}/pay`, data)
     return res.data.data

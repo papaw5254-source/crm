@@ -145,7 +145,23 @@ export class DebtorsService {
 
   async update(id: string, updateDebtorDto: UpdateDebtorDto): Promise<Debtor> {
     const debtor = await this.findOne(id);
-    Object.assign(debtor, updateDebtorDto);
+
+    debtor.fullName = updateDebtorDto.fullName ?? debtor.fullName;
+    debtor.phone = updateDebtorDto.phone ?? debtor.phone;
+    debtor.lastDebtDate = updateDebtorDto.lastDebtDate ?? debtor.lastDebtDate;
+    debtor.notes = updateDebtorDto.notes ?? debtor.notes;
+
+    if (updateDebtorDto.oldDebt !== undefined) {
+      // totalDebt = (sales-derived debt not from oldDebt) + oldDebt, so editing
+      // oldDebt must preserve whatever portion came from linked nasiya sales.
+      const salesPortion = Number(debtor.totalDebt || 0) - Number(debtor.oldDebt || 0);
+      const newOldDebt = Number(updateDebtorDto.oldDebt);
+      debtor.oldDebt = newOldDebt;
+      debtor.totalDebt = salesPortion + newOldDebt;
+      debtor.remainingDebt = Math.max(0, Number(debtor.totalDebt) - Number(debtor.paidAmount || 0));
+      debtor.isPaid = debtor.remainingDebt <= 0;
+    }
+
     return this.debtorRepository.save(debtor);
   }
 

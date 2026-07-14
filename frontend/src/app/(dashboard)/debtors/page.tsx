@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Users, Banknote, TrendingDown, Trash2 } from 'lucide-react'
+import { Plus, Users, Banknote, TrendingDown, Trash2, Pencil } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -39,6 +39,15 @@ const oldDebtSchema = z.object({
 })
 type OldDebtForm = z.infer<typeof oldDebtSchema>
 
+const editDebtorSchema = z.object({
+  fullName: z.string().min(1, 'Ism kiritilishi shart'),
+  phone: z.string().optional(),
+  oldDebt: z.coerce.number().min(0, "Qarz manfiy bo'lmasligi kerak"),
+  lastDebtDate: z.string().optional(),
+  notes: z.string().optional(),
+})
+type EditDebtorForm = z.infer<typeof editDebtorSchema>
+
 function DebtProgressBar({ paid, total }: { paid: number; total: number }) {
   const percent = total > 0 ? Math.min(100, (paid / total) * 100) : 0
   return (
@@ -62,6 +71,8 @@ export default function DebtorsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [oldDebtOpen, setOldDebtOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editDebtor, setEditDebtor] = useState<Debtor | null>(null)
 
   const { data: debtorsResp, isLoading } = useQuery({
     queryKey: ['debtors'],
@@ -86,6 +97,10 @@ export default function DebtorsPage() {
   const oldDebtForm = useForm<OldDebtForm>({
     resolver: zodResolver(oldDebtSchema),
     defaultValues: { lastDebtDate: new Date().toISOString().split('T')[0] },
+  })
+
+  const editForm = useForm<EditDebtorForm>({
+    resolver: zodResolver(editDebtorSchema),
   })
 
   const deleteMutation = useMutation({
@@ -130,6 +145,37 @@ export default function DebtorsPage() {
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
+
+  const editMutation = useMutation({
+    mutationFn: (data: EditDebtorForm) =>
+      debtorsService.update(editDebtor!.id, {
+        fullName: data.fullName.trim(),
+        phone: data.phone?.trim() || undefined,
+        oldDebt: data.oldDebt,
+        lastDebtDate: data.lastDebtDate || undefined,
+        notes: data.notes?.trim() || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['debtors'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      toast.success('Qarzdor yangilandi')
+      setEditOpen(false)
+      setEditDebtor(null)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const openEdit = (debtor: Debtor) => {
+    setEditDebtor(debtor)
+    editForm.reset({
+      fullName: debtor.fullName,
+      phone: debtor.phone || '',
+      oldDebt: Number(debtor.oldDebt ?? 0),
+      lastDebtDate: debtor.lastDebtDate || '',
+      notes: debtor.notes || '',
+    })
+    setEditOpen(true)
+  }
 
   const visibleDebtors = debtors
     .filter((d: Debtor) => showActive ? !d.isPaid : true)
@@ -259,6 +305,14 @@ export default function DebtorsPage() {
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="text-xs px-2"
+                          onClick={() => openEdit(debtor)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           className="text-xs text-destructive hover:text-destructive hover:bg-destructive/10 px-2"
                           onClick={() => { setDeleteId(debtor.id); setDeleteOpen(true) }}
                         >
@@ -315,6 +369,53 @@ export default function DebtorsPage() {
               <Button type="button" variant="outline" onClick={() => setOldDebtOpen(false)}>Bekor qilish</Button>
               <Button type="submit" loading={oldDebtMutation.isPending}>
                 Qo&apos;shish
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Debtor Dialog */}
+      <Dialog open={editOpen} onOpenChange={(open) => { setEditOpen(open); if (!open) setEditDebtor(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Qarzdorni tahrirlash</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={editForm.handleSubmit((d) => editMutation.mutate(d))} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Qarzdor ismi *</Label>
+                <Input {...editForm.register('fullName')} placeholder="Mijoz ismi" />
+                {editForm.formState.errors.fullName && (
+                  <p className="text-destructive text-xs">{editForm.formState.errors.fullName.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Telefon</Label>
+                <Input {...editForm.register('phone')} placeholder="+998901234567" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Eski qarz miqdori *</Label>
+                <Input {...editForm.register('oldDebt')} type="number" placeholder="2700000" />
+                {editForm.formState.errors.oldDebt && (
+                  <p className="text-destructive text-xs">{editForm.formState.errors.oldDebt.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Sana</Label>
+                <Input {...editForm.register('lastDebtDate')} type="date" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Izoh</Label>
+              <Input {...editForm.register('notes')} placeholder="Izoh..." />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Bekor qilish</Button>
+              <Button type="submit" loading={editMutation.isPending}>
+                Saqlash
               </Button>
             </DialogFooter>
           </form>
