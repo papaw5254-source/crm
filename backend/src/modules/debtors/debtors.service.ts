@@ -27,13 +27,13 @@ export class DebtorsService {
   async create(createDebtorDto: CreateDebtorDto): Promise<Debtor> {
     const oldDebt = Number(createDebtorDto.oldDebt || 0);
     const phone = createDebtorDto.phone?.trim() || undefined;
+    // Only merge onto an existing debtor when the phone number matches exactly.
+    // Matching by name alone is unsafe (typos/common names silently combine two
+    // different people's debt into one record), so a missing/non-matching phone
+    // always creates a brand new debtor instead of guessing by name.
     let debtor = phone
       ? await this.debtorRepository.findOne({ where: { phone } })
       : null;
-
-    if (!debtor) {
-      debtor = await this.debtorRepository.findOne({ where: { fullName: createDebtorDto.fullName } });
-    }
 
     if (debtor) {
       debtor.fullName = debtor.fullName || createDebtorDto.fullName;
