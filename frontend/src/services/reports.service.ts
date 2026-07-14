@@ -70,6 +70,25 @@ async function getReport(path: string, params?: QueryParams) {
   return safeReport(response.data)
 }
 
+async function downloadFile(path: string, params: QueryParams | undefined, fallbackFilename: string) {
+  const response = await api.get(path, {
+    params: cleanParams(params),
+    responseType: 'blob',
+  })
+  const blob = new Blob([response.data], { type: String(response.headers['content-type'] || 'application/octet-stream') })
+  const disposition = response.headers['content-disposition'] as string | undefined
+  const match = disposition?.match(/filename="?([^"]+)"?/)
+  const filename = match?.[1] || fallbackFilename
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
 export const reportsService = {
   getDashboard: () => getReport('/reports/dashboard'),
 
@@ -100,6 +119,13 @@ export const reportsService = {
 
   getSales: (params?: QueryParams) => getReport('/reports/sales', params),
   getSalesReport: (params?: QueryParams) => getReport('/reports/sales', params),
+
+  downloadDailyExcel: (date: string) =>
+    downloadFile('/reports/daily/excel', { date }, `kunlik-hisobot-${date}.xlsx`),
+  downloadMonthlyExcel: (year: number, month: number) =>
+    downloadFile('/reports/monthly/excel', { year, month }, `oylik-hisobot-${year}-${String(month).padStart(2, '0')}.xlsx`),
+  downloadYearlyExcel: (year: number) =>
+    downloadFile('/reports/yearly/excel', { year }, `yillik-hisobot-${year}.xlsx`),
 }
 
 export default reportsService

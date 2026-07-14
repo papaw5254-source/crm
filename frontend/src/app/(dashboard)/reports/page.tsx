@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, TrendingUp, TrendingDown, Banknote, Package, Warehouse, ArrowUp, ArrowDown } from 'lucide-react'
+import { BarChart3, TrendingUp, TrendingDown, Banknote, Package, Warehouse, ArrowUp, ArrowDown, Download } from 'lucide-react'
 import {
   AreaChart, Area as AreaC, BarChart, Bar as BarC,
   XAxis as XAxisC, YAxis as YAxisC, CartesianGrid, Tooltip as TooltipC,
@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const [Area, Bar, XAxis, YAxis, Tooltip, Legend, Pie] = [AreaC, BarC, XAxisC, YAxisC, TooltipC, LegendC, PieC].map((C) => C as unknown as any)
+import { toast } from 'sonner'
 import { reportsService } from '@/services/reports.service'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatsCard } from '@/components/shared/stats-card'
@@ -17,8 +18,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
 import { LoadingBlock } from '@/components/ui/spinner'
-import { formatCurrency, formatDate, formatNumber, expenseCategoryLabel } from '@/lib/utils'
+import { formatCurrency, formatDate, formatNumber, expenseCategoryLabel, getErrorMessage } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
 import type { DayData, MonthData, Debtor } from '@/types'
 
@@ -50,6 +52,40 @@ export default function ReportsPage() {
   const [yearlyYear, setYearlyYear] = useState(new Date().getFullYear())
   const [cfFrom, setCfFrom] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0])
   const [cfTo, setCfTo] = useState(today)
+  const [downloading, setDownloading] = useState<'daily' | 'monthly' | 'yearly' | null>(null)
+
+  const handleDownloadDaily = async () => {
+    setDownloading('daily')
+    try {
+      await reportsService.downloadDailyExcel(dailyDate)
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e))
+    } finally {
+      setDownloading(null)
+    }
+  }
+
+  const handleDownloadMonthly = async () => {
+    setDownloading('monthly')
+    try {
+      await reportsService.downloadMonthlyExcel(monthlyYear, monthlyMonth)
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e))
+    } finally {
+      setDownloading(null)
+    }
+  }
+
+  const handleDownloadYearly = async () => {
+    setDownloading('yearly')
+    try {
+      await reportsService.downloadYearlyExcel(yearlyYear)
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e))
+    } finally {
+      setDownloading(null)
+    }
+  }
 
   const { data: daily, isLoading: dailyLoading } = useQuery({
     queryKey: ['report-daily', dailyDate],
@@ -130,6 +166,9 @@ export default function ReportsPage() {
               <Label>Sana</Label>
               <Input type="date" value={dailyDate} onChange={(e) => setDailyDate(e.target.value)} className="w-44" />
             </div>
+            <Button variant="outline" onClick={handleDownloadDaily} disabled={downloading === 'daily'}>
+              <Download className="h-4 w-4 mr-1" /> {downloading === 'daily' ? 'Yuklanmoqda...' : 'Excel yuklab olish'}
+            </Button>
           </div>
 
           {dailyLoading ? (
@@ -215,6 +254,9 @@ export default function ReportsPage() {
               <Label>Oy</Label>
               <Input type="number" value={monthlyMonth} onChange={(e) => setMonthlyMonth(Number(e.target.value))} className="w-24" min={1} max={12} />
             </div>
+            <Button variant="outline" onClick={handleDownloadMonthly} disabled={downloading === 'monthly'}>
+              <Download className="h-4 w-4 mr-1" /> {downloading === 'monthly' ? 'Yuklanmoqda...' : 'Excel yuklab olish'}
+            </Button>
           </div>
 
           {monthlyLoading ? (
@@ -331,6 +373,9 @@ export default function ReportsPage() {
                 <Label>Yil</Label>
                 <Input type="number" value={yearlyYear} onChange={(e) => setYearlyYear(Number(e.target.value))} className="w-28" min={2020} max={2030} />
               </div>
+              <Button variant="outline" onClick={handleDownloadYearly} disabled={downloading === 'yearly'}>
+                <Download className="h-4 w-4 mr-1" /> {downloading === 'yearly' ? 'Yuklanmoqda...' : 'Excel yuklab olish'}
+              </Button>
             </div>
 
             {yearlyLoading ? (

@@ -14,6 +14,7 @@ import { StockMovement } from '../stock/entities/stock-movement.entity';
 import { Stock } from '../stock/entities/stock.entity';
 import { WorkerPayment } from '../worker-payments/entities/worker-payment.entity';
 import { ReportsController } from './reports.controller';
+import { ReportsExcelService } from './reports-excel.service';
 import { ReportsService } from './reports.service';
 
 @Module({
@@ -35,7 +36,7 @@ import { ReportsService } from './reports.service';
     ]),
   ],
   controllers: [ReportsController],
-  providers: [ReportsService],
+  providers: [ReportsService, ReportsExcelService],
   exports: [ReportsService],
 })
 export class ReportsModule {}
