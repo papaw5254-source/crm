@@ -83,14 +83,17 @@ export default function SalesPage() {
   const eskiQarzCarriedDebt = eskiQarzList.reduce((acc: number, r: WorkerPayment) => acc + Number(r.debtFromPreviousMonth), 0)
   const yuklagchiStats = { ...yuklagchiStatsRaw, carriedDebt: eskiQarzCarriedDebt }
 
+  const scoped = !!filterDate || paymentTypeFilter !== 'ALL'
+
   const { data, isLoading } = useQuery({
-    queryKey: ['sales', page, limit, debouncedSearch, filterDate],
+    queryKey: ['sales', page, limit, debouncedSearch, filterDate, paymentTypeFilter],
     queryFn: () => salesService.getAll({
-      page: filterDate ? 1 : page,
-      limit: filterDate ? 500 : limit,
+      page: scoped ? 1 : page,
+      limit: scoped ? 500 : limit,
       search: debouncedSearch,
       isReserveSale: false,
       ...(filterDate ? { dateFrom: filterDate, dateTo: filterDate } : {}),
+      ...(paymentTypeFilter !== 'ALL' ? { paymentType: paymentTypeFilter } : {}),
     }),
   })
 
@@ -210,10 +213,6 @@ export default function SalesPage() {
 
   const allRows = data?.data ?? []
 
-  const filteredData = paymentTypeFilter === 'ALL'
-    ? allRows
-    : allRows.filter((s: Sale) => s.paymentType === paymentTypeFilter)
-
   // Backend-computed totals span every filtered row, not just the current page
   // (allRows.reduce() here would only ever cover the current page's ~10 rows).
   const totalAmount = data?.meta?.totalAmount ?? 0
@@ -329,7 +328,7 @@ export default function SalesPage() {
                   key={type}
                   variant={paymentTypeFilter === type ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setPaymentTypeFilter(type)}
+                  onClick={() => { setPaymentTypeFilter(type); setPage(1) }}
                 >
                   {type === 'ALL' ? 'Barchasi' : paymentTypeLabel(type)}
                 </Button>
@@ -337,12 +336,12 @@ export default function SalesPage() {
             </div>
           </div>
 
-          {filteredData.length === 0 && !isLoading ? (
+          {allRows.length === 0 && !isLoading ? (
             <EmptyState icon={ShoppingCart} title="Sotuv yo'q" description="Birinchi sotuvni qo'shing" action={<Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-1" />Sotuv qo&apos;shish</Button>} />
           ) : (
             <>
-              <DataTable columns={columns} data={filteredData} loading={isLoading} />
-              {!filterDate && data?.meta && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
+              <DataTable columns={columns} data={allRows} loading={isLoading} />
+              {!scoped && data?.meta && <Pagination page={page} totalPages={data.meta.totalPages} total={data.meta.total} limit={limit} onPageChange={setPage} />}
             </>
           )}
         </CardContent>

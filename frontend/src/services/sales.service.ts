@@ -22,7 +22,7 @@ export interface BankTransferFirm {
 }
 
 export const salesService = {
-  async getAll(params?: PaginationParams & { isReserveSale?: boolean }): Promise<PaginatedResponse<Sale>> {
+  async getAll(params?: PaginationParams & { isReserveSale?: boolean; paymentType?: PaymentType }): Promise<PaginatedResponse<Sale>> {
     const res = await api.get('/sales', { params })
     return res.data.data
   },
