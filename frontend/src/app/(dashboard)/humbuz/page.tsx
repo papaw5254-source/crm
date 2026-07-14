@@ -298,7 +298,7 @@ export default function HumbuzPage() {
       {/* Worker payment stats — 4 cards */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-          <HardHat className="h-4 w-4" /> Ishchi puli (Humbuz) — bu oy
+          <HardHat className="h-4 w-4" /> Humbuz kirdi chiqdi — bu oy
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatsCard title="Bu oy hisoblandi" value={Number(humbuzStats.amount)} icon={HardHat} color="amber" />
