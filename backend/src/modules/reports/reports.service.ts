@@ -140,6 +140,81 @@ export class ReportsService {
     return d.toISOString().split('T')[0];
   }
 
+  private async getEarliestActivityDate(): Promise<string | null> {
+    const [s, e, dp, p, mi, wp] = await Promise.all([
+      this.saleRepo.createQueryBuilder('s').select('MIN(s.date)', 'd').getRawOne(),
+      this.expenseRepo.createQueryBuilder('e').select('MIN(e.date)', 'd').getRawOne(),
+      this.debtPaymentRepo.createQueryBuilder('dp').select('MIN(dp.date)', 'd').getRawOne(),
+      this.prepaymentRepo.createQueryBuilder('p').select('MIN(p.date)', 'd').getRawOne(),
+      this.moneyIncomeRepo.createQueryBuilder('mi').select('MIN(mi.date)', 'd').getRawOne(),
+      this.workerPaymentRepo.createQueryBuilder('wp').select('MIN(wp.date)', 'd').getRawOne(),
+    ]);
+    const dates = [s?.d, e?.d, dp?.d, p?.d, mi?.d, wp?.d]
+      .filter(Boolean)
+      .map((d) => (d instanceof Date ? d.toISOString().split('T')[0] : String(d)));
+    if (dates.length === 0) return null;
+    return dates.sort()[0];
+  }
+
+  // Kun oxiriga qolgan pulni kun-ma-kun zanjirlab hisoblaydi: qo'lda kiritilgan
+  // "Kun oxiriga qolgan pul" yozuvi bo'lgan kun tekshirish nuqtasi (checkpoint)
+  // bo'ladi, bo'lmagan kunlarda avvalgi balansga o'sha kunning sof pul oqimi qo'shiladi.
+  private async buildRunningBalanceMap(upToDate: string): Promise<Record<string, number>> {
+    const earliestDate = await this.getEarliestActivityDate();
+    if (!earliestDate || earliestDate > upToDate) return {};
+
+    const [sales, expenses, debtPayments, prepayments, moneyIncomes, workerPayments, manualEntries] = await Promise.all([
+      this.saleRepo.createQueryBuilder('s').where('s.date >= :df AND s.date <= :dt', { df: earliestDate, dt: upToDate }).getMany(),
+      this.expenseRepo.createQueryBuilder('e').where('e.date >= :df AND e.date <= :dt', { df: earliestDate, dt: upToDate }).getMany(),
+      this.debtPaymentRepo.createQueryBuilder('dp').where('dp.date >= :df AND dp.date <= :dt', { df: earliestDate, dt: upToDate }).getMany(),
+      this.prepaymentRepo.createQueryBuilder('p').where('p.date >= :df AND p.date <= :dt', { df: earliestDate, dt: upToDate }).getMany(),
+      this.moneyIncomeRepo.createQueryBuilder('mi').where('mi.date >= :df AND mi.date <= :dt', { df: earliestDate, dt: upToDate }).getMany(),
+      this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date >= :df AND wp.date <= :dt', { df: earliestDate, dt: upToDate }).getMany(),
+      this.moneyIncomeRepo.createQueryBuilder('mi')
+        .where('mi.source = :src AND mi.date >= :df AND mi.date <= :dt', { src: MoneyIncomeSource.END_OF_DAY_BALANCE, df: earliestDate, dt: upToDate })
+        .getMany(),
+    ]);
+
+    const groupByDate = <T extends { date: string }>(items: T[]): Map<string, T[]> => {
+      const m = new Map<string, T[]>();
+      for (const item of items) {
+        if (!m.has(item.date)) m.set(item.date, []);
+        m.get(item.date)!.push(item);
+      }
+      return m;
+    };
+
+    const salesByDate = groupByDate(sales);
+    const expensesByDate = groupByDate(expenses);
+    const debtPaymentsByDate = groupByDate(debtPayments);
+    const prepaymentsByDate = groupByDate(prepayments);
+    const moneyIncomesByDate = groupByDate(moneyIncomes);
+    const workerPaymentsByDate = groupByDate(workerPayments);
+    const manualByDate = groupByDate(manualEntries);
+
+    const map: Record<string, number> = {};
+    let running = 0;
+    let cur = earliestDate;
+    while (cur <= upToDate) {
+      const manual = manualByDate.get(cur);
+      if (manual && manual.length > 0) {
+        running = manual.reduce((s, x) => s + Number(x.amount), 0);
+      } else {
+        const dCashBasisIncome = this.cashOnHandSaleAmount(salesByDate.get(cur) || [])
+          + (debtPaymentsByDate.get(cur) || []).reduce((s, x) => s + Number(x.amount), 0)
+          + (prepaymentsByDate.get(cur) || []).reduce((s, x) => s + Number(x.paidAmount), 0)
+          + this.moneyIncomeAmount(moneyIncomesByDate.get(cur) || []);
+        const dExpenses = (expensesByDate.get(cur) || []).reduce((s, x) => s + Number(x.amount), 0);
+        const dWorkerPaid = (workerPaymentsByDate.get(cur) || []).reduce((s, x) => s + Number(x.paidAmount), 0);
+        running = running + dCashBasisIncome - dExpenses - dWorkerPaid;
+      }
+      map[cur] = running;
+      cur = this.addDays(cur, 1);
+    }
+
+    return map;
+  }
+
   async getDashboard() {
     const today = new Date().toISOString().split('T')[0];
     const monthStart = today.substring(0, 7) + '-01';
@@ -244,7 +319,7 @@ export class ReportsService {
     const date = query.date || new Date().toISOString().split('T')[0];
     const prevDate = this.addDays(date, -1);
 
-    const [sales, incomes, expenses, debtPayments, kilnOps, reserveMovements, moneyIncomes, workerPayments, prepayments, prepaymentDeliveries, prevBalanceEntries] = await Promise.all([
+    const [sales, incomes, expenses, debtPayments, kilnOps, reserveMovements, moneyIncomes, workerPayments, prepayments, prepaymentDeliveries, balanceMap] = await Promise.all([
       this.saleRepo.createQueryBuilder('s').where('s.date = :date', { date }).getMany(),
       this.inventoryRepo.createQueryBuilder('i').where('i.date = :date', { date }).getMany(),
       this.expenseRepo.createQueryBuilder('e').where('e.date = :date', { date }).getMany(),
@@ -255,10 +330,10 @@ export class ReportsService {
       this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date = :date', { date }).getMany(),
       this.prepaymentRepo.createQueryBuilder('p').where('p.date = :date', { date }).getMany(),
       this.deliveryRepo.createQueryBuilder('pd').leftJoinAndSelect('pd.prepayment', 'p').where('pd.date = :date', { date }).getMany(),
-      this.moneyIncomeRepo.createQueryBuilder('mi').where('mi.date = :prevDate AND mi.source = :src', { prevDate, src: MoneyIncomeSource.END_OF_DAY_BALANCE }).getMany(),
+      this.buildRunningBalanceMap(date),
     ]);
 
-    const previousDayBalance = prevBalanceEntries.reduce((s, x) => s + Number(x.amount), 0);
+    const previousDayBalance = balanceMap[prevDate] || 0;
 
     const rawDeliveries = prepaymentDeliveries.filter(x => x.prepayment?.brickType === BrickType.RAW_BRICK);
     const bakedDeliveries = prepaymentDeliveries.filter(x => x.prepayment?.brickType !== BrickType.RAW_BRICK);
@@ -305,7 +380,7 @@ export class ReportsService {
     const netProfit = receivedCash - totalExpenses - workerPaid;
     const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
     const cashBasisIncome = cashSales + cardSales + debtPaymentsTotal + prepaymentPaid + moneyIncomesTotal;
-    const endOfDayBalance = previousDayBalance + cashBasisIncome - totalExpenses - workerPaid;
+    const endOfDayBalance = balanceMap[date] ?? (previousDayBalance + cashBasisIncome - totalExpenses - workerPaid);
 
     const [bakedStock, rawStock, reserveRaw, reserveBaked] = await Promise.all([
       this.getStockBalance(BrickType.BAKED_BRICK),
@@ -370,7 +445,7 @@ export class ReportsService {
     const lastDay = new Date(year, month, 0).getDate();
     const dateTo = `${year}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
-    const [sales, expenses, debtPayments, incomes, moneyIncomes, workerPayments, prepayments, prepaymentDeliveries, balanceEntries] = await Promise.all([
+    const [sales, expenses, debtPayments, incomes, moneyIncomes, workerPayments, prepayments, prepaymentDeliveries, balanceMap] = await Promise.all([
       this.saleRepo.createQueryBuilder('s').where('s.date >= :df AND s.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.expenseRepo.createQueryBuilder('e').where('e.date >= :df AND e.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.debtPaymentRepo.createQueryBuilder('dp').where('dp.date >= :df AND dp.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
@@ -379,11 +454,8 @@ export class ReportsService {
       this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date >= :df AND wp.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.prepaymentRepo.createQueryBuilder('p').where('p.date >= :df AND p.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.deliveryRepo.createQueryBuilder('pd').leftJoinAndSelect('pd.prepayment', 'p').where('pd.date >= :df AND pd.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
-      this.moneyIncomeRepo.createQueryBuilder('mi').where('mi.source = :src AND mi.date >= :df AND mi.date <= :dt', { src: MoneyIncomeSource.END_OF_DAY_BALANCE, df: this.addDays(dateFrom, -1), dt: this.addDays(dateTo, -1) }).getMany(),
+      this.buildRunningBalanceMap(dateTo),
     ]);
-
-    const balanceByDate: Record<string, number> = {};
-    balanceEntries.forEach(e => { balanceByDate[e.date] = (balanceByDate[e.date] || 0) + Number(e.amount); });
 
     const reserveSales = sales.filter(x => x.isReserveSale);
     const reserveSoldBricks = reserveSales.reduce((s, x) => s + x.quantity, 0);
@@ -403,11 +475,7 @@ export class ReportsService {
     const prepaymentPaid = prepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const netProfit = cashReceived - totalExpenses - workerPaid;
     const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
-    const cashBasisIncome = this.cashOnHandSaleAmount(sales)
-      + debtPayments.reduce((s, x) => s + Number(x.amount), 0)
-      + prepaymentPaid
-      + moneyIncomesTotal;
-    const endOfDayBalance = (balanceByDate[this.addDays(dateFrom, -1)] || 0) + cashBasisIncome - totalExpenses - workerPaid;
+    const endOfDayBalance = balanceMap[dateTo] || 0;
 
     const dailyData: Record<string, any> = {};
     for (let d = 1; d <= lastDay; d++) {
@@ -430,10 +498,6 @@ export class ReportsService {
       const dExpenses = dExp.reduce((s, x) => s + Number(x.amount), 0);
       const dWorkerAccrued = dWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
       const dProfit = dCashReceived - dExpenses - dWorkerAccrued;
-      const dCashBasisIncome = this.cashOnHandSaleAmount(dSales)
-        + dDebtPayments.reduce((s, x) => s + Number(x.amount), 0)
-        + dPrepaymentPaid
-        + dMoneyIncomesTotal;
       dailyData[dayStr] = {
         salesAmount: dSales.reduce((s, x) => s + Number(x.totalAmount), 0),
         soldBricks: dSales.reduce((s, x) => s + x.quantity, 0) + dPrepaymentDeliveredBricks,
@@ -445,7 +509,7 @@ export class ReportsService {
         moneyIncomes: dMoneyIncomesTotal,
         cashReceived: dCashReceived,
         profit: dProfit,
-        endOfDayBalance: (balanceByDate[this.addDays(dayStr, -1)] || 0) + dCashBasisIncome - dExpenses - dWorkerAccrued,
+        endOfDayBalance: balanceMap[dayStr] || 0,
       };
     }
 
@@ -472,7 +536,7 @@ export class ReportsService {
     const dateFrom = `${year}-01-01`;
     const dateTo = `${year}-12-31`;
 
-    const [sales, expenses, debtPayments, incomes, moneyIncomes, workerPayments, prepayments, prepaymentDeliveries, balanceEntries] = await Promise.all([
+    const [sales, expenses, debtPayments, incomes, moneyIncomes, workerPayments, prepayments, prepaymentDeliveries, balanceMap] = await Promise.all([
       this.saleRepo.createQueryBuilder('s').where('s.date >= :df AND s.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.expenseRepo.createQueryBuilder('e').where('e.date >= :df AND e.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.debtPaymentRepo.createQueryBuilder('dp').where('dp.date >= :df AND dp.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
@@ -481,11 +545,8 @@ export class ReportsService {
       this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date >= :df AND wp.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.prepaymentRepo.createQueryBuilder('p').where('p.date >= :df AND p.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
       this.deliveryRepo.createQueryBuilder('pd').leftJoinAndSelect('pd.prepayment', 'p').where('pd.date >= :df AND pd.date <= :dt', { df: dateFrom, dt: dateTo }).getMany(),
-      this.moneyIncomeRepo.createQueryBuilder('mi').where('mi.source = :src AND mi.date >= :df AND mi.date <= :dt', { src: MoneyIncomeSource.END_OF_DAY_BALANCE, df: this.addDays(dateFrom, -1), dt: dateTo }).getMany(),
+      this.buildRunningBalanceMap(dateTo),
     ]);
-
-    const balanceByDate: Record<string, number> = {};
-    balanceEntries.forEach(e => { balanceByDate[e.date] = (balanceByDate[e.date] || 0) + Number(e.amount); });
 
     const reserveSales = sales.filter(x => x.isReserveSale);
     const reserveSoldBricks = reserveSales.reduce((s, x) => s + x.quantity, 0);
@@ -504,17 +565,14 @@ export class ReportsService {
     const prepaymentPaid = prepayments.reduce((s, x) => s + Number(x.paidAmount), 0);
     const netProfit = cashReceived - totalExpenses - workerPaid;
     const paperProfit = totalSalesAmount - totalExpenses - workerAccrued;
-    const cashBasisIncome = this.cashOnHandSaleAmount(sales)
-      + debtPayments.reduce((s, x) => s + Number(x.amount), 0)
-      + prepaymentPaid
-      + moneyIncomesTotal;
-    const endOfDayBalance = (balanceByDate[this.addDays(dateFrom, -1)] || 0) + cashBasisIncome - totalExpenses - workerPaid;
+    const endOfDayBalance = balanceMap[dateTo] || 0;
 
     const monthlyData: Record<string, any> = {};
     for (let m = 1; m <= 12; m++) {
       const ms = String(m).padStart(2, '0');
       const prefix = `${year}-${ms}`;
-      const monthStart = `${prefix}-01`;
+      const monthLastDay = new Date(year, m, 0).getDate();
+      const monthEnd = `${prefix}-${String(monthLastDay).padStart(2, '0')}`;
       const mSales = sales.filter(x => x.date.startsWith(prefix));
       const mExp = expenses.filter(x => x.date.startsWith(prefix));
       const mInc = incomes.filter(x => x.date.startsWith(prefix));
@@ -533,10 +591,6 @@ export class ReportsService {
       const mExpenses = mExp.reduce((s, x) => s + Number(x.amount), 0);
       const mWorkerAccrued = mWorkerPayments.reduce((s, x) => s + Number(x.amount), 0);
       const mProfit = mCashReceived - mExpenses - mWorkerAccrued;
-      const mCashBasisIncome = this.cashOnHandSaleAmount(mSales)
-        + mDebtPayments.reduce((s, x) => s + Number(x.amount), 0)
-        + mPrepaymentPaid
-        + mMoneyIncomesTotal;
       monthlyData[prefix] = {
         salesAmount: mSales.reduce((s, x) => s + Number(x.totalAmount), 0),
         soldBricks: mSales.reduce((s, x) => s + x.quantity, 0) + mPrepaymentDeliveredBricks,
@@ -548,7 +602,7 @@ export class ReportsService {
         moneyIncomes: mMoneyIncomesTotal,
         cashReceived: mCashReceived,
         profit: mProfit,
-        endOfDayBalance: (balanceByDate[this.addDays(monthStart, -1)] || 0) + mCashBasisIncome - mExpenses - mWorkerAccrued,
+        endOfDayBalance: balanceMap[monthEnd] || 0,
       };
     }
 
