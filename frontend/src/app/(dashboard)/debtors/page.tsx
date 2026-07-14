@@ -30,6 +30,15 @@ const paymentSchema = z.object({
 })
 type PaymentForm = z.infer<typeof paymentSchema>
 
+const oldDebtSchema = z.object({
+  fullName: z.string().min(1, 'Ism kiritilishi shart'),
+  phone: z.string().optional(),
+  oldDebt: z.coerce.number().min(1, "Qarz 0 dan katta bo'lishi kerak"),
+  lastDebtDate: z.string().min(1, 'Sana kiritilishi shart'),
+  notes: z.string().optional(),
+})
+type OldDebtForm = z.infer<typeof oldDebtSchema>
+
 function DebtProgressBar({ paid, total }: { paid: number; total: number }) {
   const percent = total > 0 ? Math.min(100, (paid / total) * 100) : 0
   return (
@@ -52,6 +61,7 @@ export default function DebtorsPage() {
   const [filterDate, setFilterDate] = useState('')
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [oldDebtOpen, setOldDebtOpen] = useState(false)
 
   const { data: debtorsResp, isLoading } = useQuery({
     queryKey: ['debtors'],
@@ -71,6 +81,11 @@ export default function DebtorsPage() {
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<PaymentForm>({
     resolver: zodResolver(paymentSchema),
     defaultValues: { date: new Date().toISOString().split('T')[0] },
+  })
+
+  const oldDebtForm = useForm<OldDebtForm>({
+    resolver: zodResolver(oldDebtSchema),
+    defaultValues: { lastDebtDate: new Date().toISOString().split('T')[0] },
   })
 
   const deleteMutation = useMutation({
@@ -97,6 +112,25 @@ export default function DebtorsPage() {
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
+  const oldDebtMutation = useMutation({
+    mutationFn: (data: OldDebtForm) =>
+      debtorsService.create({
+        fullName: data.fullName.trim(),
+        phone: data.phone?.trim() || undefined,
+        oldDebt: data.oldDebt,
+        lastDebtDate: data.lastDebtDate,
+        notes: data.notes?.trim() || "Eski qarz",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['debtors'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      toast.success("Eski qarz qo'shildi")
+      setOldDebtOpen(false)
+      oldDebtForm.reset({ lastDebtDate: new Date().toISOString().split('T')[0] })
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
   const visibleDebtors = debtors
     .filter((d: Debtor) => showActive ? !d.isPaid : true)
     .filter((d: Debtor) =>
@@ -114,6 +148,11 @@ export default function DebtorsPage() {
       <PageHeader
         title="Qarzdorlar"
         description="Nasiya savdolar va to'lovlar boshqaruvi"
+        actions={
+          <Button onClick={() => setOldDebtOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Eski qarz qo&apos;shish
+          </Button>
+        }
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -182,6 +221,11 @@ export default function DebtorsPage() {
                           <span>{formatCurrency(paid)} to&apos;langan</span>
                           <span>{formatCurrency(total)} jami</span>
                         </div>
+                        {Number(debtor.oldDebt ?? 0) > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Eski qarz: {formatCurrency(Number(debtor.oldDebt))}
+                          </p>
+                        )}
                         <DebtProgressBar paid={paid} total={total} />
                         <p className="text-sm font-semibold text-red-600 dark:text-red-400">
                           Qolgan: {formatCurrency(remaining)}
@@ -224,6 +268,53 @@ export default function DebtorsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Old Debt Dialog */}
+      <Dialog open={oldDebtOpen} onOpenChange={setOldDebtOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eski qarz qo&apos;shish</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={oldDebtForm.handleSubmit((d) => oldDebtMutation.mutate(d))} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Qarzdor ismi *</Label>
+                <Input {...oldDebtForm.register('fullName')} placeholder="Mijoz ismi" />
+                {oldDebtForm.formState.errors.fullName && (
+                  <p className="text-destructive text-xs">{oldDebtForm.formState.errors.fullName.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Telefon</Label>
+                <Input {...oldDebtForm.register('phone')} placeholder="+998901234567" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Eski qarz miqdori *</Label>
+                <Input {...oldDebtForm.register('oldDebt')} type="number" placeholder="2700000" />
+                {oldDebtForm.formState.errors.oldDebt && (
+                  <p className="text-destructive text-xs">{oldDebtForm.formState.errors.oldDebt.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Sana *</Label>
+                <Input {...oldDebtForm.register('lastDebtDate')} type="date" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Izoh</Label>
+              <Input {...oldDebtForm.register('notes')} placeholder="Oldingi qarz..." />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setOldDebtOpen(false)}>Bekor qilish</Button>
+              <Button type="submit" loading={oldDebtMutation.isPending}>
+                Qo&apos;shish
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment Dialog */}
       <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>

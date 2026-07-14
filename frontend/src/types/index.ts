@@ -118,6 +118,7 @@ export interface Debtor {
   id: string
   fullName: string
   phone?: string
+  oldDebt?: number
   totalDebt: number
   paidAmount: number
   remainingDebt: number

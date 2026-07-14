@@ -2,6 +2,11 @@ import { api } from './api'
 import type { Debtor, DebtPayment, PaginatedResponse, PaginationParams } from '@/types'
 
 export const debtorsService = {
+  async create(data: { fullName: string; phone?: string; notes?: string; oldDebt?: number; lastDebtDate?: string }): Promise<Debtor> {
+    const res = await api.post('/debtors', data)
+    return res.data.data
+  },
+
   async getAll(params?: PaginationParams & { isPaid?: boolean }): Promise<PaginatedResponse<Debtor>> {
     const res = await api.get('/debtors', { params })
     return res.data.data

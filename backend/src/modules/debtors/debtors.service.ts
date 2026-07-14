@@ -25,7 +25,40 @@ export class DebtorsService {
   ) {}
 
   async create(createDebtorDto: CreateDebtorDto): Promise<Debtor> {
-    const debtor = this.debtorRepository.create(createDebtorDto);
+    const oldDebt = Number(createDebtorDto.oldDebt || 0);
+    const phone = createDebtorDto.phone?.trim() || undefined;
+    let debtor = phone
+      ? await this.debtorRepository.findOne({ where: { phone } })
+      : null;
+
+    if (!debtor) {
+      debtor = await this.debtorRepository.findOne({ where: { fullName: createDebtorDto.fullName } });
+    }
+
+    if (debtor) {
+      debtor.fullName = debtor.fullName || createDebtorDto.fullName;
+      debtor.phone = debtor.phone || phone;
+      debtor.notes = createDebtorDto.notes ?? debtor.notes;
+      debtor.oldDebt = Number(debtor.oldDebt || 0) + oldDebt;
+      debtor.totalDebt = Number(debtor.totalDebt || 0) + oldDebt;
+      debtor.remainingDebt = Math.max(0, Number(debtor.totalDebt) - Number(debtor.paidAmount || 0));
+      debtor.isPaid = debtor.remainingDebt <= 0;
+      if (createDebtorDto.lastDebtDate && (!debtor.lastDebtDate || createDebtorDto.lastDebtDate > debtor.lastDebtDate)) {
+        debtor.lastDebtDate = createDebtorDto.lastDebtDate;
+      }
+      return this.debtorRepository.save(debtor);
+    }
+
+    debtor = this.debtorRepository.create({
+      ...createDebtorDto,
+      phone,
+      oldDebt,
+      totalDebt: oldDebt,
+      paidAmount: 0,
+      remainingDebt: oldDebt,
+      isPaid: oldDebt <= 0,
+      lastDebtDate: createDebtorDto.lastDebtDate,
+    });
     return this.debtorRepository.save(debtor);
   }
 
@@ -57,6 +90,7 @@ export class DebtorsService {
       debtor = this.debtorRepository.create({
         fullName: data.fullName,
         phone: data.phone,
+        oldDebt: 0,
         totalDebt: data.amount,
         paidAmount: 0,
         remainingDebt: data.amount,
@@ -145,12 +179,13 @@ export class DebtorsService {
         : { paymentType: PaymentType.DEBT, customerName: debtor.fullName },
     });
 
-    if (remainingSales.length === 0) {
+    const oldDebt = Number(debtor.oldDebt || 0);
+    if (remainingSales.length === 0 && oldDebt <= 0) {
       await this.debtorRepository.remove(debtor);
     } else {
       const newTotal = remainingSales.reduce((s, sale) => s + Number(sale.totalAmount), 0);
-      debtor.totalDebt = newTotal;
-      debtor.remainingDebt = Math.max(0, newTotal - Number(debtor.paidAmount));
+      debtor.totalDebt = newTotal + oldDebt;
+      debtor.remainingDebt = Math.max(0, Number(debtor.totalDebt) - Number(debtor.paidAmount));
       debtor.isPaid = debtor.remainingDebt <= 0;
       await this.debtorRepository.save(debtor);
     }
@@ -259,7 +294,7 @@ export class DebtorsService {
       const key = phone
         ? `phone:${phone}`
         : `name:${(debtor.fullName || '').toLowerCase()}`;
-      if (!groups.has(key)) {
+      if (!groups.has(key) && Number(debtor.oldDebt || 0) <= 0) {
         await this.debtorRepository.remove(debtor);
       }
     }
@@ -277,6 +312,7 @@ export class DebtorsService {
         debtor = this.debtorRepository.create({
           fullName: group.fullName,
           phone: group.phone,
+          oldDebt: 0,
           totalDebt: group.amount,
           paidAmount: 0,
           remainingDebt: group.amount,
@@ -284,10 +320,11 @@ export class DebtorsService {
           lastDebtDate: group.lastDebtDate,
         });
       } else {
+        const oldDebt = Number(debtor.oldDebt || 0);
         debtor.fullName = debtor.fullName || group.fullName;
         debtor.phone = debtor.phone || group.phone;
-        debtor.totalDebt = group.amount;
-        debtor.remainingDebt = group.amount - Number(debtor.paidAmount || 0);
+        debtor.totalDebt = group.amount + oldDebt;
+        debtor.remainingDebt = Number(debtor.totalDebt) - Number(debtor.paidAmount || 0);
         debtor.isPaid = debtor.remainingDebt <= 0;
         debtor.lastDebtDate = group.lastDebtDate;
       }
