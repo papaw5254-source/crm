@@ -40,6 +40,15 @@ const THIS_MONTH = now.getMonth() + 1
 const THIS_YEAR = now.getFullYear()
 const today = now.toISOString().split('T')[0]
 
+// Eski yozuvlarda quantity saqlanmagan — "12 345 dona × 10 so'm" izohidan chiqarib olamiz
+function extractQuantity(r: WorkerPayment): number {
+  if (r.quantity) return Number(r.quantity)
+  const match = r.description?.match(/^([\d\s,. ]+)\s*dona/)
+  if (!match) return 0
+  const digits = match[1].replace(/[^\d]/g, '')
+  return digits ? parseInt(digits, 10) : 0
+}
+
 export default function KretkachPage() {
   const queryClient = useQueryClient()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -59,7 +68,7 @@ export default function KretkachPage() {
     queryFn: () => workerPaymentsService.getAll({ category: 'KRETKACHI', month: THIS_MONTH, year: THIS_YEAR, limit: 9999 }),
   })
   const filteredPayments = (payments?.data ?? []).filter((r: WorkerPayment) => !filterDate || r.date === filterDate)
-  const totalPressedBricks = (payments?.data ?? []).reduce((s: number, r: WorkerPayment) => s + Number(r.quantity || 0), 0)
+  const totalPressedBricks = (payments?.data ?? []).reduce((s: number, r: WorkerPayment) => s + extractQuantity(r), 0)
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
