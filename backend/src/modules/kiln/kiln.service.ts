@@ -136,7 +136,21 @@ export class KilnService {
 
         if (rawEntered > 0) {
           if (dto.rawBrickSource === RawBrickSource.FIELD) {
-            // Field source: raw bricks come from field production, no stock/reserve deduction
+            const rawStock = await manager.findOne(Stock, { where: { brickType: BrickType.RAW_BRICK } });
+            if (!rawStock) throw new NotFoundException('RAW_BRICK stock not found');
+            const prev = rawStock.quantity;
+            const decreaseBy = Math.min(rawEntered, prev);
+            rawStock.quantity = prev - decreaseBy;
+            await manager.save(Stock, rawStock);
+            await manager.save(StockMovement, manager.create(StockMovement, {
+              type: StockMovementType.KILN_IN_RAW,
+              brickType: BrickType.RAW_BRICK,
+              quantity: decreaseBy,
+              previousQuantity: prev,
+              newQuantity: rawStock.quantity,
+              reason: `Humbuzga kirdi: ${dto.kilnName}`,
+              createdById: userId,
+            }));
           } else if (dto.rawBrickSource === RawBrickSource.RESERVE) {
             const lastReserve = await manager
               .createQueryBuilder(ReserveMovement, 'rm')
@@ -247,6 +261,30 @@ export class KilnService {
       const prevReserveDraw = prevRawEntered > 0 && prevRawSource === RawBrickSource.RESERVE ? prevRawEntered : 0;
       const newReserveDraw = newRawEntered > 0 && newRawSource === RawBrickSource.RESERVE ? newRawEntered : 0;
       const reserveDelta = newReserveDraw - prevReserveDraw;
+      const prevFieldDraw = prevRawEntered > 0 && prevRawSource === RawBrickSource.FIELD ? prevRawEntered : 0;
+      const newFieldDraw = newRawEntered > 0 && newRawSource === RawBrickSource.FIELD ? newRawEntered : 0;
+      const fieldDelta = newFieldDraw - prevFieldDraw;
+
+      if (fieldDelta !== 0) {
+        const rawStock = await manager.findOne(Stock, { where: { brickType: BrickType.RAW_BRICK } });
+        if (!rawStock) throw new NotFoundException('RAW_BRICK stock not found');
+        const prev = rawStock.quantity;
+        if (fieldDelta > 0) {
+          rawStock.quantity = prev - Math.min(fieldDelta, prev);
+        } else {
+          rawStock.quantity = prev + Math.abs(fieldDelta);
+        }
+        await manager.save(Stock, rawStock);
+        await manager.save(StockMovement, manager.create(StockMovement, {
+          type: StockMovementType.MANUAL_ADJUSTMENT,
+          brickType: BrickType.RAW_BRICK,
+          quantity: Math.abs(fieldDelta),
+          previousQuantity: prev,
+          newQuantity: rawStock.quantity,
+          reason: `Humbuz operatsiyasi tahrirlandi: ${savedOp.kilnName}`,
+          createdById: userId,
+        }));
+      }
 
       if (reserveDelta !== 0) {
         const lastReserve = await manager
@@ -306,6 +344,22 @@ export class KilnService {
 
     // Reverse raw brick reserve if rawBrickSource was RESERVE
     const rawEntered = Number(op.rawBricksEntered || 0);
+    if (rawEntered > 0 && op.rawBrickSource === RawBrickSource.FIELD) {
+      const rawStock = await stockRepo.findOne({ where: { brickType: BrickType.RAW_BRICK } });
+      if (rawStock) {
+        const prev = rawStock.quantity;
+        rawStock.quantity = prev + rawEntered;
+        await stockRepo.save(rawStock);
+        await stockMovementRepo.save(stockMovementRepo.create({
+          type: StockMovementType.MANUAL_ADJUSTMENT,
+          brickType: BrickType.RAW_BRICK,
+          quantity: rawEntered,
+          previousQuantity: prev,
+          newQuantity: rawStock.quantity,
+          reason: `Humbuz operatsiyasi o'chirildi (teskari): ${op.kilnName}`,
+        }));
+      }
+    }
     if (rawEntered > 0 && op.rawBrickSource === RawBrickSource.RESERVE) {
       const lastReserve = await reserveRepo
         .createQueryBuilder('rm')
