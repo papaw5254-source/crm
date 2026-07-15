@@ -226,7 +226,7 @@ export class DebtorsService {
     }
 
     const payment = this.debtPaymentRepository.create({
-      debtorId: id,
+      debtor,
       amount: createPaymentDto.amount,
       description: createPaymentDto.description,
       date: createPaymentDto.date,
@@ -234,10 +234,17 @@ export class DebtorsService {
     });
     await this.debtPaymentRepository.save(payment);
 
-    debtor.paidAmount = Number(debtor.paidAmount) + createPaymentDto.amount;
-    debtor.remainingDebt = Number(debtor.totalDebt) - Number(debtor.paidAmount);
-    debtor.isPaid = debtor.remainingDebt <= 0;
-    await this.debtorRepository.save(debtor);
+    const paidAmount = Number(debtor.paidAmount) + createPaymentDto.amount;
+    const newRemainingDebt = Number(debtor.totalDebt) - paidAmount;
+    // .update() issues a direct SQL UPDATE instead of .save(), which would
+    // otherwise re-run TypeORM's relation persistence against debtor.payments
+    // (loaded stale, from before the insert above) and treat the just-created
+    // payment as removed from the collection - nullifying its debtor_id.
+    await this.debtorRepository.update(id, {
+      paidAmount,
+      remainingDebt: newRemainingDebt,
+      isPaid: newRemainingDebt <= 0,
+    });
 
     return payment;
   }
@@ -248,7 +255,7 @@ export class DebtorsService {
     const skip = (page - 1) * limit;
 
     const [data, total] = await this.debtPaymentRepository.findAndCount({
-      where: { debtorId: id },
+      where: { debtor: { id } },
       relations: ['createdBy'],
       order: { createdAt: 'DESC' },
       skip,

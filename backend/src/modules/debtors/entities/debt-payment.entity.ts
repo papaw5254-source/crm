@@ -14,12 +14,13 @@ export class DebtPayment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Debtor, (debtor) => debtor.payments, { onDelete: 'CASCADE' })
+  // debtorId is intentionally NOT also declared as a separate @Column: TypeORM
+  // treats a @JoinColumn relation and a plain @Column mapped to the same
+  // physical column as two independent writers, and the (unset) relation
+  // side wins on INSERT, silently writing NULL over an explicitly-set scalar.
+  @ManyToOne(() => Debtor, (debtor) => debtor.payments, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'debtor_id' })
   debtor: Debtor;
-
-  @Column({ name: 'debtor_id', type: 'uuid' })
-  debtorId: string;
 
   @Column({ type: 'decimal', precision: 14, scale: 2 })
   amount: number;

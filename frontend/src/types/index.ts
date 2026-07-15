@@ -132,7 +132,6 @@ export interface Debtor {
 
 export interface DebtPayment {
   id: string
-  debtorId: string
   amount: number
   description?: string
   date: string
