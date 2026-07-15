@@ -20,13 +20,13 @@ export class UpdateSaleDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  @Min(1)
+  @Min(0)
   quantity?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
-  @Min(0.01)
+  @Min(0)
   pricePerBrick?: number;
 
   @ApiPropertyOptional({ enum: PaymentType })

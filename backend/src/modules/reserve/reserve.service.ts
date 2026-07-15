@@ -87,8 +87,10 @@ export class ReserveService {
     });
     const saved = await this.reserveMovementRepository.save(movement);
 
-    if (dto.workerRatePerBrick && dto.workerRatePerBrick > 0) {
-      const totalWorkerCost = dto.quantity * dto.workerRatePerBrick;
+    const hasWorkerRate = !!dto.workerRatePerBrick && dto.workerRatePerBrick > 0;
+    const hasWorkerPayment = !!dto.workerPaidAmount && dto.workerPaidAmount > 0;
+    if (hasWorkerRate || hasWorkerPayment) {
+      const totalWorkerCost = hasWorkerRate ? dto.quantity * dto.workerRatePerBrick : 0;
       const paid = dto.workerPaidAmount || 0;
       const oldDebt = dto.workerOldDebt || 0;
       const workerDebt = Math.max(0, oldDebt + totalWorkerCost - paid);
@@ -106,7 +108,9 @@ export class ReserveService {
           remainingDebt: workerDebt,
             month: dto.date.slice(0, 7),
             date: dto.date,
-            description: `${dto.quantity} dona (${dto.workerRatePerBrick} so'm/dona)`,
+            description: dto.quantity > 0
+              ? `${dto.quantity} dona (${dto.workerRatePerBrick || 0} so'm/dona)`
+              : "Ishchi puli (gishtsiz)",
             sourceType: 'RESERVE_MOVEMENT',
             sourceId: saved.id,
             createdById: userId,

@@ -31,8 +31,8 @@ import type { Sale, PaymentType, BrickType, WorkerPayment, Debtor } from '@/type
 
 const schema = z.object({
   brickType: z.enum(['RAW_BRICK', 'BAKED_BRICK']),
-  quantity: z.coerce.number().min(1, 'Miqdor 1 dan katta bo\'lishi kerak'),
-  pricePerBrick: z.coerce.number().min(0.01, 'Narx 0 dan katta bo\'lishi kerak'),
+  quantity: z.coerce.number().min(0, "Miqdor manfiy bo'lmasligi kerak"),
+  pricePerBrick: z.coerce.number().min(0, "Narx manfiy bo'lmasligi kerak"),
   paymentType: z.enum(['CASH', 'CARD', 'DEBT', 'PREPAYMENT', 'BANK_TRANSFER']),
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
@@ -40,7 +40,13 @@ const schema = z.object({
   date: z.string().min(1, 'Sana kiritilishi shart'),
   workerRatePerBrick: z.coerce.number().min(0).optional(),
   workerPaidAmount: z.coerce.number().min(0).optional(),
-})
+}).refine(
+  (d) => d.quantity > 0 || (d.brickType === 'RAW_BRICK' && Number(d.workerPaidAmount || 0) > 0),
+  { message: "Miqdor kiriting, yoki gishtsiz ishchi puli uchun \"Berildi\" maydonini to'ldiring", path: ['quantity'] },
+).refine(
+  (d) => d.quantity === 0 || d.pricePerBrick > 0,
+  { message: "Narx 0 dan katta bo'lishi kerak", path: ['pricePerBrick'] },
+)
 
 type FormData = z.infer<typeof schema>
 
@@ -245,7 +251,7 @@ export default function SalesPage() {
     {
       key: 'workerCost',
       header: 'Ishchi puli',
-      cell: (r: Sale) => r.brickType === 'RAW_BRICK' && Number(r.totalWorkerCost) > 0 ? (
+      cell: (r: Sale) => r.brickType === 'RAW_BRICK' && (Number(r.totalWorkerCost) > 0 || Number(r.workerPaidAmount ?? 0) > 0) ? (
         <div className="text-xs space-y-0.5">
           <div className="font-semibold text-orange-600">{formatCurrency(Number(r.totalWorkerCost))}</div>
           <div className="text-muted-foreground">

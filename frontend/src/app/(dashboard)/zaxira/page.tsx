@@ -32,20 +32,23 @@ import type { ReserveMovement, BrickType, ReserveMovementType, Sale, WorkerPayme
 const movementSchema = z.object({
   brickType: z.enum(['RAW_BRICK', 'BAKED_BRICK']),
   movementType: z.enum(['ADD', 'REMOVE', 'SALE', 'TO_KILN', 'ADJUSTMENT']),
-  quantity: z.coerce.number().min(1, "Miqdor 0 dan katta bo'lishi kerak"),
+  quantity: z.coerce.number().min(0, "Miqdor manfiy bo'lmasligi kerak"),
   reason: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
   workerRatePerBrick: z.coerce.number().min(0).optional(),
   workerPaidAmount: z.coerce.number().min(0).optional(),
   workerOldDebt: z.coerce.number().min(0).optional(),
-})
+}).refine(
+  (d) => d.quantity > 0 || (d.movementType === 'ADD' && Number(d.workerPaidAmount || 0) > 0),
+  { message: "Miqdor kiriting, yoki gishtsiz ishchi puli uchun \"Berildi\" maydonini to'ldiring", path: ['quantity'] },
+)
 type MovementForm = z.infer<typeof movementSchema>
 
 // ─── Reserve sale form ────────────────────────────────────────────────────────
 const saleSchema = z.object({
   brickType: z.enum(['RAW_BRICK', 'BAKED_BRICK']),
-  quantity: z.coerce.number().min(1, "Miqdor 0 dan katta bo'lishi kerak"),
-  pricePerBrick: z.coerce.number().min(1, "Narx 0 dan katta bo'lishi kerak"),
+  quantity: z.coerce.number().min(0, "Miqdor manfiy bo'lmasligi kerak"),
+  pricePerBrick: z.coerce.number().min(0, "Narx manfiy bo'lmasligi kerak"),
   paymentType: z.enum(['CASH', 'CARD', 'DEBT', 'BANK_TRANSFER']),
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
@@ -53,7 +56,13 @@ const saleSchema = z.object({
   date: z.string().min(1, 'Sana kiritilishi shart'),
   workerRatePerBrick: z.coerce.number().min(0).optional(),
   workerPaidAmount: z.coerce.number().min(0).optional(),
-})
+}).refine(
+  (d) => d.quantity > 0 || Number(d.workerPaidAmount || 0) > 0,
+  { message: "Miqdor kiriting, yoki gishtsiz ishchi puli uchun \"Berildi\" maydonini to'ldiring", path: ['quantity'] },
+).refine(
+  (d) => d.quantity === 0 || d.pricePerBrick > 0,
+  { message: "Narx 0 dan katta bo'lishi kerak", path: ['pricePerBrick'] },
+)
 type SaleForm = z.infer<typeof saleSchema>
 
 const MOVEMENT_TYPES: ReserveMovementType[] = ['ADD', 'REMOVE', 'SALE', 'TO_KILN', 'ADJUSTMENT']

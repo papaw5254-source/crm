@@ -12,9 +12,9 @@ export class CreateReserveMovementDto {
   @IsEnum(ReserveMovementType)
   movementType: ReserveMovementType;
 
-  @ApiProperty({ example: 1000 })
+  @ApiProperty({ example: 1000, description: '0 is allowed for an ADD entry that only records a worker payment' })
   @IsInt()
-  @Min(1)
+  @Min(0)
   quantity: number;
 
   @ApiPropertyOptional()

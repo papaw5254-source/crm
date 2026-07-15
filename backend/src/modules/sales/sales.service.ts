@@ -31,7 +31,12 @@ export class SalesService {
   async create(createDto: CreateSaleDto, userId: string): Promise<Sale> {
     const brickType = createDto.brickType || BrickType.BAKED_BRICK;
     const pricePerBrick = Number(createDto.pricePerBrick ?? createDto.pricePerUnit ?? 0);
-    if (pricePerBrick <= 0) throw new BadRequestException('Price per brick is required');
+    // quantity 0 is a brick-less entry that exists only to record a worker
+    // payment (e.g. a loading worker paid on a day nothing was sold), so a
+    // price only matters once there are actual bricks to charge for.
+    if (createDto.quantity > 0 && pricePerBrick <= 0) {
+      throw new BadRequestException('Price per brick is required');
+    }
     const totalAmount = Number((createDto.quantity * pricePerBrick).toFixed(2));
     // Regular (non-reserve) sales only ever track loading-worker cost for RAW_BRICK.
     // Reserve sales (Zaxira) track it for any brick type - the worker cost there is
@@ -43,25 +48,27 @@ export class SalesService {
     const workerOldDebt = trackWorkerCost ? Number(createDto.workerOldDebt || 0) : 0;
     const workerDebt = trackWorkerCost ? Math.max(0, workerOldDebt + totalWorkerCost - workerPaidAmount) : 0;
 
-    if (createDto.isReserveSale) {
-      await this.reserveService.createMovement(
-        {
+    if (createDto.quantity > 0) {
+      if (createDto.isReserveSale) {
+        await this.reserveService.createMovement(
+          {
+            brickType,
+            movementType: ReserveMovementType.SALE,
+            quantity: createDto.quantity,
+            reason: `Sotuv: ${createDto.customerName || 'Noma\'lum xaridor'} - ${createDto.quantity} dona`,
+            date: createDto.date,
+          },
+          userId,
+        );
+      } else {
+        await this.stockService.decreaseStock(
+          createDto.quantity,
+          StockMovementType.SALE,
+          `Sale: ${createDto.customerName || 'Unknown customer'} - ${createDto.quantity} bricks`,
+          userId,
           brickType,
-          movementType: ReserveMovementType.SALE,
-          quantity: createDto.quantity,
-          reason: `Sotuv: ${createDto.customerName || 'Noma\'lum xaridor'} - ${createDto.quantity} dona`,
-          date: createDto.date,
-        },
-        userId,
-      );
-    } else {
-      await this.stockService.decreaseStock(
-        createDto.quantity,
-        StockMovementType.SALE,
-        `Sale: ${createDto.customerName || 'Unknown customer'} - ${createDto.quantity} bricks`,
-        userId,
-        brickType,
-      );
+        );
+      }
     }
 
     const sale = this.saleRepository.create({
@@ -77,7 +84,7 @@ export class SalesService {
     });
     const saved = await this.saleRepository.save(sale);
 
-    if (trackWorkerCost && (totalWorkerCost > 0 || workerOldDebt > 0)) {
+    if (trackWorkerCost && (totalWorkerCost > 0 || workerOldDebt > 0 || workerPaidAmount > 0)) {
       const wpCategory = createDto.isReserveSale
         ? WorkerPaymentCategory.RESERVE_SALE_LOADING
         : WorkerPaymentCategory.FIELD_RAW_LOADING;
@@ -91,7 +98,9 @@ export class SalesService {
           remainingDebt: workerDebt,
           month: createDto.date.slice(0, 7),
           date: createDto.date,
-          description: `Sotuv: ${createDto.quantity} dona (${workerRate} so'm/dona)`,
+          description: createDto.quantity > 0
+            ? `Sotuv: ${createDto.quantity} dona (${workerRate} so'm/dona)`
+            : "Ishchi puli (gishtsiz)",
           sourceType: 'SALE',
           sourceId: saved.id,
           createdById: userId,

@@ -18,15 +18,15 @@ export class CreateSaleDto {
   @IsEnum(BrickType)
   brickType?: BrickType = BrickType.BAKED_BRICK;
 
-  @ApiProperty({ example: 1000 })
+  @ApiProperty({ example: 1000, description: '0 is allowed for a brick-less worker-payment-only entry' })
   @IsInt()
-  @Min(1, { message: 'Quantity must be a positive number' })
+  @Min(0, { message: 'Quantity cannot be negative' })
   quantity: number;
 
   @ApiPropertyOptional({ example: 450.5 })
   @IsOptional()
   @IsNumber()
-  @Min(0.01, { message: 'Price per brick must be a positive number' })
+  @Min(0, { message: 'Price per brick cannot be negative' })
   pricePerBrick?: number;
 
   @ApiPropertyOptional({ example: 450.5, description: 'Legacy frontend field' })
