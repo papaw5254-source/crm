@@ -35,4 +35,8 @@ export const debtorsService = {
   async delete(id: string): Promise<void> {
     await api.delete(`/debtors/${id}`)
   },
+
+  async deletePayment(debtorId: string, paymentId: string): Promise<void> {
+    await api.delete(`/debtors/${debtorId}/payments/${paymentId}`)
+  },
 }

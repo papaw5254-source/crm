@@ -249,6 +249,24 @@ export class DebtorsService {
     return payment;
   }
 
+  async removePayment(debtorId: string, paymentId: string): Promise<void> {
+    const debtor = await this.findOne(debtorId);
+    const payment = await this.debtPaymentRepository.findOne({
+      where: { id: paymentId, debtor: { id: debtorId } },
+    });
+    if (!payment) throw new NotFoundException(`Payment with id ${paymentId} not found`);
+
+    await this.debtPaymentRepository.remove(payment);
+
+    const paidAmount = Math.max(0, Number(debtor.paidAmount) - Number(payment.amount));
+    const remainingDebt = Number(debtor.totalDebt) - paidAmount;
+    await this.debtorRepository.update(debtorId, {
+      paidAmount,
+      remainingDebt,
+      isPaid: remainingDebt <= 0,
+    });
+  }
+
   async getPayments(id: string, paginationDto: PaginationDto) {
     await this.findOne(id);
     const { page = 1, limit = 20 } = paginationDto;

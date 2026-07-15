@@ -74,4 +74,10 @@ export class DebtorsController {
   getPayments(@Param('id') id: string, @Query() paginationDto: PaginationDto) {
     return this.debtorsService.getPayments(id, paginationDto);
   }
+
+  @Delete(':id/payments/:paymentId')
+  @ApiOperation({ summary: 'Delete a single debt payment (e.g. a duplicate entry)' })
+  removePayment(@Param('id') id: string, @Param('paymentId') paymentId: string) {
+    return this.debtorsService.removePayment(id, paymentId);
+  }
 }

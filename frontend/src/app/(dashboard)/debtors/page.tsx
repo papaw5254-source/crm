@@ -73,6 +73,7 @@ export default function DebtorsPage() {
   const [oldDebtOpen, setOldDebtOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editDebtor, setEditDebtor] = useState<Debtor | null>(null)
+  const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null)
 
   const { data: debtorsResp, isLoading } = useQuery({
     queryKey: ['debtors'],
@@ -123,6 +124,18 @@ export default function DebtorsPage() {
       toast.success("To'lov qo'shildi")
       setPaymentOpen(false)
       reset({ date: new Date().toISOString().split('T')[0] })
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const deletePaymentMutation = useMutation({
+    mutationFn: (paymentId: string) => debtorsService.deletePayment(selectedDebtor!.id, paymentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['debtor-payments', selectedDebtor?.id] })
+      queryClient.invalidateQueries({ queryKey: ['debtors'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      toast.success("To'lov o'chirildi")
+      setDeletePaymentId(null)
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -488,7 +501,17 @@ export default function DebtorsPage() {
                     </p>
                     <p className="text-xs text-muted-foreground">{p.description || "To'lov"}</p>
                   </div>
-                  <span className="text-xs text-muted-foreground">{formatDate(p.date)}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">{formatDate(p.date)}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
+                      onClick={() => setDeletePaymentId(p.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               ))
             )}
@@ -498,6 +521,15 @@ export default function DebtorsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deletePaymentId}
+        onOpenChange={(o) => !o && setDeletePaymentId(null)}
+        title="To'lovni o'chirish"
+        description="Bu to'lov yozuvi o'chiriladi va qarzdorning to'langan summasi qayta hisoblanadi."
+        onConfirm={() => deletePaymentId && deletePaymentMutation.mutate(deletePaymentId)}
+        loading={deletePaymentMutation.isPending}
+      />
     </div>
   )
 }
