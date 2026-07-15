@@ -2,7 +2,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaginationDto } from '../../common/dto/pagination.dto';
-import { ExpenseCategory } from '../../common/enums/expense-category.enum';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { Expense } from './entities/expense.entity';
@@ -22,7 +21,7 @@ export class ExpensesService {
     return this.expenseRepository.save(expense);
   }
 
-  async findAll(paginationDto: PaginationDto & { category?: ExpenseCategory }) {
+  async findAll(paginationDto: PaginationDto & { category?: string }) {
     const {
       page = 1,
       limit = 20,

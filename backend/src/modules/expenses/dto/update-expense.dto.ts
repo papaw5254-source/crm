@@ -1,6 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
-import { ExpenseCategory } from '../../../common/enums/expense-category.enum';
+import { IsDateString, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class UpdateExpenseDto {
   @ApiPropertyOptional()
@@ -9,10 +8,10 @@ export class UpdateExpenseDto {
   @Min(0.01)
   amount?: number;
 
-  @ApiPropertyOptional({ enum: ExpenseCategory })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsEnum(ExpenseCategory)
-  category?: ExpenseCategory;
+  @IsString()
+  category?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

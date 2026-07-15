@@ -3,13 +3,13 @@ import type { Expense, ExpenseCategory, PaginatedResponse, PaginationParams } fr
 
 export interface CreateExpenseDto {
   amount: number
-  category: ExpenseCategory
+  category: string
   description?: string
   date: string
 }
 
 export const expensesService = {
-  async getAll(params?: PaginationParams & { category?: ExpenseCategory }): Promise<PaginatedResponse<Expense>> {
+  async getAll(params?: PaginationParams & { category?: ExpenseCategory | string }): Promise<PaginatedResponse<Expense>> {
     const res = await api.get('/expenses', { params })
     return res.data.data
   },

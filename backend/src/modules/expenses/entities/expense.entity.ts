@@ -6,7 +6,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { ExpenseCategory } from '../../../common/enums/expense-category.enum';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('expenses')
@@ -17,8 +16,10 @@ export class Expense {
   @Column({ type: 'decimal', precision: 14, scale: 2 })
   amount: number;
 
-  @Column({ type: 'enum', enum: ExpenseCategory })
-  category: ExpenseCategory;
+  // Free text: presets from ExpenseCategory are offered in the UI, but users
+  // can type their own category name too (e.g. "Zavod harajatlari").
+  @Column()
+  category: string;
 
   @Column({ nullable: true })
   description: string;

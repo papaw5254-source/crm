@@ -33,11 +33,17 @@ const ALL_CATEGORIES: ExpenseCategory[] = [
   'GREENHOUSE', 'MATERIAL_HELP', 'BANK_PAYMENT', 'ANIMAL_FEED', 'OTHER',
 ]
 
+const CUSTOM_CATEGORY = '__CUSTOM__'
+
 const schema = z.object({
   amount: z.coerce.number().min(0.01, "Summa 0 dan katta bo'lishi kerak"),
   category: z.string().min(1, 'Kategoriya tanlanishi shart'),
+  customCategory: z.string().optional(),
   description: z.string().optional(),
   date: z.string().min(1, 'Sana kiritilishi shart'),
+}).refine((d) => d.category !== CUSTOM_CATEGORY || !!d.customCategory?.trim(), {
+  message: 'Kategoriya nomini yozing',
+  path: ['customCategory'],
 })
 type FormData = z.infer<typeof schema>
 
@@ -66,13 +72,20 @@ export default function ExpensesPage() {
       }),
   })
 
-  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { date: new Date().toISOString().split('T')[0], category: 'OTHER' },
   })
 
+  const toPayload = (d: FormData) => ({
+    amount: d.amount,
+    category: d.category === CUSTOM_CATEGORY ? d.customCategory!.trim() : d.category,
+    description: d.description,
+    date: d.date,
+  })
+
   const createMutation = useMutation({
-    mutationFn: (d: FormData) => expensesService.create(d as Parameters<typeof expensesService.create>[0]),
+    mutationFn: (d: FormData) => expensesService.create(toPayload(d)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
@@ -84,7 +97,7 @@ export default function ExpensesPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: (d: FormData) => expensesService.update(editItem!.id, d as Parameters<typeof expensesService.update>[1]),
+    mutationFn: (d: FormData) => expensesService.update(editItem!.id, toPayload(d)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
       toast.success('Xarajat yangilandi')
@@ -108,7 +121,13 @@ export default function ExpensesPage() {
   const openEdit = (item: Expense) => {
     setEditItem(item)
     setValue('amount', Number(item.amount))
-    setValue('category', item.category)
+    if (ALL_CATEGORIES.includes(item.category as ExpenseCategory)) {
+      setValue('category', item.category)
+      setValue('customCategory', '')
+    } else {
+      setValue('category', CUSTOM_CATEGORY)
+      setValue('customCategory', item.category)
+    }
     setValue('description', item.description || '')
     setValue('date', item.date)
     setDialogOpen(true)
@@ -227,15 +246,22 @@ export default function ExpensesPage() {
             </div>
             <div className="space-y-2">
               <Label>Kategoriya *</Label>
-              <Select defaultValue={editItem?.category ?? 'OTHER'} onValueChange={(v: string) => setValue('category', v)}>
+              <Select value={watch('category') ?? 'OTHER'} onValueChange={(v: string) => setValue('category', v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {ALL_CATEGORIES.map((cat) => (
                     <SelectItem key={cat} value={cat}>{expenseCategoryLabel(cat)}</SelectItem>
                   ))}
+                  <SelectItem value={CUSTOM_CATEGORY}>✏️ Boshqa (o&apos;zim yozaman)</SelectItem>
                 </SelectContent>
               </Select>
               {errors.category && <p className="text-destructive text-xs">{errors.category.message}</p>}
+              {watch('category') === CUSTOM_CATEGORY && (
+                <div className="pt-1">
+                  <Input {...register('customCategory')} placeholder="Masalan: Zavod harajatlari" />
+                  {errors.customCategory && <p className="text-destructive text-xs">{errors.customCategory.message}</p>}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Sana *</Label>

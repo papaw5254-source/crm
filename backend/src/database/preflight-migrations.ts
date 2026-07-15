@@ -53,6 +53,15 @@ export async function runPreflightMigrations(): Promise<void> {
 
     // Same phantom-join-column issue as prepayment_deliveries above.
     await client.query(`ALTER TABLE debt_payments DROP COLUMN IF EXISTS "debtorId"`);
+
+    const { rows: expenseCategoryRows } = await client.query(`
+      SELECT data_type FROM information_schema.columns
+      WHERE table_name = 'expenses' AND column_name = 'category'
+    `);
+    if (expenseCategoryRows.length > 0 && expenseCategoryRows[0].data_type !== 'character varying') {
+      await client.query(`ALTER TABLE expenses ALTER COLUMN category TYPE varchar USING category::text`);
+      console.log('✅ Migrated expenses.category from enum to free text');
+    }
   } finally {
     await client.end();
   }

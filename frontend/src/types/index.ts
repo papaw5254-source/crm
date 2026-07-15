@@ -162,7 +162,7 @@ export type ExpenseCategory =
 export interface Expense {
   id: string
   amount: number
-  category: ExpenseCategory
+  category: string
   description?: string
   date: string
   createdById?: string
