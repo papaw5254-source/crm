@@ -12,10 +12,13 @@ import { Label } from '@/components/ui/label'
 import { LoadingBlock } from '@/components/ui/spinner'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
-function StatRow({ label, value, highlight }: { label: string; value: string; highlight?: 'green' | 'red' }) {
+function StatRow({ label, value, highlight, onClick }: { label: string; value: string; highlight?: 'green' | 'red'; onClick?: () => void }) {
   return (
-    <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
+    <div
+      className={`flex items-center justify-between py-2 border-b border-border last:border-0 ${onClick ? 'cursor-pointer hover:opacity-70' : ''}`}
+      onClick={onClick}
+    >
+      <span className="text-sm text-muted-foreground">{label}{onClick && ' (bosing)'}</span>
       <span className={`text-sm font-semibold ${highlight === 'green' ? 'text-emerald-600 dark:text-emerald-400' : highlight === 'red' ? 'text-red-600 dark:text-red-400' : ''}`}>
         {value}
       </span>
@@ -26,6 +29,7 @@ function StatRow({ label, value, highlight }: { label: string; value: string; hi
 export default function KassaPage() {
   const today = new Date().toISOString().split('T')[0]
   const [date, setDate] = useState(today)
+  const [showDebtPaymentBreakdown, setShowDebtPaymentBreakdown] = useState(false)
 
   const { data: daily, isLoading } = useQuery({
     queryKey: ['report-daily', date],
@@ -82,7 +86,26 @@ export default function KassaPage() {
               <StatRow label="Kechagi qoldiq" value={formatCurrency(Number(daily?.previousDayBalance ?? 0))} />
               <StatRow label="Naqd sotuvlar" value={formatCurrency(Number(daily?.cashSales ?? 0))} highlight="green" />
               <StatRow label="Karta sotuvlar" value={formatCurrency(Number(daily?.cardSales ?? 0))} highlight="green" />
-              <StatRow label="Qarz to'lovlari" value={formatCurrency(Number(daily?.debtPayments ?? 0))} highlight="green" />
+              <StatRow
+                label="Qarz to'lovlari"
+                value={formatCurrency(Number(daily?.debtPayments ?? 0))}
+                highlight="green"
+                onClick={() => setShowDebtPaymentBreakdown((v) => !v)}
+              />
+              {showDebtPaymentBreakdown && (
+                <div className="py-2 space-y-1 bg-muted/30 rounded-lg px-3 my-1">
+                  {(daily?.debtPaymentDetails?.length ?? 0) === 0 ? (
+                    <p className="text-xs text-muted-foreground">Bu kunda qarz to&apos;lovi yo&apos;q</p>
+                  ) : (
+                    daily!.debtPaymentDetails!.map((dp, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{dp.debtorName}{dp.description ? ` — ${dp.description}` : ''}</span>
+                        <span className="font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(dp.amount)}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
               <StatRow label="Zalog puli" value={formatCurrency(Number(daily?.prepaymentPaid ?? 0))} highlight="green" />
               <StatRow label="Pul kirimlari" value={formatCurrency(Number(daily?.moneyIncomes ?? 0))} highlight="green" />
               <StatRow label="Bugungi tushum (jami)" value={formatCurrency(Number(daily?.cashBasisIncome ?? 0))} highlight="green" />

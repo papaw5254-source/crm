@@ -360,6 +360,7 @@ export interface DailyReport {
   bankTransferSales: number
   debtSalesAmount: number
   debtPayments: number
+  debtPaymentDetails?: { debtorName: string; amount: number; description?: string | null }[]
   prepaymentPaid: number
   prepaymentDeliveredBricks: number
   moneyIncomes: number

@@ -28,10 +28,13 @@ function ChartSkeleton() {
   return <LoadingBlock minHeight="min-h-64" />
 }
 
-function StatRow({ label, value, highlight }: { label: string; value: string | number; highlight?: 'green' | 'red' }) {
+function StatRow({ label, value, highlight, onClick }: { label: string; value: string | number; highlight?: 'green' | 'red'; onClick?: () => void }) {
   return (
-    <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
+    <div
+      className={`flex items-center justify-between py-2 border-b border-border last:border-0 ${onClick ? 'cursor-pointer hover:opacity-70' : ''}`}
+      onClick={onClick}
+    >
+      <span className="text-sm text-muted-foreground">{label}{onClick && ' (bosing)'}</span>
       <span className={`text-sm font-semibold ${highlight === 'green' ? 'text-emerald-600 dark:text-emerald-400' : highlight === 'red' ? 'text-red-600 dark:text-red-400' : ''}`}>
         {value}
       </span>
@@ -53,6 +56,7 @@ export default function ReportsPage() {
   const [cfFrom, setCfFrom] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0])
   const [cfTo, setCfTo] = useState(today)
   const [downloading, setDownloading] = useState<'daily' | 'monthly' | 'yearly' | null>(null)
+  const [showDebtPaymentBreakdown, setShowDebtPaymentBreakdown] = useState(false)
 
   const handleDownloadDaily = async () => {
     setDownloading('daily')
@@ -196,7 +200,26 @@ export default function ReportsPage() {
                     <StatRow label="Karta sotuvlar" value={formatCurrency(Number(daily?.cardSales ?? 0))} highlight="green" />
                     <StatRow label="Perechisleniya" value={formatCurrency(Number(daily?.bankTransferSales ?? 0))} highlight="green" />
                     <StatRow label="Nasiya sotuvlar" value={formatCurrency(Number(daily?.debtSalesAmount ?? 0))} highlight="red" />
-                    <StatRow label="Qarz to'lovlari" value={formatCurrency(Number(daily?.debtPayments ?? 0))} highlight="green" />
+                    <StatRow
+                      label="Qarz to'lovlari"
+                      value={formatCurrency(Number(daily?.debtPayments ?? 0))}
+                      highlight="green"
+                      onClick={() => setShowDebtPaymentBreakdown((v) => !v)}
+                    />
+                    {showDebtPaymentBreakdown && (
+                      <div className="py-2 space-y-1 bg-muted/30 rounded-lg px-3 my-1">
+                        {(daily?.debtPaymentDetails?.length ?? 0) === 0 ? (
+                          <p className="text-xs text-muted-foreground">Bu kunda qarz to&apos;lovi yo&apos;q</p>
+                        ) : (
+                          daily!.debtPaymentDetails!.map((dp, i) => (
+                            <div key={i} className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">{dp.debtorName}{dp.description ? ` — ${dp.description}` : ''}</span>
+                              <span className="font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(dp.amount)}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
                     <StatRow label="Zalog puli" value={formatCurrency(Number(daily?.prepaymentPaid ?? 0))} highlight="green" />
                     <StatRow label="Pul kirimlari" value={formatCurrency(Number(daily?.moneyIncomes ?? 0))} highlight="green" />
                     <StatRow label="Qog'oziy foyda" value={formatCurrency(Number(daily?.paperProfit ?? 0))} />
