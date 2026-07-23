@@ -125,14 +125,20 @@ export class PrepaymentsService {
     });
     await this.deliveryRepository.save(delivery);
 
-    prepayment.deliveredQuantity += dto.quantity;
-    prepayment.remainingQuantity -= dto.quantity;
-    const deliveredAmount = prepayment.deliveredQuantity * Number(prepayment.pricePerBrick);
-    prepayment.remainingAmount = Math.max(0, Number(prepayment.totalAmount) - deliveredAmount);
-    if (prepayment.remainingQuantity === 0) {
-      prepayment.status = PrepaymentStatus.COMPLETED;
-    }
-    await this.prepaymentRepository.save(prepayment);
+    const deliveredQuantity = prepayment.deliveredQuantity + dto.quantity;
+    const remainingQuantity = prepayment.remainingQuantity - dto.quantity;
+    const deliveredAmount = deliveredQuantity * Number(prepayment.pricePerBrick);
+    const remainingAmount = Math.max(0, Number(prepayment.totalAmount) - deliveredAmount);
+    // .update() issues a direct SQL UPDATE instead of .save(), which would
+    // otherwise re-run TypeORM's relation persistence against prepayment.deliveries
+    // (loaded stale, from before the insert above) and treat the just-created
+    // delivery as removed from the collection - nullifying its prepayment_id.
+    await this.prepaymentRepository.update(id, {
+      deliveredQuantity,
+      remainingQuantity,
+      remainingAmount,
+      status: remainingQuantity === 0 ? PrepaymentStatus.COMPLETED : prepayment.status,
+    });
 
     return delivery;
   }
