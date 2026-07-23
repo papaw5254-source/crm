@@ -85,6 +85,10 @@ export const prepaymentsService = {
     return asDeliveries(res.data)
   },
 
+  async deleteDelivery(id: string, deliveryId: string): Promise<void> {
+    await api.delete(`/prepayments/${id}/deliveries/${deliveryId}`)
+  },
+
   async delete(id: string): Promise<void> {
     await api.delete(`/prepayments/${id}`)
   },

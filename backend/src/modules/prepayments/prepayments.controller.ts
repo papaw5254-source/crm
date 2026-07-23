@@ -79,4 +79,14 @@ export class PrepaymentsController {
   getDeliveries(@Param('id') id: string, @Query() paginationDto: PaginationDto) {
     return this.prepaymentsService.getDeliveries(id, paginationDto);
   }
+
+  @Delete(':id/deliveries/:deliveryId')
+  @ApiOperation({ summary: 'Bitta yetkazma yozuvini o\'chirish (masalan, dublikat)' })
+  removeDelivery(
+    @Param('id') id: string,
+    @Param('deliveryId') deliveryId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.prepaymentsService.removeDelivery(id, deliveryId, userId);
+  }
 }

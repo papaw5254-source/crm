@@ -143,6 +143,35 @@ export class PrepaymentsService {
     return delivery;
   }
 
+  async removeDelivery(prepaymentId: string, deliveryId: string, userId: string): Promise<void> {
+    const prepayment = await this.findOne(prepaymentId);
+    const delivery = await this.deliveryRepository.findOne({
+      where: { id: deliveryId, prepaymentId },
+    });
+    if (!delivery) throw new NotFoundException(`Delivery with id ${deliveryId} not found`);
+
+    await this.stockService.increaseStock(
+      delivery.quantity,
+      StockMovementType.SALE_CANCEL,
+      `Zalog yetkazishi o'chirildi (dublikat): ${prepayment.customerName}`,
+      userId,
+      prepayment.brickType,
+    );
+
+    await this.deliveryRepository.remove(delivery);
+
+    const deliveredQuantity = Math.max(0, prepayment.deliveredQuantity - delivery.quantity);
+    const remainingQuantity = prepayment.quantity - deliveredQuantity;
+    const deliveredAmount = deliveredQuantity * Number(prepayment.pricePerBrick);
+    const remainingAmount = Math.max(0, Number(prepayment.totalAmount) - deliveredAmount);
+    await this.prepaymentRepository.update(prepaymentId, {
+      deliveredQuantity,
+      remainingQuantity,
+      remainingAmount,
+      status: remainingQuantity > 0 ? PrepaymentStatus.ACTIVE : prepayment.status,
+    });
+  }
+
   async getDeliveries(id: string, paginationDto: PaginationDto) {
     await this.findOne(id);
     const { page = 1, limit = 20 } = paginationDto;

@@ -62,6 +62,7 @@ export default function ZalogPage() {
   const [selectedItem, setSelectedItem] = useState<Prepayment | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [cancelId, setCancelId] = useState<string | null>(null)
+  const [deleteDeliveryId, setDeleteDeliveryId] = useState<string | null>(null)
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
 
@@ -133,6 +134,19 @@ export default function ZalogPage() {
       queryClient.invalidateQueries({ queryKey: ['prepayments'] })
       toast.success('Zalog bekor qilindi')
       setCancelId(null)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const deleteDeliveryMutation = useMutation({
+    mutationFn: (deliveryId: string) => prepaymentsService.deleteDelivery(selectedItem!.id, deliveryId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prepayments'] })
+      queryClient.invalidateQueries({ queryKey: ['prepayment-deliveries', selectedItem?.id] })
+      queryClient.invalidateQueries({ queryKey: ['stock'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      toast.success("Yetkazish o'chirildi")
+      setDeleteDeliveryId(null)
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -495,7 +509,17 @@ export default function ZalogPage() {
                           <p className="font-medium">{formatDate(d.deliveredAt ?? d.date)}</p>
                           {d.description && <p className="text-xs text-muted-foreground">{d.description}</p>}
                         </div>
-                        <span className="font-semibold text-emerald-600">{formatNumber(d.quantity)} dona</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-emerald-600">{formatNumber(d.quantity)} dona</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
+                            onClick={() => setDeleteDeliveryId(d.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -524,6 +548,15 @@ export default function ZalogPage() {
         description="Status 'Bekor qilindi'ga o'zgaradi. Bu amalni keyinchalik o'zgartirish mumkin emas."
         onConfirm={() => cancelId && cancelMutation.mutate(cancelId)}
         loading={cancelMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!deleteDeliveryId}
+        onOpenChange={(o: boolean) => !o && setDeleteDeliveryId(null)}
+        title="Yetkazishni o'chirish"
+        description="Bu yozuv o'chiriladi, g'isht ombor qoldig'iga qaytariladi va zalog miqdori qayta hisoblanadi."
+        onConfirm={() => deleteDeliveryId && deleteDeliveryMutation.mutate(deleteDeliveryId)}
+        loading={deleteDeliveryMutation.isPending}
       />
     </div>
   )
