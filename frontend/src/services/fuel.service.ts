@@ -16,13 +16,18 @@ export const fuelService = {
     await api.delete(`/fuel/incomes/${id}`)
   },
 
-  async getExpenses(params?: { date?: string; dateFrom?: string; dateTo?: string }): Promise<FuelExpense[]> {
+  async getExpenses(params?: { date?: string; dateFrom?: string; dateTo?: string; destination?: string }): Promise<FuelExpense[]> {
     const res = await api.get('/fuel/expenses', { params })
     return res.data.data
   },
 
   async createExpense(data: { liters: number; destination: string; date: string; description?: string }): Promise<FuelExpense> {
     const res = await api.post('/fuel/expenses', data)
+    return res.data.data
+  },
+
+  async getExpenseDestinations(): Promise<string[]> {
+    const res = await api.get('/fuel/expenses/destinations')
     return res.data.data
   },
 

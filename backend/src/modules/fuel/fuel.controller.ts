@@ -54,6 +54,12 @@ export class FuelController {
     return this.fuelService.findAllExpenses(query);
   }
 
+  @Get('expenses/destinations')
+  @ApiOperation({ summary: 'Ishlatilgan qayerga ketgan (destination) ro\'yxati' })
+  getDestinations() {
+    return this.fuelService.getDestinations();
+  }
+
   @Delete('expenses/:id')
   @ApiOperation({ summary: 'Salyarka rasxodini o\'chirish' })
   removeExpense(@Param('id') id: string) {

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsOptional } from 'class-validator';
+import { IsDateString, IsOptional, IsString } from 'class-validator';
 
 export class FuelQueryDto {
   @ApiPropertyOptional()
@@ -16,4 +16,9 @@ export class FuelQueryDto {
   @IsOptional()
   @IsDateString()
   dateTo?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  destination?: string;
 }

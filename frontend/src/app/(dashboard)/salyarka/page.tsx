@@ -26,6 +26,17 @@ const today = new Date().toISOString().split('T')[0]
 const CUSTOM_DESTINATION = '__CUSTOM__'
 const DESTINATIONS = ['Volga', 'G-28', 'Xon', 'Kran']
 
+function currentMonth(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function monthRange(month: string): { dateFrom: string; dateTo: string } {
+  const [y, m] = month.split('-').map(Number)
+  const lastDay = new Date(y, m, 0).getDate()
+  return { dateFrom: `${month}-01`, dateTo: `${month}-${String(lastDay).padStart(2, '0')}` }
+}
+
 const incomeSchema = z.object({
   liters: z.coerce.number().min(0.01, "Litr 0 dan katta bo'lishi kerak"),
   pricePerLiter: z.coerce.number().min(0.01, "Narx 0 dan katta bo'lishi kerak"),
@@ -54,6 +65,8 @@ export default function SalyarkaPage() {
   const [expenseOpen, setExpenseOpen] = useState(false)
   const [deleteIncomeId, setDeleteIncomeId] = useState<string | null>(null)
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null)
+  const [summaryMonth, setSummaryMonth] = useState(currentMonth())
+  const [summaryDestination, setSummaryDestination] = useState<string | null>(null)
 
   const { data: balance } = useQuery({
     queryKey: ['fuel-balance'],
@@ -74,6 +87,20 @@ export default function SalyarkaPage() {
     queryKey: ['fuel-ledger'],
     queryFn: () => fuelService.getLedger(),
   })
+
+  const { data: knownDestinations } = useQuery({
+    queryKey: ['fuel-expense-destinations'],
+    queryFn: () => fuelService.getExpenseDestinations(),
+  })
+
+  const destinationOptions = Array.from(new Set([...DESTINATIONS, ...(knownDestinations ?? [])]))
+
+  const { data: summaryExpenses, isLoading: summaryLoading } = useQuery({
+    queryKey: ['fuel-expenses-summary', summaryDestination, summaryMonth],
+    queryFn: () => fuelService.getExpenses({ destination: summaryDestination!, ...monthRange(summaryMonth) }),
+    enabled: !!summaryDestination,
+  })
+  const summaryTotalLiters = (summaryExpenses ?? []).reduce((s: number, e: FuelExpense) => s + Number(e.liters), 0)
 
   const incomeList = incomes ?? []
   const expenseList = expenses ?? []
@@ -100,6 +127,8 @@ export default function SalyarkaPage() {
     queryClient.invalidateQueries({ queryKey: ['fuel-incomes'] })
     queryClient.invalidateQueries({ queryKey: ['fuel-expenses'] })
     queryClient.invalidateQueries({ queryKey: ['fuel-ledger'] })
+    queryClient.invalidateQueries({ queryKey: ['fuel-expense-destinations'] })
+    queryClient.invalidateQueries({ queryKey: ['fuel-expenses-summary'] })
   }
 
   const createIncomeMutation = useMutation({
@@ -236,6 +265,48 @@ export default function SalyarkaPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Texnika bo&apos;yicha oylik sarf</h3>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            {destinationOptions.map((d) => (
+              <Button
+                key={d}
+                type="button"
+                size="sm"
+                variant={summaryDestination === d ? 'default' : 'outline'}
+                onClick={() => setSummaryDestination(summaryDestination === d ? null : d)}
+              >
+                {d}
+              </Button>
+            ))}
+            <Input
+              type="month"
+              value={summaryMonth}
+              onChange={(e) => setSummaryMonth(e.target.value)}
+              className="w-40 ml-auto"
+            />
+          </div>
+          {summaryDestination ? (
+            summaryLoading ? (
+              <LoadingBlock minHeight="min-h-16" size="sm" />
+            ) : (
+              <div className="rounded-lg bg-primary/10 px-4 py-3 text-sm">
+                <span className="text-muted-foreground">{summaryMonth} oyida </span>
+                <span className="font-bold">{summaryDestination}</span>
+                <span className="text-muted-foreground"> ga sarflangan: </span>
+                <span className="font-bold text-primary">{formatNumber(summaryTotalLiters)} litr</span>
+                <span className="text-muted-foreground"> ({(summaryExpenses ?? []).length} ta yozuv)</span>
+              </div>
+            )
+          ) : (
+            <p className="text-sm text-muted-foreground">Texnikani tanlang va oyni belgilang</p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-2">

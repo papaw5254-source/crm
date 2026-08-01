@@ -61,7 +61,17 @@ export class FuelService {
     if (query.date) qb.andWhere('e.date = :date', { date: query.date });
     if (query.dateFrom) qb.andWhere('e.date >= :dateFrom', { dateFrom: query.dateFrom });
     if (query.dateTo) qb.andWhere('e.date <= :dateTo', { dateTo: query.dateTo });
+    if (query.destination) qb.andWhere('e.destination = :destination', { destination: query.destination });
     return qb.getMany();
+  }
+
+  async getDestinations(): Promise<string[]> {
+    const rows = await this.expenseRepository
+      .createQueryBuilder('e')
+      .select('DISTINCT e.destination', 'destination')
+      .orderBy('e.destination', 'ASC')
+      .getRawMany();
+    return rows.map((r) => r.destination);
   }
 
   async removeExpense(id: string): Promise<void> {
