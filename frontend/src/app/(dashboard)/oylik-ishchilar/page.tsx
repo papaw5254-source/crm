@@ -51,7 +51,7 @@ function ProgressBar({ paid, total }: { paid: number; total: number }) {
 
 export default function OylikIshchilarPage() {
   const queryClient = useQueryClient()
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth)
+  const [selectedMonth, setSelectedMonth] = useState('')
   const [filterDate, setFilterDate] = useState('')
   const [workerDialogOpen, setWorkerDialogOpen] = useState(false)
   const [advanceOpen, setAdvanceOpen] = useState(false)
@@ -62,7 +62,7 @@ export default function OylikIshchilarPage() {
 
   const { data: workers, isLoading } = useQuery({
     queryKey: ['salary-workers', selectedMonth],
-    queryFn: () => salaryWorkersService.getAll({ month: selectedMonth }),
+    queryFn: () => salaryWorkersService.getAll(selectedMonth ? { month: selectedMonth } : undefined),
   })
 
   const workerList = workers ?? []
@@ -100,7 +100,7 @@ export default function OylikIshchilarPage() {
       invalidate()
       toast.success("Ishchi qo'shildi")
       setWorkerDialogOpen(false)
-      workerForm.reset({ month: selectedMonth, salaryAmount: 0 })
+      workerForm.reset({ month: selectedMonth || currentMonth, salaryAmount: 0 })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -146,7 +146,7 @@ export default function OylikIshchilarPage() {
         title="Oylik ishchilar"
         description="Oylik maosh oladigan ishchilar va avanslar boshqaruvi — bu bo'lim Hisobotlar va Kassaga ta'sir qilmaydi"
         actions={
-          <Button onClick={() => { workerForm.reset({ month: selectedMonth, salaryAmount: 0 }); setWorkerDialogOpen(true) }}>
+          <Button onClick={() => { workerForm.reset({ month: selectedMonth || currentMonth, salaryAmount: 0 }); setWorkerDialogOpen(true) }}>
             <Plus className="h-4 w-4 mr-1" /> Ishchi qo&apos;shish
           </Button>
         }
@@ -161,13 +161,18 @@ export default function OylikIshchilarPage() {
 
       <div className="flex items-center gap-2 flex-wrap">
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Oy</Label>
-          <Input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="w-40"
-          />
+          <Label className="text-xs text-muted-foreground">Oy (bo&apos;sh = barchasi)</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="w-40"
+            />
+            {selectedMonth && (
+              <Button variant="outline" size="sm" onClick={() => setSelectedMonth('')}>✕ Barchasi</Button>
+            )}
+          </div>
         </div>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Sana bo&apos;yicha (avanslar)</Label>
@@ -183,7 +188,11 @@ export default function OylikIshchilarPage() {
       {isLoading ? (
         <LoadingBlock />
       ) : workerList.length === 0 ? (
-        <EmptyState icon={Users} title="Ishchi yo'q" description="Bu oy uchun hali ishchi qo'shilmagan" />
+        <EmptyState
+          icon={Users}
+          title="Ishchi yo'q"
+          description={selectedMonth ? "Shu oy uchun hali ishchi qo'shilmagan" : "Hali ishchi qo'shilmagan"}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {workerList.map((w: SalaryWorker) => {
@@ -193,7 +202,10 @@ export default function OylikIshchilarPage() {
             return (
               <Card key={w.id}>
                 <CardHeader className="pb-2 flex flex-row items-start justify-between gap-2">
-                  <h3 className="font-semibold truncate">{w.fullName}</h3>
+                  <div className="min-w-0">
+                    <h3 className="font-semibold truncate">{w.fullName}</h3>
+                    <p className="text-xs text-muted-foreground">{w.month}</p>
+                  </div>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -249,7 +261,7 @@ export default function OylikIshchilarPage() {
         <CardContent>
           {allAdvances.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              {filterDate ? "Shu sanada avans yo'q" : "Bu oy avans berilmagan"}
+              {filterDate ? "Shu sanada avans yo'q" : "Hali avans berilmagan"}
             </p>
           ) : (
             <div className="space-y-2 max-h-80 overflow-y-auto">
