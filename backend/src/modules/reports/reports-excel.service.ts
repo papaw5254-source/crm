@@ -103,6 +103,43 @@ export class ReportsExcelService {
     totalRow.getCell(3).numFmt = NUM_FMT;
   }
 
+  private addExpensesByCategorySection(sheet: ExcelJS.Worksheet, byCategory: Record<string, number>) {
+    this.addSection(sheet, "XARAJATLAR (KATEGORIYA BO'YICHA)");
+    this.addTableHeader(sheet, ['Kategoriya', 'Summa', '']);
+    const entries = Object.entries(byCategory || {});
+    if (entries.length === 0) {
+      sheet.addRow(["Bu davrda xarajat yo'q"]);
+      return;
+    }
+    let total = 0;
+    for (const [category, amount] of entries) {
+      const row = sheet.addRow([category, amount]);
+      row.getCell(2).numFmt = NUM_FMT;
+      total += Number(amount) || 0;
+    }
+    const totalRow = sheet.addRow(['JAMI', total]);
+    totalRow.eachCell((cell) => { cell.font = { bold: true }; });
+    totalRow.getCell(2).numFmt = NUM_FMT;
+  }
+
+  private addDebtPaymentsSection(sheet: ExcelJS.Worksheet, details: { debtorName: string; amount: number; description?: string }[]) {
+    this.addSection(sheet, "QARZ TO'LOVLARI (KIMDAN)");
+    this.addTableHeader(sheet, ['Qarzdor', 'Summa', 'Izoh']);
+    if (!details || details.length === 0) {
+      sheet.addRow(["Bu davrda qarz to'lovi yo'q"]);
+      return;
+    }
+    let total = 0;
+    for (const d of details) {
+      const row = sheet.addRow([d.debtorName, d.amount, d.description || '']);
+      row.getCell(2).numFmt = NUM_FMT;
+      total += Number(d.amount) || 0;
+    }
+    const totalRow = sheet.addRow(['JAMI', total]);
+    totalRow.eachCell((cell) => { cell.font = { bold: true }; });
+    totalRow.getCell(2).numFmt = NUM_FMT;
+  }
+
   private addDebtorsSection(sheet: ExcelJS.Worksheet, unpaidDebtors: any[]) {
     this.addSection(sheet, "QARZDORLAR (faol)");
     this.addTableHeader(sheet, ["Ism", "Qolgan qarz", '']);
@@ -141,9 +178,24 @@ export class ReportsExcelService {
     this.addSpacer(sheet);
 
     this.addSection(sheet, 'MOLIYA');
-    this.addKV(sheet, 'Jami sotuv', report.totalSalesAmount, NUM_FMT);
+    this.addKV(sheet, 'Kechagi qoldiq', report.previousDayBalance, NUM_FMT);
+    this.addKV(sheet, 'Naqd sotuvlar', report.cashSales, NUM_FMT);
+    this.addKV(sheet, 'Karta sotuvlar', report.cardSales, NUM_FMT);
+    this.addKV(sheet, 'Perechisleniya', report.bankTransferSales, NUM_FMT);
+    this.addKV(sheet, 'Nasiya sotuvlar', report.debtSalesAmount, NUM_FMT);
+    this.addKV(sheet, "Qarz to'lovlari", report.debtPayments, NUM_FMT);
+    this.addKV(sheet, 'Zalog puli', report.prepaymentPaid, NUM_FMT);
+    this.addKV(sheet, 'Pul kirimlari', report.moneyIncomes, NUM_FMT);
+    this.addKV(sheet, 'Bugungi tushum (jami)', report.cashBasisIncome, NUM_FMT, true);
     this.addKV(sheet, 'Xarajatlar', report.totalExpenses, NUM_FMT);
+    this.addKV(sheet, "Ishchi puli (to'langan)", report.workerPayments, NUM_FMT);
     this.addKV(sheet, 'Kun oxiriga qolgan pul', report.endOfDayBalance, NUM_FMT, true);
+    this.addSpacer(sheet);
+
+    this.addExpensesByCategorySection(sheet, report.expensesByCategory || {});
+    this.addSpacer(sheet);
+
+    this.addDebtPaymentsSection(sheet, report.debtPaymentDetails || []);
     this.addSpacer(sheet);
 
     this.addWorkerSection(sheet, report.workerByCategory || {});

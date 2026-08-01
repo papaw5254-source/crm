@@ -44,6 +44,7 @@ const ALL_CATEGORIES: ExpenseCategory[] = [
   "Ishchi yo'l pullari",
   'Naqd berilgan qarz',
   'Naqd berilgan yordam puli',
+  'Boshqa',
 ]
 
 const CUSTOM_CATEGORY = '__CUSTOM__'
