@@ -79,11 +79,6 @@ export class ExpensesService {
     await this.expenseRepository.remove(expense);
   }
 
-  async removeAll(): Promise<{ deleted: number }> {
-    const result = await this.expenseRepository.createQueryBuilder().delete().execute();
-    return { deleted: result.affected ?? 0 };
-  }
-
   async getExpensesByDateRange(dateFrom: string, dateTo: string): Promise<Expense[]> {
     return this.expenseRepository
       .createQueryBuilder('expense')

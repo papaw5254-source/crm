@@ -179,43 +179,27 @@ export function workerPaymentCategoryLabel(category: string): string {
 }
 
 export function expenseCategoryLabel(category: string): string {
-  const labels: Record<string, string> = {
-    GAS: 'Gaz',
-    ELECTRICITY: 'Elektr',
-    SALARY: 'Maosh',
-    TRANSPORT: 'Transport',
-    MAINTENANCE: "Ta'mirlash",
-    COAL: "Ko'mir",
-    SOIL: 'Tuproq',
-    SPARE_PARTS: 'Zapchast',
-    CONSTRUCTION: 'Qurilish',
-    MEDICINE: 'Dori',
-    GREENHOUSE: 'Issiqxona',
-    MATERIAL_HELP: 'Moddiy yordam',
-    BANK_PAYMENT: "Bank to'lovi",
-    ANIMAL_FEED: 'Yem',
-    OTHER: 'Boshqa',
-  }
-  return labels[category] || category
+  return category
 }
 
 export function expenseCategoryColor(category: string): string {
   const colors: Record<string, string> = {
-    GAS: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-    ELECTRICITY: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-    SALARY: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    TRANSPORT: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-    MAINTENANCE: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-    COAL: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
-    SOIL: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-    SPARE_PARTS: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
-    CONSTRUCTION: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
-    MEDICINE: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
-    GREENHOUSE: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-    MATERIAL_HELP: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
-    BANK_PAYMENT: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    ANIMAL_FEED: 'bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400',
-    OTHER: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
+    'Press kunlik xarajat': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+    "Press o'zini ta'minlash": 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    'Press muravey xarajati': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+    'Xumbuz kunlik xarajat': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    'Xumbuz ta\'minlash xarajati': 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+    'Xumbuz muravey xarajati': 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
+    'Oshxona xarajati': 'bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400',
+    'Ofis xarajatlari': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    'Transport xarajatlari': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    'Ish haqqi': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    'Tasischi xarajatlari (JBU, Parnik, Qurilish)': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+    'Salyarka rasxodi': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
+    "Zavod xo'jalik xarajatlari (Qo'y, Tovuq, Baliq)": 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+    "Ishchi yo'l pullari": 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+    'Naqd berilgan qarz': 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+    'Naqd berilgan yordam puli': 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-400',
   }
   return colors[category] || 'bg-muted text-muted-foreground'
 }

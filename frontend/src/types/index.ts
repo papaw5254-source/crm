@@ -191,22 +191,8 @@ export interface FuelLedgerRow {
 }
 
 // ─── Expenses ─────────────────────────────────────────────────────────────────
-export type ExpenseCategory =
-  | 'GAS'
-  | 'ELECTRICITY'
-  | 'SALARY'
-  | 'TRANSPORT'
-  | 'MAINTENANCE'
-  | 'COAL'
-  | 'SOIL'
-  | 'SPARE_PARTS'
-  | 'CONSTRUCTION'
-  | 'MEDICINE'
-  | 'GREENHOUSE'
-  | 'MATERIAL_HELP'
-  | 'BANK_PAYMENT'
-  | 'ANIMAL_FEED'
-  | 'OTHER'
+// Free text end-to-end - the presets below are just suggestions, not an enum.
+export type ExpenseCategory = string
 
 export interface Expense {
   id: string

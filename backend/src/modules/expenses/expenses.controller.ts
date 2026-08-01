@@ -51,13 +51,6 @@ export class ExpensesController {
     return this.expensesService.update(id, updateExpenseDto);
   }
 
-  @Delete('all')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Delete ALL expenses (Admin only, irreversible)' })
-  removeAll() {
-    return this.expensesService.removeAll();
-  }
-
   @Delete(':id')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Delete expense (Admin only)' })

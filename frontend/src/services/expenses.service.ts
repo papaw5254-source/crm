@@ -32,9 +32,4 @@ export const expensesService = {
   async delete(id: string): Promise<void> {
     await api.delete(`/expenses/${id}`)
   },
-
-  async deleteAll(): Promise<{ deleted: number }> {
-    const res = await api.delete('/expenses/all')
-    return res.data.data
-  },
 }

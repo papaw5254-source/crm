@@ -28,9 +28,22 @@ import { useAuth } from '@/providers/auth-provider'
 import type { Expense, ExpenseCategory } from '@/types'
 
 const ALL_CATEGORIES: ExpenseCategory[] = [
-  'GAS', 'ELECTRICITY', 'SALARY', 'TRANSPORT', 'MAINTENANCE',
-  'COAL', 'SOIL', 'SPARE_PARTS', 'CONSTRUCTION', 'MEDICINE',
-  'GREENHOUSE', 'MATERIAL_HELP', 'BANK_PAYMENT', 'ANIMAL_FEED', 'OTHER',
+  'Press kunlik xarajat',
+  "Press o'zini ta'minlash",
+  'Press muravey xarajati',
+  'Xumbuz kunlik xarajat',
+  "Xumbuz ta'minlash xarajati",
+  'Xumbuz muravey xarajati',
+  'Oshxona xarajati',
+  'Ofis xarajatlari',
+  'Transport xarajatlari',
+  'Ish haqqi',
+  'Tasischi xarajatlari (JBU, Parnik, Qurilish)',
+  'Salyarka rasxodi',
+  "Zavod xo'jalik xarajatlari (Qo'y, Tovuq, Baliq)",
+  "Ishchi yo'l pullari",
+  'Naqd berilgan qarz',
+  'Naqd berilgan yordam puli',
 ]
 
 const CUSTOM_CATEGORY = '__CUSTOM__'
@@ -57,7 +70,6 @@ export default function ExpensesPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<Expense | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [deleteAllOpen, setDeleteAllOpen] = useState(false)
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
 
@@ -75,7 +87,7 @@ export default function ExpensesPage() {
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { date: new Date().toISOString().split('T')[0], category: 'OTHER' },
+    defaultValues: { date: new Date().toISOString().split('T')[0] },
   })
 
   const toPayload = (d: FormData) => ({
@@ -92,7 +104,7 @@ export default function ExpensesPage() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success("Xarajat qo'shildi")
       setDialogOpen(false)
-      reset({ date: new Date().toISOString().split('T')[0], category: 'OTHER' })
+      reset({ date: new Date().toISOString().split('T')[0] })
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -115,17 +127,6 @@ export default function ExpensesPage() {
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
       toast.success("Xarajat o'chirildi")
       setDeleteId(null)
-    },
-    onError: (e: unknown) => toast.error(getErrorMessage(e)),
-  })
-
-  const deleteAllMutation = useMutation({
-    mutationFn: () => expensesService.deleteAll(),
-    onSuccess: ({ deleted }) => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      toast.success(`${deleted} ta xarajat o'chirildi`)
-      setDeleteAllOpen(false)
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -189,16 +190,9 @@ export default function ExpensesPage() {
         title="Xarajatlar"
         description="Zavod xarajatlari boshqaruvi"
         actions={
-          <div className="flex gap-2 flex-wrap">
-            {isAdmin && (
-              <Button variant="outline" className="text-destructive hover:text-destructive" onClick={() => setDeleteAllOpen(true)}>
-                <Trash2 className="h-4 w-4 mr-1" /> Hammasini o&apos;chirish
-              </Button>
-            )}
-            <Button onClick={() => { setEditItem(null); reset({ date: new Date().toISOString().split('T')[0], category: 'OTHER' }); setDialogOpen(true) }}>
-              <Plus className="h-4 w-4 mr-1" /> Xarajat qo&apos;shish
-            </Button>
-          </div>
+          <Button onClick={() => { setEditItem(null); reset({ date: new Date().toISOString().split('T')[0] }); setDialogOpen(true) }}>
+            <Plus className="h-4 w-4 mr-1" /> Xarajat qo&apos;shish
+          </Button>
         }
       />
 
@@ -265,8 +259,8 @@ export default function ExpensesPage() {
             </div>
             <div className="space-y-2">
               <Label>Kategoriya *</Label>
-              <Select value={watch('category') ?? 'OTHER'} onValueChange={(v: string) => setValue('category', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select value={watch('category') ?? ''} onValueChange={(v: string) => setValue('category', v)}>
+                <SelectTrigger><SelectValue placeholder="Tanlang..." /></SelectTrigger>
                 <SelectContent>
                   {ALL_CATEGORIES.map((cat) => (
                     <SelectItem key={cat} value={cat}>{expenseCategoryLabel(cat)}</SelectItem>
@@ -308,16 +302,6 @@ export default function ExpensesPage() {
         description="Bu amal orqaga qaytarib bo'lmaydi."
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
         loading={deleteMutation.isPending}
-      />
-
-      <ConfirmDialog
-        open={deleteAllOpen}
-        onOpenChange={setDeleteAllOpen}
-        title="BARCHA xarajatlarni o'chirish"
-        description={`Bu ${data?.meta?.total ?? ''} ta xarajat yozuvini butunlay o'chiradi. Hisobotlar va Kassada ham ko'rinmay qoladi. Bu amalni ORQAGA QAYTARIB BO'LMAYDI.`}
-        confirmLabel="Ha, hammasini o'chir"
-        onConfirm={() => deleteAllMutation.mutate()}
-        loading={deleteAllMutation.isPending}
       />
     </div>
   )
