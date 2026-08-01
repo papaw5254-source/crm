@@ -162,6 +162,34 @@ export interface SalaryAdvance {
   createdAt: string
 }
 
+// ─── Salyarka (Fuel) ────────────────────────────────────────────────────────────
+export interface FuelIncome {
+  id: string
+  liters: number
+  pricePerLiter: number
+  totalAmount: number
+  paymentType: 'CASH' | 'CARD' | 'BANK_TRANSFER'
+  date: string
+  description?: string
+  createdAt: string
+}
+
+export interface FuelExpense {
+  id: string
+  liters: number
+  destination: string
+  date: string
+  description?: string
+  createdAt: string
+}
+
+export interface FuelLedgerRow {
+  date: string
+  incomeLiters: number
+  expenseLiters: number
+  balance: number
+}
+
 // ─── Expenses ─────────────────────────────────────────────────────────────────
 export type ExpenseCategory =
   | 'GAS'

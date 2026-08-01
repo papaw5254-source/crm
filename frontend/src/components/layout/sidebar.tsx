@@ -24,6 +24,7 @@ import {
   Settings,
   Banknote,
   Users,
+  Fuel,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
@@ -60,6 +61,7 @@ const navGroups: NavGroup[] = [
       { href: '/qachigar', icon: HardHat, label: 'Qachigar' },
       { href: '/sales', icon: ShoppingCart, label: 'Sotuvlar' },
       { href: '/zaxira', icon: Warehouse, label: 'Zaxira' },
+      { href: '/salyarka', icon: Fuel, label: 'Salyarka' },
     ],
   },
   {
