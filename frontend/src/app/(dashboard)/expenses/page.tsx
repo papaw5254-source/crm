@@ -57,6 +57,7 @@ export default function ExpensesPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<Expense | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false)
   const { page, limit, setPage } = usePagination()
   const debouncedSearch = useDebounce(search)
 
@@ -114,6 +115,17 @@ export default function ExpensesPage() {
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
       toast.success("Xarajat o'chirildi")
       setDeleteId(null)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
+  const deleteAllMutation = useMutation({
+    mutationFn: () => expensesService.deleteAll(),
+    onSuccess: ({ deleted }) => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      toast.success(`${deleted} ta xarajat o'chirildi`)
+      setDeleteAllOpen(false)
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -177,9 +189,16 @@ export default function ExpensesPage() {
         title="Xarajatlar"
         description="Zavod xarajatlari boshqaruvi"
         actions={
-          <Button onClick={() => { setEditItem(null); reset({ date: new Date().toISOString().split('T')[0], category: 'OTHER' }); setDialogOpen(true) }}>
-            <Plus className="h-4 w-4 mr-1" /> Xarajat qo&apos;shish
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            {isAdmin && (
+              <Button variant="outline" className="text-destructive hover:text-destructive" onClick={() => setDeleteAllOpen(true)}>
+                <Trash2 className="h-4 w-4 mr-1" /> Hammasini o&apos;chirish
+              </Button>
+            )}
+            <Button onClick={() => { setEditItem(null); reset({ date: new Date().toISOString().split('T')[0], category: 'OTHER' }); setDialogOpen(true) }}>
+              <Plus className="h-4 w-4 mr-1" /> Xarajat qo&apos;shish
+            </Button>
+          </div>
         }
       />
 
@@ -289,6 +308,16 @@ export default function ExpensesPage() {
         description="Bu amal orqaga qaytarib bo'lmaydi."
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
         loading={deleteMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={deleteAllOpen}
+        onOpenChange={setDeleteAllOpen}
+        title="BARCHA xarajatlarni o'chirish"
+        description={`Bu ${data?.meta?.total ?? ''} ta xarajat yozuvini butunlay o'chiradi. Hisobotlar va Kassada ham ko'rinmay qoladi. Bu amalni ORQAGA QAYTARIB BO'LMAYDI.`}
+        confirmLabel="Ha, hammasini o'chir"
+        onConfirm={() => deleteAllMutation.mutate()}
+        loading={deleteAllMutation.isPending}
       />
     </div>
   )
