@@ -57,6 +57,8 @@ export default function HumbuzPage() {
   const [debtAmountStr, setDebtAmountStr] = useState('')
   const [debtDate, setDebtDate] = useState(new Date().toISOString().split('T')[0])
   const [deleteWpId, setDeleteWpId] = useState<string | null>(null)
+  const [selectedMonth, setSelectedMonth] = useState(THIS_MONTH)
+  const [selectedYear, setSelectedYear] = useState(THIS_YEAR)
 
   const { data: allOpsData, isLoading } = useQuery({
     queryKey: ['kiln-operations-all'],
@@ -72,8 +74,8 @@ export default function HumbuzPage() {
   )
 
   const { data: currentMonthWpData } = useQuery({
-    queryKey: ['worker-payments', 'HUMBUZ_KIRDI_CHIQDI', THIS_MONTH, THIS_YEAR],
-    queryFn: () => workerPaymentsService.getAll({ category: 'HUMBUZ_KIRDI_CHIQDI', month: THIS_MONTH, year: THIS_YEAR, limit: 200 }),
+    queryKey: ['worker-payments', 'HUMBUZ_KIRDI_CHIQDI', selectedMonth, selectedYear],
+    queryFn: () => workerPaymentsService.getAll({ category: 'HUMBUZ_KIRDI_CHIQDI', month: selectedMonth, year: selectedYear, limit: 200 }),
   })
   const regularHumbuzPayments = (currentMonthWpData?.data ?? []).filter(
     (r: WorkerPayment) => !!r.sourceId
@@ -301,7 +303,7 @@ export default function HumbuzPage() {
           <HardHat className="h-4 w-4" /> Humbuz kirdi chiqdi — bu oy
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatsCard title="Bu oy hisoblandi" value={Number(humbuzStats.amount)} icon={HardHat} color="amber" />
+          <StatsCard title="Hisoblandi" value={Number(humbuzStats.amount)} icon={HardHat} color="amber" />
           <StatsCard title="Berildi" value={Number(humbuzStats.paid)} icon={HardHat} color="emerald" />
           <StatsCard title="Avvalgi qarz" value={Number(humbuzStats.carriedDebt)} icon={HardHat} color="blue" />
           <StatsCard title="Jami qarz" value={Number(humbuzStats.debt)} icon={HardHat} color="red" />
@@ -338,8 +340,17 @@ export default function HumbuzPage() {
         </Card>
       )}
 
-      {/* Sana bo'yicha filtr */}
-      <div className="flex items-center gap-2">
+      {/* Ishchi puli oyi va sana bo'yicha filtr */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Input
+          type="month"
+          value={`${selectedYear}-${String(selectedMonth).padStart(2, '0')}`}
+          onChange={(e) => {
+            const [y, m] = e.target.value.split('-').map(Number)
+            if (y && m) { setSelectedYear(y); setSelectedMonth(m) }
+          }}
+          className="w-40"
+        />
         <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-40" />
         {filterDate && (
           <Button variant="outline" size="sm" onClick={() => setFilterDate('')}>✕ Tozalash</Button>

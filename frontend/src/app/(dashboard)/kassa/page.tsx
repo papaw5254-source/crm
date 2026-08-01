@@ -97,7 +97,7 @@ export default function KassaPage() {
                   {(daily?.debtPaymentDetails?.length ?? 0) === 0 ? (
                     <p className="text-xs text-muted-foreground">Bu kunda qarz to&apos;lovi yo&apos;q</p>
                   ) : (
-                    daily!.debtPaymentDetails!.map((dp, i) => (
+                    daily!.debtPaymentDetails!.map((dp: { debtorName: string; amount: number; description?: string | null }, i: number) => (
                       <div key={i} className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">{dp.debtorName}{dp.description ? ` — ${dp.description}` : ''}</span>
                         <span className="font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(dp.amount)}</span>

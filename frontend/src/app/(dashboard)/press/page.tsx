@@ -46,17 +46,19 @@ export default function PressPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteWpId, setDeleteWpId] = useState<string | null>(null)
   const [filterDate, setFilterDate] = useState('')
+  const [selectedMonth, setSelectedMonth] = useState(THIS_MONTH)
+  const [selectedYear, setSelectedYear] = useState(THIS_YEAR)
 
   const { data: wpReport } = useQuery({
-    queryKey: ['worker-payments-report', THIS_MONTH, THIS_YEAR],
-    queryFn: () => workerPaymentsService.getReport({ month: THIS_MONTH, year: THIS_YEAR }),
+    queryKey: ['worker-payments-report', selectedMonth, selectedYear],
+    queryFn: () => workerPaymentsService.getReport({ month: selectedMonth, year: selectedYear }),
   })
   const emptyStats = { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
   const stats = wpReport?.byCategory?.PRESS ?? emptyStats
 
   const { data: payments, isLoading } = useQuery({
-    queryKey: ['worker-payments', 'PRESS', THIS_MONTH, THIS_YEAR],
-    queryFn: () => workerPaymentsService.getAll({ category: 'PRESS', month: THIS_MONTH, year: THIS_YEAR, limit: 100 }),
+    queryKey: ['worker-payments', 'PRESS', selectedMonth, selectedYear],
+    queryFn: () => workerPaymentsService.getAll({ category: 'PRESS', month: selectedMonth, year: selectedYear, limit: 100 }),
   })
   const filteredPayments = (payments?.data ?? []).filter((r: WorkerPayment) => !filterDate || r.date === filterDate)
 
@@ -216,7 +218,7 @@ export default function PressPage() {
       />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatsCard title="Bu oy hisoblangan" value={Number(stats.amount)} icon={HardHat} color="amber" />
+        <StatsCard title="Hisoblangan" value={Number(stats.amount)} icon={HardHat} color="amber" />
         <StatsCard title="Berildi" value={Number(stats.paid)} icon={HardHat} color="emerald" />
         <StatsCard title="Oldingi qarz" value={Number(stats.carriedDebt)} icon={HardHat} color="slate" />
         <StatsCard title="Jami qarz" value={Number(stats.debt)} icon={HardHat} color="red" />
@@ -242,8 +244,17 @@ export default function PressPage() {
         </Card>
       )}
 
-      {/* Sana bo'yicha filtr */}
-      <div className="flex items-center gap-2">
+      {/* Oy va sana bo'yicha filtr */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Input
+          type="month"
+          value={`${selectedYear}-${String(selectedMonth).padStart(2, '0')}`}
+          onChange={(e) => {
+            const [y, m] = e.target.value.split('-').map(Number)
+            if (y && m) { setSelectedYear(y); setSelectedMonth(m) }
+          }}
+          className="w-40"
+        />
         <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-40" />
         {filterDate && (
           <Button variant="outline" size="sm" onClick={() => setFilterDate('')}>✕ Tozalash</Button>

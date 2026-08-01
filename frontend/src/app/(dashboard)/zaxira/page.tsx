@@ -101,11 +101,13 @@ export default function ZaxiraPage() {
   const now = new Date()
   const THIS_MONTH = now.getMonth() + 1
   const THIS_YEAR = now.getFullYear()
+  const [selectedMonth, setSelectedMonth] = useState(THIS_MONTH)
+  const [selectedYear, setSelectedYear] = useState(THIS_YEAR)
 
   // ─── Queries ───────────────────────────────────────────────────────────────
   const { data: wpReport } = useQuery({
-    queryKey: ['worker-payments-report', THIS_MONTH, THIS_YEAR],
-    queryFn: () => workerPaymentsService.getReport({ month: THIS_MONTH, year: THIS_YEAR }),
+    queryKey: ['worker-payments-report', selectedMonth, selectedYear],
+    queryFn: () => workerPaymentsService.getReport({ month: selectedMonth, year: selectedYear }),
   })
 
   const { data: eskiQarzData } = useQuery({
@@ -552,11 +554,22 @@ export default function ZaxiraPage() {
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-          <Warehouse className="h-4 w-4" /> Ishchi puli (Zaxira harakati) — bu oy
-        </h3>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <Warehouse className="h-4 w-4" /> Ishchi puli (Zaxira harakati)
+          </h3>
+          <Input
+            type="month"
+            value={`${selectedYear}-${String(selectedMonth).padStart(2, '0')}`}
+            onChange={(e) => {
+              const [y, m] = e.target.value.split('-').map(Number)
+              if (y && m) { setSelectedYear(y); setSelectedMonth(m) }
+            }}
+            className="w-40"
+          />
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatsCard title="Bu oy hisoblangan" value={wpStats.amount} icon={Warehouse} color="amber" />
+          <StatsCard title="Hisoblangan" value={wpStats.amount} icon={Warehouse} color="amber" />
           <StatsCard title="Berildi" value={wpStats.paid} icon={Warehouse} color="emerald" />
           <StatsCard title="Oldingi qarz" value={wpStats.carriedDebt} icon={Warehouse} color="slate" />
           <StatsCard title="Jami qarz" value={wpStats.debt} icon={Warehouse} color="red" />
@@ -585,14 +598,14 @@ export default function ZaxiraPage() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <ShoppingCart className="h-4 w-4" /> Ishchi puli (Zaxira sotuv) — bu oy
+            <ShoppingCart className="h-4 w-4" /> Ishchi puli (Zaxira sotuv)
           </h3>
           <Button variant="outline" size="sm" onClick={() => setSaleDebtDialogOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1" /> Eski qarz
           </Button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatsCard title="Bu oy hisoblangan" value={saleLoadingStats.amount} icon={ShoppingCart} color="amber" />
+          <StatsCard title="Hisoblangan" value={saleLoadingStats.amount} icon={ShoppingCart} color="amber" />
           <StatsCard title="Berildi" value={saleLoadingStats.paid} icon={ShoppingCart} color="emerald" />
           <StatsCard title="Oldingi qarz" value={saleLoadingStats.carriedDebt} icon={ShoppingCart} color="slate" />
           <StatsCard title="Jami qarz" value={saleLoadingStats.debt} icon={ShoppingCart} color="red" />
