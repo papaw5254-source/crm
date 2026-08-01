@@ -24,7 +24,7 @@ import type { FuelExpense, FuelIncome } from '@/types'
 
 const today = new Date().toISOString().split('T')[0]
 const CUSTOM_DESTINATION = '__CUSTOM__'
-const DESTINATIONS = ['Volga', 'G-28', 'Xon kran']
+const DESTINATIONS = ['Volga', 'G-28', 'Xon', 'Kran']
 
 const incomeSchema = z.object({
   liters: z.coerce.number().min(0.01, "Litr 0 dan katta bo'lishi kerak"),
@@ -86,6 +86,9 @@ export default function SalyarkaPage() {
     resolver: zodResolver(incomeSchema),
     defaultValues: { date: today, paymentType: 'CASH' },
   })
+  const incomeLiters = incomeForm.watch('liters') || 0
+  const incomePrice = incomeForm.watch('pricePerLiter') || 0
+  const incomeTotal = incomeLiters * incomePrice
 
   const expenseForm = useForm<ExpenseForm>({
     resolver: zodResolver(expenseSchema),
@@ -291,6 +294,12 @@ export default function SalyarkaPage() {
                 )}
               </div>
             </div>
+            {incomeTotal > 0 && (
+              <div className="rounded-lg bg-primary/10 px-3 py-2 text-sm">
+                <span className="text-muted-foreground">Jami summa: </span>
+                <span className="font-bold text-primary">{formatCurrency(incomeTotal)}</span>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>To&apos;lov turi *</Label>
               <Select value={incomeForm.watch('paymentType')} onValueChange={(v: string) => incomeForm.setValue('paymentType', v as IncomeForm['paymentType'])}>
