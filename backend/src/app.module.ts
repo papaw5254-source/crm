@@ -21,6 +21,7 @@ import { ReserveModule } from './modules/reserve/reserve.module';
 import { PrepaymentsModule } from './modules/prepayments/prepayments.module';
 import { MoneyIncomesModule } from './modules/money-incomes/money-incomes.module';
 import { WorkerPaymentsModule } from './modules/worker-payments/worker-payments.module';
+import { SalaryWorkersModule } from './modules/salary-workers/salary-workers.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { WorkerPaymentsModule } from './modules/worker-payments/worker-payments.
     PrepaymentsModule,
     MoneyIncomesModule,
     WorkerPaymentsModule,
+    SalaryWorkersModule,
   ],
   providers: [
     {

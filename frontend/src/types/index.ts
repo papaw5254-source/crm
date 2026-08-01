@@ -140,6 +140,28 @@ export interface DebtPayment {
   createdAt: string
 }
 
+// ─── Oylik ishchilar (Monthly salary workers) ──────────────────────────────────
+export interface SalaryWorker {
+  id: string
+  fullName: string
+  month: string
+  salaryAmount: number
+  paidAmount: number
+  remainingAmount: number
+  notes?: string
+  advances?: SalaryAdvance[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SalaryAdvance {
+  id: string
+  amount: number
+  date: string
+  description?: string
+  createdAt: string
+}
+
 // ─── Expenses ─────────────────────────────────────────────────────────────────
 export type ExpenseCategory =
   | 'GAS'

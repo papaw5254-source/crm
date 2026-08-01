@@ -23,6 +23,7 @@ import {
   Landmark,
   Settings,
   Banknote,
+  Users,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { useAuth } from '@/providers/auth-provider'
@@ -76,6 +77,7 @@ const navGroups: NavGroup[] = [
     label: 'Hisobot',
     items: [
       { href: '/ishchilar', icon: HardHat, label: 'Ishchilar' },
+      { href: '/oylik-ishchilar', icon: Users, label: 'Oylik ishchilar' },
       { href: '/reports', icon: BarChart3, label: 'Hisobotlar' },
     ],
   },
