@@ -57,10 +57,14 @@ export default function PressPage() {
   const stats = wpReport?.byCategory?.PRESS ?? emptyStats
 
   const { data: payments, isLoading } = useQuery({
-    queryKey: ['worker-payments', 'PRESS', selectedMonth, selectedYear],
-    queryFn: () => workerPaymentsService.getAll({ category: 'PRESS', month: selectedMonth, year: selectedYear, limit: 100 }),
+    queryKey: ['worker-payments', 'PRESS', selectedMonth, selectedYear, filterDate],
+    queryFn: () => workerPaymentsService.getAll(
+      filterDate
+        ? { category: 'PRESS', dateFrom: filterDate, dateTo: filterDate, limit: 100 }
+        : { category: 'PRESS', month: selectedMonth, year: selectedYear, limit: 100 }
+    ),
   })
-  const filteredPayments = (payments?.data ?? []).filter((r: WorkerPayment) => !filterDate || r.date === filterDate)
+  const filteredPayments = payments?.data ?? []
 
   const { data: kirimlar } = useQuery({
     queryKey: ['inventory-all'],

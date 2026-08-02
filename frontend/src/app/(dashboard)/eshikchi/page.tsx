@@ -65,8 +65,12 @@ export default function EshikchPage() {
   const emptyStats = { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
 
   const { data: payments, isLoading } = useQuery({
-    queryKey: ['worker-payments', 'ESHIKCHI', selectedMonth, selectedYear],
-    queryFn: () => workerPaymentsService.getAll({ category: 'ESHIKCHI', month: selectedMonth, year: selectedYear, limit: 200 }),
+    queryKey: ['worker-payments', 'ESHIKCHI', selectedMonth, selectedYear, filterDate],
+    queryFn: () => workerPaymentsService.getAll(
+      filterDate
+        ? { category: 'ESHIKCHI', dateFrom: filterDate, dateTo: filterDate, limit: 200 }
+        : { category: 'ESHIKCHI', month: selectedMonth, year: selectedYear, limit: 200 }
+    ),
   })
 
   const { data: eskiQarzData } = useQuery({
@@ -76,7 +80,7 @@ export default function EshikchPage() {
 
   const allPayments: WorkerPayment[] = payments?.data ?? []
   const regularPayments = allPayments.filter(
-    (r) => (Number(r.amount) > 0 || Number(r.paidAmount) > 0) && (!filterDate || r.date === filterDate)
+    (r) => Number(r.amount) > 0 || Number(r.paidAmount) > 0
   )
 
   const eskiQarzList = (eskiQarzData?.data ?? []).filter(

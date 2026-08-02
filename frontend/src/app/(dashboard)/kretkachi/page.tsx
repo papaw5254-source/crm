@@ -66,10 +66,14 @@ export default function KretkachPage() {
   const stats = wpReport?.byCategory?.KRETKACHI ?? emptyStats
 
   const { data: payments, isLoading } = useQuery({
-    queryKey: ['worker-payments', 'KRETKACHI', selectedMonth, selectedYear],
-    queryFn: () => workerPaymentsService.getAll({ category: 'KRETKACHI', month: selectedMonth, year: selectedYear, limit: 9999 }),
+    queryKey: ['worker-payments', 'KRETKACHI', selectedMonth, selectedYear, filterDate],
+    queryFn: () => workerPaymentsService.getAll(
+      filterDate
+        ? { category: 'KRETKACHI', dateFrom: filterDate, dateTo: filterDate, limit: 9999 }
+        : { category: 'KRETKACHI', month: selectedMonth, year: selectedYear, limit: 9999 }
+    ),
   })
-  const filteredPayments = (payments?.data ?? []).filter((r: WorkerPayment) => !filterDate || r.date === filterDate)
+  const filteredPayments = payments?.data ?? []
   const totalPressedBricks = (payments?.data ?? []).reduce((s: number, r: WorkerPayment) => s + extractQuantity(r), 0)
 
   const form = useForm<FormData>({

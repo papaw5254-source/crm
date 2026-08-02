@@ -169,6 +169,7 @@ export class ReportsService {
       this.workerPaymentRepo.createQueryBuilder('wp').where('wp.date >= :df AND wp.date <= :dt', { df: earliestDate, dt: upToDate }).getMany(),
       this.moneyIncomeRepo.createQueryBuilder('mi')
         .where('mi.source = :src AND mi.date >= :df AND mi.date <= :dt', { src: MoneyIncomeSource.END_OF_DAY_BALANCE, df: earliestDate, dt: upToDate })
+        .orderBy('mi.createdAt', 'ASC')
         .getMany(),
     ]);
 
@@ -195,7 +196,10 @@ export class ReportsService {
     while (cur <= upToDate) {
       const manual = manualByDate.get(cur);
       if (manual && manual.length > 0) {
-        running = manual.reduce((s, x) => s + Number(x.amount), 0);
+        // A checkpoint is a snapshot of the actual balance, not a flow — if the same
+        // day has more than one entry (correction, retry), the latest one wins instead
+        // of summing them together (which previously double-counted duplicates).
+        running = Number(manual[manual.length - 1].amount);
       } else {
         const dCashBasisIncome = this.cashOnHandSaleAmount(salesByDate.get(cur) || [])
           + (debtPaymentsByDate.get(cur) || []).reduce((s, x) => s + Number(x.amount), 0)
