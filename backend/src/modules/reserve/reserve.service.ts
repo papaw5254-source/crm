@@ -12,6 +12,7 @@ import { StockMovementType } from '../../common/enums/stock-movement-type.enum';
 import { WorkerPaymentCategory } from '../../common/enums/worker-payment-category.enum';
 import { StockService } from '../stock/stock.service';
 import { WorkerPayment } from '../worker-payments/entities/worker-payment.entity';
+import { WorkerPaymentsService } from '../worker-payments/worker-payments.service';
 import { CreateReserveMovementDto } from './dto/create-reserve-movement.dto';
 import { ReserveMovement } from './entities/reserve-movement.entity';
 
@@ -23,6 +24,7 @@ export class ReserveService {
     @InjectRepository(WorkerPayment)
     private readonly workerPaymentRepository: Repository<WorkerPayment>,
     private readonly stockService: StockService,
+    private readonly workerPaymentsService: WorkerPaymentsService,
   ) {}
 
   async getCurrentBalance(brickType: BrickType): Promise<number> {
@@ -93,34 +95,35 @@ export class ReserveService {
       const totalWorkerCost = hasWorkerRate ? dto.quantity * dto.workerRatePerBrick : 0;
       const paid = dto.workerPaidAmount || 0;
       const oldDebt = dto.workerOldDebt || 0;
-      const workerDebt = Math.max(0, oldDebt + totalWorkerCost - paid);
       const category = dto.brickType === BrickType.RAW_BRICK
         ? WorkerPaymentCategory.RESERVE_RAW_LOADING
         : WorkerPaymentCategory.RESERVE_BAKED_LOADING;
 
-      await this.workerPaymentRepository.save(
-        this.workerPaymentRepository.create({
+      // Goes through WorkerPaymentsService.create() (not a raw repository insert) so
+      // an overpayment here correctly flows back to reduce older unpaid debts, the
+      // same as every other worker-payment entry point.
+      const workerPayment = await this.workerPaymentsService.create(
+        {
           workerName: 'Ishchilar (zaxira)',
           category,
           amount: totalWorkerCost,
           paidAmount: paid,
           debtFromPreviousMonth: oldDebt,
-          remainingDebt: workerDebt,
-            month: dto.date.slice(0, 7),
-            date: dto.date,
-            description: dto.quantity > 0
-              ? `${dto.quantity} dona (${dto.workerRatePerBrick || 0} so'm/dona)`
-              : "Ishchi puli (gishtsiz)",
-            sourceType: 'RESERVE_MOVEMENT',
-            sourceId: saved.id,
-            createdById: userId,
-          }),
-        );
+          month: dto.date.slice(0, 7),
+          date: dto.date,
+          description: dto.quantity > 0
+            ? `${dto.quantity} dona (${dto.workerRatePerBrick || 0} so'm/dona)`
+            : "Ishchi puli (gishtsiz)",
+          sourceType: 'RESERVE_MOVEMENT',
+          sourceId: saved.id,
+        },
+        userId,
+      );
 
       saved.totalWorkerCost = totalWorkerCost;
       saved.workerPaidAmount = paid;
       saved.workerOldDebt = oldDebt;
-      saved.workerDebt = workerDebt;
+      saved.workerDebt = Number(workerPayment.remainingDebt);
       await this.reserveMovementRepository.save(saved);
     }
 
@@ -257,27 +260,28 @@ export class ReserveService {
     movement.workerDebt = workerDebt;
     await this.reserveMovementRepository.save(movement);
 
-    if (totalWorkerCost <= 0) return;
+    if (totalWorkerCost <= 0 && paid <= 0) return;
 
     const category = movement.brickType === BrickType.RAW_BRICK
       ? WorkerPaymentCategory.RESERVE_RAW_LOADING
       : WorkerPaymentCategory.RESERVE_BAKED_LOADING;
 
-    await this.workerPaymentRepository.save(
-      this.workerPaymentRepository.create({
+    // Goes through WorkerPaymentsService.create() so an overpayment here correctly
+    // flows back to reduce older unpaid debts, same as every other entry point.
+    await this.workerPaymentsService.create(
+      {
         workerName: 'Ishchilar (zaxira)',
         category,
         amount: totalWorkerCost,
         paidAmount: paid,
         debtFromPreviousMonth: oldDebt,
-        remainingDebt: workerDebt,
         month: movement.date.slice(0, 7),
         date: movement.date,
         description: `${movement.quantity} dona (${rate} so'm/dona)`,
         sourceType: 'RESERVE_MOVEMENT',
         sourceId: movement.id,
-        createdById: userId,
-      }),
+      },
+      userId,
     );
   }
 

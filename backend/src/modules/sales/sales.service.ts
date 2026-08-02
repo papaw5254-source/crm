@@ -11,6 +11,7 @@ import { DebtorsService } from '../debtors/debtors.service';
 import { ReserveService } from '../reserve/reserve.service';
 import { StockService } from '../stock/stock.service';
 import { WorkerPayment } from '../worker-payments/entities/worker-payment.entity';
+import { WorkerPaymentsService } from '../worker-payments/worker-payments.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 import { Sale } from './entities/sale.entity';
@@ -24,6 +25,7 @@ export class SalesService {
     private readonly workerPaymentRepository: Repository<WorkerPayment>,
     private readonly stockService: StockService,
     private readonly reserveService: ReserveService,
+    private readonly workerPaymentsService: WorkerPaymentsService,
     @Inject(forwardRef(() => DebtorsService))
     private readonly debtorsService: DebtorsService,
   ) {}
@@ -88,14 +90,15 @@ export class SalesService {
       const wpCategory = createDto.isReserveSale
         ? WorkerPaymentCategory.RESERVE_SALE_LOADING
         : WorkerPaymentCategory.FIELD_RAW_LOADING;
-      await this.workerPaymentRepository.save(
-        this.workerPaymentRepository.create({
+      // Goes through WorkerPaymentsService.create() so an overpayment here correctly
+      // flows back to reduce older unpaid debts, same as every other entry point.
+      await this.workerPaymentsService.create(
+        {
           workerName: createDto.isReserveSale ? "Ishchilar (zaxira sotuv)" : "Ishchilar (xom g'isht yuklash)",
           category: wpCategory,
           amount: totalWorkerCost,
           paidAmount: workerPaidAmount,
           debtFromPreviousMonth: workerOldDebt,
-          remainingDebt: workerDebt,
           month: createDto.date.slice(0, 7),
           date: createDto.date,
           description: createDto.quantity > 0
@@ -103,8 +106,8 @@ export class SalesService {
             : "Ishchi puli (gishtsiz)",
           sourceType: 'SALE',
           sourceId: saved.id,
-          createdById: userId,
-        }),
+        },
+        userId,
       );
     }
 
@@ -279,26 +282,27 @@ export class SalesService {
     sale.workerDebt = workerDebt;
     await this.saleRepository.save(sale);
 
-    if (totalWorkerCost <= 0 && workerOldDebt <= 0) return;
+    if (totalWorkerCost <= 0 && workerOldDebt <= 0 && workerPaidAmount <= 0) return;
 
     const wpCategory = sale.isReserveSale
       ? WorkerPaymentCategory.RESERVE_SALE_LOADING
       : WorkerPaymentCategory.FIELD_RAW_LOADING;
-    await this.workerPaymentRepository.save(
-      this.workerPaymentRepository.create({
+    // Goes through WorkerPaymentsService.create() so an overpayment here correctly
+    // flows back to reduce older unpaid debts, same as every other entry point.
+    await this.workerPaymentsService.create(
+      {
         workerName: sale.isReserveSale ? "Ishchilar (zaxira sotuv)" : "Ishchilar (xom g'isht yuklash)",
         category: wpCategory,
         amount: totalWorkerCost,
         paidAmount: workerPaidAmount,
         debtFromPreviousMonth: workerOldDebt,
-        remainingDebt: workerDebt,
         month: sale.date.slice(0, 7),
         date: sale.date,
         description: `Sotuv: ${sale.quantity} dona (${workerRate} so'm/dona)`,
         sourceType: 'SALE',
         sourceId: sale.id,
-        createdById: userId,
-      }),
+      },
+      userId,
     );
   }
 

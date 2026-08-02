@@ -4,6 +4,7 @@ import { DebtorsModule } from '../debtors/debtors.module';
 import { ReserveModule } from '../reserve/reserve.module';
 import { StockModule } from '../stock/stock.module';
 import { WorkerPayment } from '../worker-payments/entities/worker-payment.entity';
+import { WorkerPaymentsModule } from '../worker-payments/worker-payments.module';
 import { Sale } from './entities/sale.entity';
 import { SalesController } from './sales.controller';
 import { SalesService } from './sales.service';
@@ -13,6 +14,7 @@ import { SalesService } from './sales.service';
     TypeOrmModule.forFeature([Sale, WorkerPayment]),
     StockModule,
     ReserveModule,
+    WorkerPaymentsModule,
     forwardRef(() => DebtorsModule),
   ],
   controllers: [SalesController],
