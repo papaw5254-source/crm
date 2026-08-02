@@ -200,6 +200,8 @@ export function expenseCategoryColor(category: string): string {
     "Ishchi yo'l pullari": 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
     'Naqd berilgan qarz': 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
     'Naqd berilgan yordam puli': 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-400',
+    "Ko'mir": 'bg-stone-100 text-stone-700 dark:bg-stone-900/30 dark:text-stone-400',
+    'Tuproq': 'bg-amber-200 text-amber-800 dark:bg-amber-950/40 dark:text-amber-500',
   }
   return colors[category] || 'bg-muted text-muted-foreground'
 }
