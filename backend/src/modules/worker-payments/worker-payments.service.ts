@@ -100,13 +100,25 @@ export class WorkerPaymentsService {
 
   async update(id: string, dto: UpdateWorkerPaymentDto): Promise<WorkerPayment> {
     const wp = await this.findOne(id);
+    const oldOverpaid = Math.max(0, Number(wp.paidAmount || 0) - (Number(wp.debtFromPreviousMonth || 0) + Number(wp.amount)));
+
     Object.assign(wp, dto);
     const debt = Number(wp.debtFromPreviousMonth || 0);
     const amount = Number(wp.amount);
     const paid = Number(wp.paidAmount || 0);
     wp.remainingDebt = Math.max(0, debt + amount - paid);
     if (dto.date) wp.month = dto.date.slice(0, 7);
-    return this.workerPaymentRepository.save(wp);
+    const saved = await this.workerPaymentRepository.save(wp);
+
+    // Editing paidAmount up (e.g. a catch-up payment entered via edit rather than
+    // a new entry) must flow into older debts the same way create() does — only the
+    // newly-introduced overpaid portion, so repeated edits never double-apply.
+    const newOverpaid = Math.max(0, paid - (debt + amount));
+    const additionalOverpaid = newOverpaid - oldOverpaid;
+    if (additionalOverpaid > 0) {
+      await this.applyPaymentToPreviousDebts(wp.category, wp.workerName, wp.date, additionalOverpaid, saved.id);
+    }
+    return saved;
   }
 
   async remove(id: string): Promise<void> {
@@ -123,6 +135,70 @@ export class WorkerPaymentsService {
       }
     }
     await this.workerPaymentRepository.remove(wp);
+  }
+
+  // One-time reconciliation: replays every (category, workerName) group's payments
+  // in chronological order, exactly as create() + applyPaymentToPreviousDebts would
+  // have if every payment had gone through create() — fixing records whose overpayment
+  // was previously entered via update() and never flowed back into older debts.
+  async recalculateAllDebts(): Promise<{
+    groupsProcessed: number;
+    recordsUpdated: number;
+    totalDebtBefore: number;
+    totalDebtAfter: number;
+  }> {
+    const all = await this.workerPaymentRepository.find({ order: { date: 'ASC', createdAt: 'ASC' } });
+
+    const groups = new Map<string, WorkerPayment[]>();
+    for (const wp of all) {
+      const key = `${wp.category}::${wp.workerName}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(wp);
+    }
+
+    let recordsUpdated = 0;
+    let totalDebtBefore = 0;
+    let totalDebtAfter = 0;
+    const toSave: WorkerPayment[] = [];
+
+    for (const records of groups.values()) {
+      const remaining: number[] = records.map((r) => {
+        totalDebtBefore += Number(r.remainingDebt || 0);
+        return Number(r.debtFromPreviousMonth || 0) + Number(r.amount || 0);
+      });
+
+      for (let i = 0; i < records.length; i++) {
+        let payment = Number(records[i].paidAmount || 0);
+        const ownPay = Math.min(remaining[i], payment);
+        remaining[i] -= ownPay;
+        payment -= ownPay;
+        for (let j = 0; j < i && payment > 0; j++) {
+          if (remaining[j] <= 0) continue;
+          const pay = Math.min(remaining[j], payment);
+          remaining[j] -= pay;
+          payment -= pay;
+        }
+      }
+
+      records.forEach((r, i) => {
+        const newDebt = Math.max(0, Number(remaining[i].toFixed(2)));
+        totalDebtAfter += newDebt;
+        if (Number(r.remainingDebt || 0) !== newDebt) {
+          r.remainingDebt = newDebt;
+          toSave.push(r);
+          recordsUpdated += 1;
+        }
+      });
+    }
+
+    if (toSave.length > 0) await this.workerPaymentRepository.save(toSave);
+
+    return {
+      groupsProcessed: groups.size,
+      recordsUpdated,
+      totalDebtBefore: Number(totalDebtBefore.toFixed(2)),
+      totalDebtAfter: Number(totalDebtAfter.toFixed(2)),
+    };
   }
 
   async getReport(month?: number, year?: number, dateFrom?: string, dateTo?: string) {

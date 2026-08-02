@@ -58,6 +58,13 @@ export class WorkerPaymentsController {
     );
   }
 
+  @Post('recalculate-debts')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Barcha ishchi qarzlarini qayta hisoblash (bir martalik, Admin only)' })
+  recalculateAllDebts() {
+    return this.workerPaymentsService.recalculateAllDebts();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Ishchi to\'lovini id bo\'yicha olish' })
   findOne(@Param('id') id: string) {
