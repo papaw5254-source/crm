@@ -130,10 +130,11 @@ export class WorkerPaymentsService {
     let carryDebtBefore: string | null = null;
     if (month && year) {
       const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+      const lastDay = new Date(year, month, 0).getDate();
       qb.andWhere('(wp.month = :monthKey OR (wp.month IS NULL AND wp.date >= :monthStart AND wp.date <= :monthEnd))', {
         monthKey,
         monthStart: `${monthKey}-01`,
-        monthEnd: `${monthKey}-31`,
+        monthEnd: `${monthKey}-${String(lastDay).padStart(2, '0')}`,
       });
       carryDebtBefore = `${monthKey}-01`;
     } else if (month) {
