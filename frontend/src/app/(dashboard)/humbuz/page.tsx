@@ -56,6 +56,7 @@ export default function HumbuzPage() {
   const [debtDialogOpen, setDebtDialogOpen] = useState(false)
   const [debtAmountStr, setDebtAmountStr] = useState('')
   const [debtDate, setDebtDate] = useState(new Date().toISOString().split('T')[0])
+  const [debtWorkerType, setDebtWorkerType] = useState<'kirdi' | 'chiqdi'>('kirdi')
   const [deleteWpId, setDeleteWpId] = useState<string | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(THIS_MONTH)
   const [selectedYear, setSelectedYear] = useState(THIS_YEAR)
@@ -159,9 +160,9 @@ export default function HumbuzPage() {
   })
 
   const oldDebtMutation = useMutation({
-    mutationFn: ({ date, amount }: { date: string; amount: number }) =>
+    mutationFn: ({ date, amount, workerType }: { date: string; amount: number; workerType: 'kirdi' | 'chiqdi' }) =>
       workerPaymentsService.create({
-        workerName: 'Humbuz ishchi',
+        workerName: workerType === 'kirdi' ? 'Ishchilar (humbuz kirdi)' : 'Ishchilar (humbuz chiqdi)',
         category: 'HUMBUZ_KIRDI_CHIQDI',
         amount: 0,
         paidAmount: 0,
@@ -176,6 +177,7 @@ export default function HumbuzPage() {
       setDebtDialogOpen(false)
       setDebtAmountStr('')
       setDebtDate(new Date().toISOString().split('T')[0])
+      setDebtWorkerType('kirdi')
     },
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
@@ -512,12 +514,22 @@ export default function HumbuzPage() {
       />
 
       {/* Eski qarz dialog */}
-      <Dialog open={debtDialogOpen} onOpenChange={(o: boolean) => { setDebtDialogOpen(o); if (!o) { setDebtAmountStr(''); setDebtDate(new Date().toISOString().split('T')[0]) } }}>
+      <Dialog open={debtDialogOpen} onOpenChange={(o: boolean) => { setDebtDialogOpen(o); if (!o) { setDebtAmountStr(''); setDebtDate(new Date().toISOString().split('T')[0]); setDebtWorkerType('kirdi') } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Eski qarz qo&apos;shish (Humbuz)</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Ishchi *</Label>
+              <Select value={debtWorkerType} onValueChange={(v: string) => setDebtWorkerType(v as 'kirdi' | 'chiqdi')}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="kirdi">Kirdi ishchisi (xom g&apos;isht)</SelectItem>
+                  <SelectItem value="chiqdi">Chiqdi ishchisi (pishgan g&apos;isht)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label>Sana</Label>
               <Input type="date" value={debtDate} onChange={(e) => setDebtDate(e.target.value)} />
@@ -531,7 +543,7 @@ export default function HumbuzPage() {
             <Button variant="outline" onClick={() => setDebtDialogOpen(false)}>Bekor qilish</Button>
             <Button
               disabled={!debtAmountStr || Number(debtAmountStr) <= 0 || oldDebtMutation.isPending}
-              onClick={() => oldDebtMutation.mutate({ date: debtDate, amount: Number(debtAmountStr) })}
+              onClick={() => oldDebtMutation.mutate({ date: debtDate, amount: Number(debtAmountStr), workerType: debtWorkerType })}
             >
               {oldDebtMutation.isPending ? 'Saqlanmoqda...' : "Qo'shish"}
             </Button>
