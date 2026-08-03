@@ -86,7 +86,7 @@ export default function SalesPage() {
     queryKey: ['worker-payments-eski-qarz'],
     queryFn: () => workerPaymentsService.getAll({ category: 'FIELD_RAW_LOADING', limit: 200 }),
   })
-  const eskiQarzList = (eskiQarzData?.data ?? []).filter((r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0)
+  const eskiQarzList = (eskiQarzData?.data ?? []).filter((r: WorkerPayment) => !r.sourceId && Number(r.remainingDebt) > 0)
   // carriedDebt comes straight from the backend (live remainingDebt-based), not from
   // summing eski-qarz entries' fixed debtFromPreviousMonth — that value never changes
   // even after the debt is paid down, which made "Oldingi qarz" look permanently stuck.
@@ -383,7 +383,7 @@ export default function SalesPage() {
                   <div key={r.id} className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
                     <div className="flex items-center gap-3 text-sm">
                       <span className="text-muted-foreground">{formatDate(r.date)}</span>
-                      <span className="font-semibold text-orange-600">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
+                      <span className="font-semibold text-orange-600">{formatCurrency(Number(r.remainingDebt))}</span>
                       {r.description && <span className="text-xs text-muted-foreground">{r.description}</span>}
                     </div>
                     <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0" onClick={() => setDeleteEskiQarzId(r.id)}>

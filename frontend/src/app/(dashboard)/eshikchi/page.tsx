@@ -84,7 +84,7 @@ export default function EshikchPage() {
   )
 
   const eskiQarzList = (eskiQarzData?.data ?? []).filter(
-    (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
+    (r: WorkerPayment) => !r.sourceId && Number(r.remainingDebt) > 0
   )
 
   const activeWorkerLabel = WORKERS.find((w) => w.key === activeTab)?.label
@@ -108,9 +108,8 @@ export default function EshikchPage() {
     const amount = list.reduce((acc, r) => acc + Number(r.amount), 0)
     const paid = list.reduce((acc, r) => acc + Number(r.paidAmount), 0)
     const regularDebt = list.reduce((acc, r) => acc + Number(r.remainingDebt), 0)
-    const carriedDebt = ekList.reduce((acc, r) => acc + Number(r.debtFromPreviousMonth), 0)
     const eskiRemainingDebt = ekList.reduce((acc, r) => acc + Number(r.remainingDebt), 0)
-    return { amount, paid, carriedDebt, debt: regularDebt + eskiRemainingDebt }
+    return { amount, paid, carriedDebt: eskiRemainingDebt, debt: regularDebt + eskiRemainingDebt }
   }
 
   const displayStats = activeTab === 'all'
@@ -268,7 +267,7 @@ export default function EshikchPage() {
                 <div className="flex items-center gap-3 text-sm">
                   <span className="text-muted-foreground">{formatDate(r.date)}</span>
                   <span className="font-medium text-amber-700 dark:text-amber-400">{workerLabel(r.workerName)}</span>
-                  <span className="font-bold">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
+                  <span className="font-bold">{formatCurrency(Number(r.remainingDebt))}</span>
                 </div>
                 <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteWpId(r.id)}>
                   <Trash2 className="h-3.5 w-3.5" />

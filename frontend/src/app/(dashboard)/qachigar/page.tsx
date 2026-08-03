@@ -110,7 +110,7 @@ export default function QachigarPage() {
   })
 
   const filteredAll = (payments?.data ?? []).filter((p: WorkerPayment) => p.category === 'QACHIGAR')
-  const eskiQarzEntries = filteredAll.filter((r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0)
+  const eskiQarzEntries = filteredAll.filter((r: WorkerPayment) => !r.sourceId && Number(r.remainingDebt) > 0)
   const regularPayments = filteredAll.filter((r: WorkerPayment) =>
     (Number(r.amount) > 0 || Number(r.paidAmount) > 0) && (!filterDate || r.date === filterDate)
   )
@@ -342,7 +342,7 @@ export default function QachigarPage() {
               <div key={r.id} className="flex items-center justify-between rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
                 <div className="flex items-center gap-3 text-sm">
                   <span className="text-muted-foreground">{formatDate(r.date)}</span>
-                  <span className="font-bold text-amber-700 dark:text-amber-400">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
+                  <span className="font-bold text-amber-700 dark:text-amber-400">{formatCurrency(Number(r.remainingDebt))}</span>
                   {r.description && <span className="text-xs text-muted-foreground">{r.description}</span>}
                 </div>
                 <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteEskiQarzId(r.id)}>

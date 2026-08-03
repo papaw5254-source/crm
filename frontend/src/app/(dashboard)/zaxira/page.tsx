@@ -115,7 +115,7 @@ export default function ZaxiraPage() {
     queryFn: () => workerPaymentsService.getAll({ category: 'RESERVE_RAW_LOADING', limit: 100 }),
   })
   const eskiQarzList = (eskiQarzData?.data ?? []).filter(
-    (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
+    (r: WorkerPayment) => !r.sourceId && Number(r.remainingDebt) > 0
   )
 
   const { data: eskiSaleQarzData } = useQuery({
@@ -123,7 +123,7 @@ export default function ZaxiraPage() {
     queryFn: () => workerPaymentsService.getAll({ category: 'RESERVE_SALE_LOADING', limit: 100 }),
   })
   const eskiSaleQarzList = (eskiSaleQarzData?.data ?? []).filter(
-    (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
+    (r: WorkerPayment) => !r.sourceId && Number(r.remainingDebt) > 0
   )
 
   const emptyStats = { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
@@ -583,7 +583,7 @@ export default function ZaxiraPage() {
                 <div key={r.id} className="flex items-center justify-between rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
                   <div className="flex items-center gap-3 text-sm">
                     <span className="text-muted-foreground">{formatDate(r.date)}</span>
-                    <span className="font-bold text-amber-700 dark:text-amber-400">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
+                    <span className="font-bold text-amber-700 dark:text-amber-400">{formatCurrency(Number(r.remainingDebt))}</span>
                     {r.description && <span className="text-xs text-muted-foreground">{r.description}</span>}
                   </div>
                   <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteWpId(r.id)}>
@@ -619,7 +619,7 @@ export default function ZaxiraPage() {
                 <div key={r.id} className="flex items-center justify-between rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
                   <div className="flex items-center gap-3 text-sm">
                     <span className="text-muted-foreground">{formatDate(r.date)}</span>
-                    <span className="font-bold text-amber-700 dark:text-amber-400">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
+                    <span className="font-bold text-amber-700 dark:text-amber-400">{formatCurrency(Number(r.remainingDebt))}</span>
                     {r.description && <span className="text-xs text-muted-foreground">{r.description}</span>}
                   </div>
                   <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteWpId(r.id)}>

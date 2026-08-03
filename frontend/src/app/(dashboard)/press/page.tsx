@@ -76,7 +76,7 @@ export default function PressPage() {
     queryFn: () => workerPaymentsService.getAll({ category: 'PRESS', limit: 100 }),
   })
   const eskiQarzList = (eskiQarzData?.data ?? []).filter(
-    (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
+    (r: WorkerPayment) => !r.sourceId && Number(r.remainingDebt) > 0
   )
 
   const form = useForm<FormData>({
@@ -237,7 +237,7 @@ export default function PressPage() {
               <div key={r.id} className="flex items-center justify-between rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
                 <div className="flex items-center gap-3 text-sm">
                   <span className="text-muted-foreground">{formatDate(r.date)}</span>
-                  <span className="font-bold">{formatCurrency(Number(r.debtFromPreviousMonth))}</span>
+                  <span className="font-bold">{formatCurrency(Number(r.remainingDebt))}</span>
                 </div>
                 <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteWpId(r.id)}>
                   <Trash2 className="h-3.5 w-3.5" />
