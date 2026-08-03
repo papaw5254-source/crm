@@ -37,6 +37,9 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 const KILNS: KilnName[] = ['HUMBUZ_1', 'HUMBUZ_2', 'HUMBUZ_3']
+const now = new Date()
+const THIS_MONTH = now.getMonth() + 1
+const THIS_YEAR = now.getFullYear()
 
 export default function QachigarPage() {
   const { user } = useAuth()
@@ -50,6 +53,8 @@ export default function QachigarPage() {
   const [debtDateState, setDebtDateState] = useState(new Date().toISOString().split('T')[0])
   const [debtAmountStr, setDebtAmountStr] = useState('')
   const [filterDate, setFilterDate] = useState('')
+  const [selectedMonth, setSelectedMonth] = useState(THIS_MONTH)
+  const [selectedYear, setSelectedYear] = useState(THIS_YEAR)
   const { page, limit, setPage } = usePagination()
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -77,17 +82,19 @@ export default function QachigarPage() {
 
   const todayCost = bakedCount * watchedRate
 
-  // Previous debt comes from the report — no extra query needed
+  // Month-scoped report, same pattern as Press/Kretkachi/Eshikchi/Humbuz/Zaxira —
+  // carriedDebt comes straight from the backend's live remainingDebt-based
+  // computation, not derived from the fixed debtFromPreviousMonth field (which
+  // never changes even after that debt is paid down).
   const { data: report } = useQuery({
-    queryKey: ['worker-payments-report'],
-    queryFn: () => workerPaymentsService.getReport(),
+    queryKey: ['worker-payments-report', selectedMonth, selectedYear],
+    queryFn: () => workerPaymentsService.getReport({ month: selectedMonth, year: selectedYear }),
   })
-  const qachigarStats = report?.byCategory?.QACHIGAR ?? { amount: 0, paid: 0, debt: 0 }
+  const qachigarStats = report?.byCategory?.QACHIGAR ?? { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
   const totalEarned = Number(qachigarStats.amount)
   const totalPaidStat = Number(qachigarStats.paid)
   const totalRemainingDebt = Number(qachigarStats.debt)
-  // Derived: debtFromPreviousMonth sum = totalDebt + totalPaid - totalEarned
-  const totalPrevDebtStat = Math.max(0, totalRemainingDebt + totalPaidStat - totalEarned)
+  const totalPrevDebtStat = Number(qachigarStats.carriedDebt ?? 0)
   // For dialog overpayment display: current remaining debt = Jami qarz
   const totalPrevDebt = totalRemainingDebt
 
@@ -284,6 +291,18 @@ export default function QachigarPage() {
           </div>
         }
       />
+
+      <div className="flex items-center justify-end">
+        <Input
+          type="month"
+          value={`${selectedYear}-${String(selectedMonth).padStart(2, '0')}`}
+          onChange={(e) => {
+            const [y, m] = e.target.value.split('-').map(Number)
+            if (y && m) { setSelectedYear(y); setSelectedMonth(m) }
+          }}
+          className="w-40"
+        />
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard title="Bu oy hisoblangan" value={totalEarned} icon={HardHat} color="amber" />
