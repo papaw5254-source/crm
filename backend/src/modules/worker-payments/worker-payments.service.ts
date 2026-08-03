@@ -147,6 +147,20 @@ export class WorkerPaymentsService {
     totalDebtBefore: number;
     totalDebtAfter: number;
   }> {
+    // Legacy naming mismatch: Zaxira's "Eski qarz qo'shish" buttons used different
+    // hardcoded workerName values ('Zaxira ishchi' / 'Zaxira sotuv ishchi') than the
+    // automatic movement/sale flow ('Ishchilar (zaxira)' / 'Ishchilar (zaxira sotuv)'),
+    // permanently disconnecting those old-debt records from the real payment chain.
+    // Normalize them before replaying so they join the same debt group.
+    await this.workerPaymentRepository.update(
+      { workerName: 'Zaxira ishchi', category: WorkerPaymentCategory.RESERVE_RAW_LOADING },
+      { workerName: 'Ishchilar (zaxira)' },
+    );
+    await this.workerPaymentRepository.update(
+      { workerName: 'Zaxira sotuv ishchi', category: WorkerPaymentCategory.RESERVE_SALE_LOADING },
+      { workerName: 'Ishchilar (zaxira sotuv)' },
+    );
+
     const all = await this.workerPaymentRepository.find({ order: { date: 'ASC', createdAt: 'ASC' } });
 
     const groups = new Map<string, WorkerPayment[]>();

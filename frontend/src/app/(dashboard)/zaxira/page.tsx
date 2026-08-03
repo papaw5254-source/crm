@@ -340,7 +340,7 @@ export default function ZaxiraPage() {
   const oldDebtMutation = useMutation({
     mutationFn: ({ date, amount }: { date: string; amount: number }) =>
       workerPaymentsService.create({
-        workerName: 'Zaxira ishchi',
+        workerName: 'Ishchilar (zaxira)',
         category: 'RESERVE_RAW_LOADING',
         amount: 0,
         paidAmount: 0,
@@ -362,7 +362,7 @@ export default function ZaxiraPage() {
   const saleOldDebtMutation = useMutation({
     mutationFn: ({ date, amount }: { date: string; amount: number }) =>
       workerPaymentsService.create({
-        workerName: 'Zaxira sotuv ishchi',
+        workerName: 'Ishchilar (zaxira sotuv)',
         category: 'RESERVE_SALE_LOADING',
         amount: 0,
         paidAmount: 0,
