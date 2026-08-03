@@ -87,8 +87,10 @@ export default function SalesPage() {
     queryFn: () => workerPaymentsService.getAll({ category: 'FIELD_RAW_LOADING', limit: 200 }),
   })
   const eskiQarzList = (eskiQarzData?.data ?? []).filter((r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0)
-  const eskiQarzCarriedDebt = eskiQarzList.reduce((acc: number, r: WorkerPayment) => acc + Number(r.debtFromPreviousMonth), 0)
-  const yuklagchiStats = { ...yuklagchiStatsRaw, carriedDebt: eskiQarzCarriedDebt }
+  // carriedDebt comes straight from the backend (live remainingDebt-based), not from
+  // summing eski-qarz entries' fixed debtFromPreviousMonth — that value never changes
+  // even after the debt is paid down, which made "Oldingi qarz" look permanently stuck.
+  const yuklagchiStats = yuklagchiStatsRaw
 
   const { data: debtorsResp } = useQuery({
     queryKey: ['debtors-for-suggest'],

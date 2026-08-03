@@ -74,23 +74,15 @@ export default function HumbuzPage() {
     (r: WorkerPayment) => !r.sourceId && Number(r.debtFromPreviousMonth) > 0
   )
 
-  const { data: currentMonthWpData } = useQuery({
-    queryKey: ['worker-payments', 'HUMBUZ_KIRDI_CHIQDI', selectedMonth, selectedYear],
-    queryFn: () => workerPaymentsService.getAll({ category: 'HUMBUZ_KIRDI_CHIQDI', month: selectedMonth, year: selectedYear, limit: 200 }),
+  const { data: wpReport } = useQuery({
+    queryKey: ['worker-payments-report', selectedMonth, selectedYear],
+    queryFn: () => workerPaymentsService.getReport({ month: selectedMonth, year: selectedYear }),
   })
-  const regularHumbuzPayments = (currentMonthWpData?.data ?? []).filter(
-    (r: WorkerPayment) => !!r.sourceId
-  )
-
-  const eskiQarzCarriedDebt = eskiQarzList.reduce((acc: number, r: WorkerPayment) => acc + Number(r.debtFromPreviousMonth), 0)
-  const humbuzAmount = regularHumbuzPayments.reduce((acc: number, r: WorkerPayment) => acc + Number(r.amount), 0)
-  const humbuzPaid = regularHumbuzPayments.reduce((acc: number, r: WorkerPayment) => acc + Number(r.paidAmount), 0)
-  const humbuzStats = {
-    amount: humbuzAmount,
-    paid: humbuzPaid,
-    carriedDebt: eskiQarzCarriedDebt,
-    debt: Math.max(0, eskiQarzCarriedDebt + humbuzAmount - humbuzPaid),
-  }
+  const emptyHumbuzStats = { amount: 0, paid: 0, debt: 0, carriedDebt: 0 }
+  // Comes straight from the backend (live remainingDebt-based) instead of summing
+  // eski-qarz entries' fixed debtFromPreviousMonth, which never changes even after
+  // the debt is paid down and made "Oldingi qarz" look permanently stuck.
+  const humbuzStats = wpReport?.byCategory?.HUMBUZ_KIRDI_CHIQDI ?? emptyHumbuzStats
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),

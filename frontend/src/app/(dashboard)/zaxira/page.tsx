@@ -141,14 +141,15 @@ export default function ZaxiraPage() {
     },
     { ...emptyStats }
   )
-  const eskiQarzCarriedDebt = eskiQarzList.reduce((acc: number, r: WorkerPayment) => acc + Number(r.debtFromPreviousMonth), 0)
-  const wpStats = { ...wpStatsRaw, carriedDebt: eskiQarzCarriedDebt }
+  // carriedDebt comes straight from the backend (live remainingDebt-based), not from
+  // summing eski-qarz entries' fixed debtFromPreviousMonth — that value never changes
+  // even after the debt is paid down, which made "Oldingi qarz" look permanently stuck.
+  const wpStats = wpStatsRaw
 
-  const eskiSaleQarzCarriedDebt = eskiSaleQarzList.reduce((acc: number, r: WorkerPayment) => acc + Number(r.debtFromPreviousMonth), 0)
   const saleLoadingStats = (() => {
     const row = wpReport?.byCategory?.['RESERVE_SALE_LOADING']
-    if (!row) return { ...emptyStats, carriedDebt: eskiSaleQarzCarriedDebt }
-    return { amount: Number(row.amount), paid: Number(row.paid), debt: Number(row.debt), carriedDebt: eskiSaleQarzCarriedDebt }
+    if (!row) return emptyStats
+    return { amount: Number(row.amount), paid: Number(row.paid), debt: Number(row.debt), carriedDebt: Number(row.carriedDebt) }
   })()
 
   const { data: balance, isLoading: balanceLoading } = useQuery({
