@@ -213,7 +213,6 @@ export class ReserveService {
       ...dto,
       movementType: ReserveMovementType.ADD,
       totalWorkerCost: 0,
-      workerPaidAmount: 0,
       workerOldDebt: dto.workerOldDebt || 0,
       workerDebt: 0,
     });
