@@ -243,12 +243,15 @@ export class WorkerPaymentsService {
 
     const totalAmount = payments.reduce((s, x) => s + Number(x.amount), 0);
     const totalPaid = payments.reduce((s, x) => s + Number(x.paidAmount), 0);
-    const totalCurrentDebtBase = payments.reduce(
-      (s, x) => s + Number(x.debtFromPreviousMonth || 0) + Number(x.amount || 0),
-      0,
-    );
+    // Always sum the live remainingDebt, never recompute from debtFromPreviousMonth+
+    // amount-paidAmount — a later overpayment (possibly in a different month, via the
+    // group replay in recalculateGroup) can pay a record's debt down after the fact,
+    // and the recompute has no way to see that. Using remainingDebt means a given
+    // month's report always reflects the true current state instead of a frozen
+    // snapshot of what was owed when the record was created.
+    const totalCurrentDebt = payments.reduce((s, x) => s + Number(x.remainingDebt || 0), 0);
     const totalCarriedDebt = carriedPayments.reduce((s, x) => s + Number(x.remainingDebt), 0);
-    const totalDebt = Math.max(0, totalCarriedDebt + totalCurrentDebtBase - totalPaid);
+    const totalDebt = totalCarriedDebt + totalCurrentDebt;
 
     const workerNames = new Set([...payments, ...carriedPayments].map((p) => p.workerName));
     const totalWorkers = workerNames.size;
@@ -259,18 +262,13 @@ export class WorkerPaymentsService {
       byCategory[p.category].count += 1;
       byCategory[p.category].amount += Number(p.amount);
       byCategory[p.category].paid += Number(p.paidAmount);
-      byCategory[p.category].debt += Number(p.debtFromPreviousMonth || 0) + Number(p.amount || 0) - Number(p.paidAmount || 0);
+      byCategory[p.category].debt += Number(p.remainingDebt || 0);
     }
     for (const p of carriedPayments) {
       if (!byCategory[p.category]) byCategory[p.category] = { count: 0, amount: 0, paid: 0, debt: 0, carriedDebt: 0 };
       const debt = Number(p.remainingDebt);
-        byCategory[p.category].debt += debt;
-        byCategory[p.category].carriedDebt += debt;
-      }
-
-
-    for (const category of Object.keys(byCategory)) {
-      byCategory[category].debt = Math.max(0, byCategory[category].debt);
+      byCategory[p.category].debt += debt;
+      byCategory[p.category].carriedDebt += debt;
     }
 
     return { totalWorkers, totalAmount, totalPaid, totalDebt, totalCarriedDebt, byCategory };
