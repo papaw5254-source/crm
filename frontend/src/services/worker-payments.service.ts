@@ -42,4 +42,9 @@ export const workerPaymentsService = {
     const res = await api.get('/worker-payments/report', { params })
     return res.data.data
   },
+
+  async recalculateDebts(): Promise<{ groupsProcessed: number; recordsUpdated: number; totalDebtBefore: number; totalDebtAfter: number }> {
+    const res = await api.post('/worker-payments/recalculate-debts')
+    return res.data.data
+  },
 }

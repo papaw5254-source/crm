@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, HardHat, Pencil, Trash2, BarChart3 } from 'lucide-react'
+import { Plus, HardHat, Pencil, Trash2, BarChart3, RefreshCw } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -156,6 +156,17 @@ export default function IshchilarPage() {
     onError: (e: unknown) => toast.error(getErrorMessage(e)),
   })
 
+  const recalculateMutation = useMutation({
+    mutationFn: () => workerPaymentsService.recalculateDebts(),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['worker-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-report'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-payments-all-totals'] })
+      toast.success(`Qarzlar qayta hisoblandi: ${res.recordsUpdated} ta yozuv yangilandi`)
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e)),
+  })
+
   const openEdit = (item: WorkerPayment) => {
     setEditItem(item)
     setValue('workerName', item.workerName)
@@ -248,9 +259,17 @@ export default function IshchilarPage() {
         title="Ishchilar"
         description="Ishchi to'lovlari va qarz boshqaruvi"
         actions={
-          <Button onClick={() => { setEditItem(null); reset({ date: new Date().toISOString().split('T')[0], month: currentMonth, year: currentYear, debtFromPreviousMonth: 0, paidAmount: 0, category: 'OTHER', amount: 0 }); setDialogOpen(true) }}>
-            <Plus className="h-4 w-4 mr-1" /> To&apos;lov qo&apos;shish
-          </Button>
+          <div className="flex gap-2">
+            {isAdmin && (
+              <Button variant="outline" onClick={() => recalculateMutation.mutate()} disabled={recalculateMutation.isPending}>
+                <RefreshCw className={`h-4 w-4 mr-1 ${recalculateMutation.isPending ? 'animate-spin' : ''}`} />
+                Qarzlarni qayta hisoblash
+              </Button>
+            )}
+            <Button onClick={() => { setEditItem(null); reset({ date: new Date().toISOString().split('T')[0], month: currentMonth, year: currentYear, debtFromPreviousMonth: 0, paidAmount: 0, category: 'OTHER', amount: 0 }); setDialogOpen(true) }}>
+              <Plus className="h-4 w-4 mr-1" /> To&apos;lov qo&apos;shish
+            </Button>
+          </div>
         }
       />
 

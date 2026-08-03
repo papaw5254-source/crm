@@ -22,52 +22,65 @@ export class WorkerPaymentsService {
     const debt = Number(dto.debtFromPreviousMonth || 0);
     const amount = Number(dto.amount);
     const paid = Number(dto.paidAmount || 0);
-    const remainingDebt = debt + amount - paid;
-    const overpaidAmount = Math.max(0, paid - (debt + amount));
 
     const payment = this.workerPaymentRepository.create({
       ...dto,
       month,
       debtFromPreviousMonth: debt,
       paidAmount: paid,
-      remainingDebt: remainingDebt < 0 ? 0 : remainingDebt,
+      remainingDebt: Math.max(0, debt + amount - paid),
       createdById: userId,
     });
     const saved = await this.workerPaymentRepository.save(payment);
-    if (overpaidAmount > 0) {
-      await this.applyPaymentToPreviousDebts(dto.category, dto.workerName, dto.date, overpaidAmount, saved.id);
-    }
-    return saved;
+    await this.recalculateGroup(dto.category, dto.workerName);
+    return this.findOne(saved.id);
   }
 
-  private async applyPaymentToPreviousDebts(
-    category: WorkerPaymentCategory,
-    workerName: string,
-    date: string,
-    amount: number,
-    excludeId?: string,
-  ): Promise<void> {
-    let remainingPayment = amount;
-    const qb = this.workerPaymentRepository
-      .createQueryBuilder('wp')
-      .where('wp.category = :category', { category })
-      .andWhere('wp.workerName = :workerName', { workerName })
-      .andWhere('wp.date <= :date', { date })
-      .andWhere('wp.remainingDebt > 0')
-      .orderBy('wp.date', 'ASC')
-      .addOrderBy('wp.createdAt', 'ASC');
-
-    if (excludeId) qb.andWhere('wp.id != :excludeId', { excludeId });
-
-    const debts = await qb.getMany();
-    for (const debtItem of debts) {
-      if (remainingPayment <= 0) break;
-      const currentDebt = Number(debtItem.remainingDebt || 0);
-      const paidFromDebt = Math.min(currentDebt, remainingPayment);
-      debtItem.remainingDebt = currentDebt - paidFromDebt;
-      remainingPayment -= paidFromDebt;
-      await this.workerPaymentRepository.save(debtItem);
+  // A worker+category's payment history is one running ledger: an overpayment on
+  // one entry must be able to pay down debt on ANY other entry in the group, not
+  // just ones dated before it — otherwise an advance payment (e.g. paying today for
+  // a movement logged tomorrow) looks like it "vanishes" while tomorrow's debt still
+  // shows as outstanding. Replaying the whole group in date order and letting excess
+  // payment carry forward as credit for later entries is the only way to get that
+  // right; this also backs recalculateAllDebts so both paths agree.
+  private computeGroupRemainingDebts(records: WorkerPayment[]): number[] {
+    const remaining = records.map((r) => Number(r.debtFromPreviousMonth || 0) + Number(r.amount || 0));
+    let carryCredit = 0;
+    for (let i = 0; i < records.length; i++) {
+      if (carryCredit > 0 && remaining[i] > 0) {
+        const used = Math.min(carryCredit, remaining[i]);
+        remaining[i] -= used;
+        carryCredit -= used;
+      }
+      let payment = Number(records[i].paidAmount || 0);
+      const ownPay = Math.min(remaining[i], payment);
+      remaining[i] -= ownPay;
+      payment -= ownPay;
+      for (let j = 0; j < i && payment > 0; j++) {
+        if (remaining[j] <= 0) continue;
+        const pay = Math.min(remaining[j], payment);
+        remaining[j] -= pay;
+        payment -= pay;
+      }
+      if (payment > 0) carryCredit += payment;
     }
+    return remaining.map((r) => Math.max(0, Number(r.toFixed(2))));
+  }
+
+  private async recalculateGroup(category: WorkerPaymentCategory, workerName: string): Promise<void> {
+    const records = await this.workerPaymentRepository.find({
+      where: { category, workerName },
+      order: { date: 'ASC', createdAt: 'ASC' },
+    });
+    const remaining = this.computeGroupRemainingDebts(records);
+    const toSave: WorkerPayment[] = [];
+    records.forEach((r, i) => {
+      if (Number(r.remainingDebt || 0) !== remaining[i]) {
+        r.remainingDebt = remaining[i];
+        toSave.push(r);
+      }
+    });
+    if (toSave.length > 0) await this.workerPaymentRepository.save(toSave);
   }
 
   async findAll(paginationDto: PaginationDto & { category?: WorkerPaymentCategory; month?: string; debtOnly?: boolean }) {
@@ -100,25 +113,22 @@ export class WorkerPaymentsService {
 
   async update(id: string, dto: UpdateWorkerPaymentDto): Promise<WorkerPayment> {
     const wp = await this.findOne(id);
-    const oldOverpaid = Math.max(0, Number(wp.paidAmount || 0) - (Number(wp.debtFromPreviousMonth || 0) + Number(wp.amount)));
+    const oldCategory = wp.category;
+    const oldWorkerName = wp.workerName;
 
     Object.assign(wp, dto);
-    const debt = Number(wp.debtFromPreviousMonth || 0);
-    const amount = Number(wp.amount);
-    const paid = Number(wp.paidAmount || 0);
-    wp.remainingDebt = Math.max(0, debt + amount - paid);
     if (dto.date) wp.month = dto.date.slice(0, 7);
     const saved = await this.workerPaymentRepository.save(wp);
 
-    // Editing paidAmount up (e.g. a catch-up payment entered via edit rather than
-    // a new entry) must flow into older debts the same way create() does — only the
-    // newly-introduced overpaid portion, so repeated edits never double-apply.
-    const newOverpaid = Math.max(0, paid - (debt + amount));
-    const additionalOverpaid = newOverpaid - oldOverpaid;
-    if (additionalOverpaid > 0) {
-      await this.applyPaymentToPreviousDebts(wp.category, wp.workerName, wp.date, additionalOverpaid, saved.id);
+    // Recompute the whole group rather than patching just this record — editing
+    // amount/paid/debt can shift how much credit or debt this entry contributes
+    // to every other entry in the group, and a full replay is the only way that
+    // stays correct across repeated edits.
+    if (oldCategory !== saved.category || oldWorkerName !== saved.workerName) {
+      await this.recalculateGroup(oldCategory, oldWorkerName);
     }
-    return saved;
+    await this.recalculateGroup(saved.category, saved.workerName);
+    return this.findOne(saved.id);
   }
 
   async remove(id: string): Promise<void> {
@@ -134,13 +144,14 @@ export class WorkerPaymentsService {
         await this.saleRepository.save(sale);
       }
     }
+    const { category, workerName } = wp;
     await this.workerPaymentRepository.remove(wp);
+    await this.recalculateGroup(category, workerName);
   }
 
   // One-time reconciliation: replays every (category, workerName) group's payments
-  // in chronological order, exactly as create() + applyPaymentToPreviousDebts would
-  // have if every payment had gone through create() — fixing records whose overpayment
-  // was previously entered via update() and never flowed back into older debts.
+  // in chronological order, exactly as create()/update() do — fixing records left
+  // stale by data entered before this replay logic existed.
   async recalculateAllDebts(): Promise<{
     groupsProcessed: number;
     recordsUpdated: number;
@@ -176,29 +187,12 @@ export class WorkerPaymentsService {
     const toSave: WorkerPayment[] = [];
 
     for (const records of groups.values()) {
-      const remaining: number[] = records.map((r) => {
-        totalDebtBefore += Number(r.remainingDebt || 0);
-        return Number(r.debtFromPreviousMonth || 0) + Number(r.amount || 0);
-      });
-
-      for (let i = 0; i < records.length; i++) {
-        let payment = Number(records[i].paidAmount || 0);
-        const ownPay = Math.min(remaining[i], payment);
-        remaining[i] -= ownPay;
-        payment -= ownPay;
-        for (let j = 0; j < i && payment > 0; j++) {
-          if (remaining[j] <= 0) continue;
-          const pay = Math.min(remaining[j], payment);
-          remaining[j] -= pay;
-          payment -= pay;
-        }
-      }
-
+      records.forEach((r) => { totalDebtBefore += Number(r.remainingDebt || 0); });
+      const remaining = this.computeGroupRemainingDebts(records);
       records.forEach((r, i) => {
-        const newDebt = Math.max(0, Number(remaining[i].toFixed(2)));
-        totalDebtAfter += newDebt;
-        if (Number(r.remainingDebt || 0) !== newDebt) {
-          r.remainingDebt = newDebt;
+        totalDebtAfter += remaining[i];
+        if (Number(r.remainingDebt || 0) !== remaining[i]) {
+          r.remainingDebt = remaining[i];
           toSave.push(r);
           recordsUpdated += 1;
         }
