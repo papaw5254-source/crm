@@ -249,10 +249,20 @@ export class SalesService {
         brickType,
       );
     }
+    // Capture category/workerName before the raw delete below (which bypasses
+    // WorkerPaymentsService) so the rest of that worker's group can be recomputed —
+    // otherwise any debt/credit this sale's payment had contributed elsewhere in the
+    // group stays frozen at its pre-delete value.
+    const linkedWorkerPayment = await this.workerPaymentRepository.findOne({
+      where: { sourceId: sale.id, sourceType: 'SALE' },
+    });
     await this.workerPaymentRepository.query(
       `DELETE FROM worker_payments WHERE source_id = $1`,
       [sale.id],
     );
+    if (linkedWorkerPayment) {
+      await this.workerPaymentsService.recalculateGroup(linkedWorkerPayment.category, linkedWorkerPayment.workerName);
+    }
     const wasDebt = !skipDebtorUpdate && sale.paymentType === PaymentType.DEBT;
     const debtorName = (sale.customerName || 'Unknown').trim();
     const debtorPhone = sale.customerPhone?.trim() || undefined;
@@ -263,12 +273,22 @@ export class SalesService {
   }
 
   private async syncWorkerPayment(sale: Sale, userId: string): Promise<void> {
+    // Capture the existing linked row before the raw delete below (which bypasses
+    // WorkerPaymentsService) so its group can be recomputed on any path that doesn't
+    // end up calling create() again — otherwise whatever debt/credit it had
+    // contributed elsewhere in that group stays frozen at its pre-delete value.
+    const existing = await this.workerPaymentRepository.findOne({
+      where: { sourceId: sale.id, sourceType: 'SALE' },
+    });
     await this.workerPaymentRepository.query(
       `DELETE FROM worker_payments WHERE source_id = $1 AND source_type = $2`,
       [sale.id, 'SALE'],
     );
 
-    if (sale.brickType !== BrickType.RAW_BRICK && !sale.isReserveSale) return;
+    if (sale.brickType !== BrickType.RAW_BRICK && !sale.isReserveSale) {
+      if (existing) await this.workerPaymentsService.recalculateGroup(existing.category, existing.workerName);
+      return;
+    }
 
     const workerRate = Number(sale.workerRatePerBrick || 0);
     const totalWorkerCost = workerRate > 0 ? sale.quantity * workerRate : 0;
@@ -282,16 +302,20 @@ export class SalesService {
     sale.workerDebt = workerDebt;
     await this.saleRepository.save(sale);
 
-    if (totalWorkerCost <= 0 && workerOldDebt <= 0 && workerPaidAmount <= 0) return;
+    if (totalWorkerCost <= 0 && workerOldDebt <= 0 && workerPaidAmount <= 0) {
+      if (existing) await this.workerPaymentsService.recalculateGroup(existing.category, existing.workerName);
+      return;
+    }
 
     const wpCategory = sale.isReserveSale
       ? WorkerPaymentCategory.RESERVE_SALE_LOADING
       : WorkerPaymentCategory.FIELD_RAW_LOADING;
+    const wpWorkerName = sale.isReserveSale ? "Ishchilar (zaxira sotuv)" : "Ishchilar (xom g'isht yuklash)";
     // Goes through WorkerPaymentsService.create() so an overpayment here correctly
     // flows back to reduce older unpaid debts, same as every other entry point.
     await this.workerPaymentsService.create(
       {
-        workerName: sale.isReserveSale ? "Ishchilar (zaxira sotuv)" : "Ishchilar (xom g'isht yuklash)",
+        workerName: wpWorkerName,
         category: wpCategory,
         amount: totalWorkerCost,
         paidAmount: workerPaidAmount,
@@ -304,6 +328,13 @@ export class SalesService {
       },
       userId,
     );
+
+    // create() above only recomputed the (possibly new) category+workerName group —
+    // if this edit changed which group the sale belongs to, the old one still needs
+    // to see that this entry's contribution is gone.
+    if (existing && (existing.category !== wpCategory || existing.workerName !== wpWorkerName)) {
+      await this.workerPaymentsService.recalculateGroup(existing.category, existing.workerName);
+    }
   }
 
   async getSalesByDateRange(dateFrom: string, dateTo: string): Promise<Sale[]> {

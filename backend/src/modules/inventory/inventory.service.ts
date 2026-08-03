@@ -7,6 +7,7 @@ import { WorkerPaymentCategory } from '../../common/enums/worker-payment-categor
 import { StockMovementType } from '../../common/enums/stock-movement-type.enum';
 import { StockService } from '../stock/stock.service';
 import { WorkerPayment } from '../worker-payments/entities/worker-payment.entity';
+import { WorkerPaymentsService } from '../worker-payments/worker-payments.service';
 import { CreateInventoryIncomeDto } from './dto/create-inventory-income.dto';
 import { UpdateInventoryIncomeDto } from './dto/update-inventory-income.dto';
 import { InventoryIncome } from './entities/inventory-income.entity';
@@ -19,6 +20,7 @@ export class InventoryService {
     @InjectRepository(WorkerPayment)
     private readonly workerPaymentRepository: Repository<WorkerPayment>,
     private readonly stockService: StockService,
+    private readonly workerPaymentsService: WorkerPaymentsService,
   ) {}
 
   async create(createDto: CreateInventoryIncomeDto, userId: string): Promise<InventoryIncome> {
@@ -69,60 +71,59 @@ export class InventoryService {
 
     if (createDto.workerRatePerBrick && totalWorkerCost !== null) {
       const paid = createDto.workerPaidAmount || 0;
-      await this.workerPaymentRepository.save(
-        this.workerPaymentRepository.create({
+      // Goes through WorkerPaymentsService.create() so an overpayment here correctly
+      // flows back to reduce older unpaid debts, same as every other entry point.
+      await this.workerPaymentsService.create(
+        {
           workerName: 'Ishchilar (press)',
           category: WorkerPaymentCategory.PRESS,
           amount: totalWorkerCost,
           paidAmount: paid,
           debtFromPreviousMonth: oldDebt,
-          remainingDebt: workerDebt!,
           month: createDto.date.slice(0, 7),
           date: createDto.date,
           description: `${createDto.quantity} dona xom g'isht (${createDto.workerRatePerBrick} so'm/dona)`,
           sourceType: 'INVENTORY_INCOME',
           sourceId: saved.id,
-          createdById: userId,
-        }),
+        },
+        userId,
       );
     }
 
     if (createDto.kretkachRatePerBrick && totalKretkachCost !== null) {
       const kPaid = createDto.kretkachPaidAmount || 0;
-      await this.workerPaymentRepository.save(
-        this.workerPaymentRepository.create({
+      await this.workerPaymentsService.create(
+        {
           workerName: 'Kretkachi',
           category: WorkerPaymentCategory.KRETKACHI,
           amount: totalKretkachCost,
           paidAmount: kPaid,
           debtFromPreviousMonth: kretkachOld,
-          remainingDebt: kretkachDebt!,
           month: createDto.date.slice(0, 7),
           date: createDto.date,
           description: `${createDto.quantity} dona xom g'isht (${createDto.kretkachRatePerBrick} so'm/dona) — kretkachi`,
           sourceType: 'INVENTORY_INCOME_KRETKACH',
           sourceId: saved.id,
-          createdById: userId,
-        }),
+        },
+        userId,
       );
     }
 
     if (eshkiDaily > 0 || eshkiOld > 0) {
-      await this.workerPaymentRepository.save(
-        this.workerPaymentRepository.create({
+      await this.workerPaymentsService.create(
+        {
           workerName: 'Eshikchi',
           category: WorkerPaymentCategory.ESHIKCHI,
           amount: eshkiDaily,
           paidAmount: eshkiPaid,
           debtFromPreviousMonth: eshkiOld,
-          remainingDebt: eshkiDebtVal,
           month: createDto.date.slice(0, 7),
           date: createDto.date,
           description: `Eshikchi kunlik to'lov — ${createDto.date}`,
           sourceType: 'INVENTORY_INCOME_ESHKI',
           sourceId: saved.id,
-          createdById: userId,
-        }),
+        },
+        userId,
       );
     }
 
@@ -197,28 +198,33 @@ export class InventoryService {
       income.workerOldDebt = oldDebt;
       income.workerDebt = income.totalWorkerCost !== null ? Math.max(0, oldDebt + Number(income.totalWorkerCost) - paid) : null;
 
-      // Sync linked WorkerPayment record
+      // Sync linked WorkerPayment record — goes through WorkerPaymentsService so an
+      // overpayment correctly flows back to reduce older unpaid debts, same as every
+      // other entry point.
       await this.workerPaymentRepository.query(
         `DELETE FROM worker_payments WHERE source_id = $1 AND source_type = $2`,
         [id, 'INVENTORY_INCOME'],
       );
       if (rate > 0 && income.totalWorkerCost !== null) {
-        await this.workerPaymentRepository.save(
-          this.workerPaymentRepository.create({
+        await this.workerPaymentsService.create(
+          {
             workerName: 'Ishchilar (press)',
             category: WorkerPaymentCategory.PRESS,
             amount: income.totalWorkerCost,
             paidAmount: paid,
             debtFromPreviousMonth: oldDebt,
-            remainingDebt: income.workerDebt!,
             month: income.date.slice(0, 7),
             date: income.date,
             description: `${income.quantity} dona xom g'isht (${rate} so'm/dona)`,
             sourceType: 'INVENTORY_INCOME',
             sourceId: id,
-            createdById: userId,
-          }),
+          },
+          userId,
         );
+      } else {
+        // Nothing to recreate, but the delete above may have removed a row other
+        // entries in this group were counting on — recompute now.
+        await this.workerPaymentsService.recalculateGroup(WorkerPaymentCategory.PRESS, 'Ishchilar (press)');
       }
     }
 
@@ -236,22 +242,23 @@ export class InventoryService {
         [id, 'INVENTORY_INCOME_KRETKACH'],
       );
       if (kRate > 0 && income.totalKretkachCost !== null) {
-        await this.workerPaymentRepository.save(
-          this.workerPaymentRepository.create({
+        await this.workerPaymentsService.create(
+          {
             workerName: 'Kretkachi',
             category: WorkerPaymentCategory.KRETKACHI,
             amount: income.totalKretkachCost,
             paidAmount: kPaid,
             debtFromPreviousMonth: kOld,
-            remainingDebt: income.kretkachDebt!,
             month: income.date.slice(0, 7),
             date: income.date,
             description: `${income.quantity} dona xom g'isht (${kRate} so'm/dona) — kretkachi`,
             sourceType: 'INVENTORY_INCOME_KRETKACH',
             sourceId: id,
-            createdById: userId,
-          }),
+          },
+          userId,
         );
+      } else {
+        await this.workerPaymentsService.recalculateGroup(WorkerPaymentCategory.KRETKACHI, 'Kretkachi');
       }
     }
 
@@ -269,22 +276,23 @@ export class InventoryService {
         [id, 'INVENTORY_INCOME_ESHKI'],
       );
       if (eDaily > 0 || eOld > 0) {
-        await this.workerPaymentRepository.save(
-          this.workerPaymentRepository.create({
+        await this.workerPaymentsService.create(
+          {
             workerName: 'Eshikchi',
             category: WorkerPaymentCategory.ESHIKCHI,
             amount: eDaily,
             paidAmount: ePaid,
             debtFromPreviousMonth: eOld,
-            remainingDebt: income.eshkiDebt,
             month: income.date.slice(0, 7),
             date: income.date,
             description: `Eshikchi kunlik to'lov — ${income.date}`,
             sourceType: 'INVENTORY_INCOME_ESHKI',
             sourceId: id,
-            createdById: userId,
-          }),
+          },
+          userId,
         );
+      } else {
+        await this.workerPaymentsService.recalculateGroup(WorkerPaymentCategory.ESHIKCHI, 'Eshikchi');
       }
     }
 
@@ -309,6 +317,12 @@ export class InventoryService {
       `DELETE FROM worker_payments WHERE source_id = $1`,
       [id],
     );
+    // The delete above bypasses WorkerPaymentsService and can touch up to three
+    // fixed groups (Press/Kretkachi/Eshikchi) — recompute all three so whatever this
+    // record had contributed elsewhere doesn't stay frozen at its pre-delete value.
+    await this.workerPaymentsService.recalculateGroup(WorkerPaymentCategory.PRESS, 'Ishchilar (press)');
+    await this.workerPaymentsService.recalculateGroup(WorkerPaymentCategory.KRETKACHI, 'Kretkachi');
+    await this.workerPaymentsService.recalculateGroup(WorkerPaymentCategory.ESHIKCHI, 'Eshikchi');
     await this.stockService.decreaseStockBestEffort(
       income.quantity,
       StockMovementType.INCOME_CANCEL,

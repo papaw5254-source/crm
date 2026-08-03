@@ -67,7 +67,12 @@ export class WorkerPaymentsService {
     return remaining.map((r) => Math.max(0, Number(r.toFixed(2))));
   }
 
-  private async recalculateGroup(category: WorkerPaymentCategory, workerName: string): Promise<void> {
+  // Public so other modules that create/edit/delete WorkerPayment rows tied to their
+  // own source records (reserve movements, sales, inventory income, kiln operations)
+  // can trigger a recompute after any write that doesn't go through create()/update()/
+  // remove() above — e.g. a raw delete that removes a row's debt/credit contribution
+  // to the rest of its group.
+  async recalculateGroup(category: WorkerPaymentCategory, workerName: string): Promise<void> {
     const records = await this.workerPaymentRepository.find({
       where: { category, workerName },
       order: { date: 'ASC', createdAt: 'ASC' },

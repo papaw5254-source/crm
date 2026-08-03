@@ -155,11 +155,11 @@ export class ReserveService {
     if (!movement) throw new NotFoundException('Movement not found');
 
     const { brickType } = movement;
+    const category = movement.brickType === BrickType.RAW_BRICK
+      ? WorkerPaymentCategory.RESERVE_RAW_LOADING
+      : WorkerPaymentCategory.RESERVE_BAKED_LOADING;
     const workerCost = Number(movement.totalWorkerCost || 0);
     if (workerCost > 0) {
-      const category = movement.brickType === BrickType.RAW_BRICK
-        ? WorkerPaymentCategory.RESERVE_RAW_LOADING
-        : WorkerPaymentCategory.RESERVE_BAKED_LOADING;
       await this.workerPaymentRepository.delete({
         category,
         date: movement.date,
@@ -169,6 +169,10 @@ export class ReserveService {
     await this.workerPaymentRepository.delete({ sourceType: 'RESERVE_MOVEMENT', sourceId: movement.id });
     await this.reserveMovementRepository.remove(movement);
 
+    // These deletes bypass WorkerPaymentsService, so nothing recomputed the rest of
+    // this worker's group yet — without this, whatever debt/credit this movement's
+    // payment had contributed to other entries stays frozen at its pre-delete value.
+    await this.workerPaymentsService.recalculateGroup(category, 'Ishchilar (zaxira)');
     await this.recalculateBalance(brickType);
   }
 
@@ -197,11 +201,11 @@ export class ReserveService {
     }
 
     const oldBrickType = movement.brickType;
+    const oldCategory = movement.brickType === BrickType.RAW_BRICK
+      ? WorkerPaymentCategory.RESERVE_RAW_LOADING
+      : WorkerPaymentCategory.RESERVE_BAKED_LOADING;
     await this.workerPaymentRepository.delete({ sourceType: 'RESERVE_MOVEMENT', sourceId: movement.id });
     if (Number(movement.totalWorkerCost || 0) > 0) {
-      const oldCategory = movement.brickType === BrickType.RAW_BRICK
-        ? WorkerPaymentCategory.RESERVE_RAW_LOADING
-        : WorkerPaymentCategory.RESERVE_BAKED_LOADING;
       await this.workerPaymentRepository.delete({
         category: oldCategory,
         date: movement.date,
@@ -218,6 +222,12 @@ export class ReserveService {
     });
     const saved = await this.reserveMovementRepository.save(movement);
     await this.syncWorkerPayment(saved, userId);
+    // syncWorkerPayment only recomputes the movement's (possibly new) brickType
+    // category — if brickType changed, the old category's group still needs to see
+    // that this entry's contribution is gone.
+    if (oldBrickType !== saved.brickType) {
+      await this.workerPaymentsService.recalculateGroup(oldCategory, 'Ishchilar (zaxira)');
+    }
     await this.recalculateBalance(oldBrickType);
     if (oldBrickType !== saved.brickType) await this.recalculateBalance(saved.brickType);
     return this.reserveMovementRepository.findOneOrFail({ where: { id } });
@@ -259,11 +269,17 @@ export class ReserveService {
     movement.workerDebt = workerDebt;
     await this.reserveMovementRepository.save(movement);
 
-    if (totalWorkerCost <= 0 && paid <= 0) return;
-
     const category = movement.brickType === BrickType.RAW_BRICK
       ? WorkerPaymentCategory.RESERVE_RAW_LOADING
       : WorkerPaymentCategory.RESERVE_BAKED_LOADING;
+
+    if (totalWorkerCost <= 0 && paid <= 0) {
+      // The delete above may have removed a row other entries in this group were
+      // counting on (e.g. its overpayment had been covering someone else's debt) —
+      // recompute now instead of leaving them stale until the next create() runs.
+      await this.workerPaymentsService.recalculateGroup(category, 'Ishchilar (zaxira)');
+      return;
+    }
 
     // Goes through WorkerPaymentsService.create() so an overpayment here correctly
     // flows back to reduce older unpaid debts, same as every other entry point.

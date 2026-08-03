@@ -15,6 +15,7 @@ import { Stock } from '../stock/entities/stock.entity';
 import { ReserveMovement } from '../reserve/entities/reserve-movement.entity';
 import { WorkerPaymentCategory } from '../../common/enums/worker-payment-category.enum';
 import { WorkerPayment } from '../worker-payments/entities/worker-payment.entity';
+import { WorkerPaymentsService } from '../worker-payments/worker-payments.service';
 import { CreateKilnOperationDto } from './dto/create-kiln-operation.dto';
 import { UpdateKilnOperationDto } from './dto/update-kiln-operation.dto';
 import { KilnOperation } from './entities/kiln-operation.entity';
@@ -25,6 +26,7 @@ export class KilnService {
     @InjectRepository(KilnOperation)
     private readonly kilnOperationRepository: Repository<KilnOperation>,
     private readonly dataSource: DataSource,
+    private readonly workerPaymentsService: WorkerPaymentsService,
   ) {}
 
   async create(dto: CreateKilnOperationDto, userId: string): Promise<KilnOperation> {
@@ -35,104 +37,34 @@ export class KilnService {
       throw new BadRequestException('At least one of rawBricksEntered or bakedBricksOutput must be > 0');
     }
 
-    return await this.dataSource.transaction(async (manager) => {
+    const legacyRate = dto.workerRatePerBrick || 0;
+    const legacyPaid = dto.workerPaidAmount || 0;
+    const rawRate = dto.rawWorkerRatePerBrick ?? legacyRate;
+    const bakedRate = dto.bakedWorkerRatePerBrick ?? legacyRate;
+    const qachigarRate = dto.qachigarRatePerBrick ?? 0;
+    const qachigarPaid = dto.qachigarPaidAmount ?? 0;
+
+    const rawWorkerCost = rawEntered > 0 && rawRate > 0 ? rawEntered * rawRate : 0;
+    const bakedWorkerCost = bakedOutput > 0 && bakedRate > 0 ? bakedOutput * bakedRate : 0;
+    const qachigarCost = bakedOutput > 0 && qachigarRate > 0 ? bakedOutput * qachigarRate : 0;
+
+    let rawPaid: number;
+    let bakedPaid: number;
+    if (dto.rawWorkerPaidAmount !== undefined || dto.bakedWorkerPaidAmount !== undefined) {
+      rawPaid = dto.rawWorkerPaidAmount ?? 0;
+      bakedPaid = dto.bakedWorkerPaidAmount ?? 0;
+    } else {
+      rawPaid = Math.min(rawWorkerCost, legacyPaid);
+      bakedPaid = Math.max(0, legacyPaid - rawPaid);
+    }
+
+    let rawWorkerDebt = Math.max(0, rawWorkerCost - rawPaid);
+    let bakedWorkerDebt = Math.max(0, bakedWorkerCost - bakedPaid);
+    let qachigarDebt = Math.max(0, qachigarCost - qachigarPaid);
+
+    let saved = await this.dataSource.transaction(async (manager) => {
       const operation = manager.create(KilnOperation, { ...dto, rawBricksEntered: rawEntered, bakedBricksOutput: bakedOutput, createdById: userId });
       const saved = await manager.save(KilnOperation, operation);
-
-      const legacyRate = dto.workerRatePerBrick || 0;
-      const legacyPaid = dto.workerPaidAmount || 0;
-      const rawRate = dto.rawWorkerRatePerBrick ?? legacyRate;
-      const bakedRate = dto.bakedWorkerRatePerBrick ?? legacyRate;
-      const qachigarRate = dto.qachigarRatePerBrick ?? 0;
-      const qachigarPaid = dto.qachigarPaidAmount ?? 0;
-
-      const rawWorkerCost = rawEntered > 0 && rawRate > 0 ? rawEntered * rawRate : 0;
-      const bakedWorkerCost = bakedOutput > 0 && bakedRate > 0 ? bakedOutput * bakedRate : 0;
-      const qachigarCost = bakedOutput > 0 && qachigarRate > 0 ? bakedOutput * qachigarRate : 0;
-
-      let rawPaid: number;
-      let bakedPaid: number;
-      if (dto.rawWorkerPaidAmount !== undefined || dto.bakedWorkerPaidAmount !== undefined) {
-        rawPaid = dto.rawWorkerPaidAmount ?? 0;
-        bakedPaid = dto.bakedWorkerPaidAmount ?? 0;
-      } else {
-        rawPaid = Math.min(rawWorkerCost, legacyPaid);
-        bakedPaid = Math.max(0, legacyPaid - rawPaid);
-      }
-
-      const rawWorkerDebt = Math.max(0, rawWorkerCost - rawPaid);
-      const bakedWorkerDebt = Math.max(0, bakedWorkerCost - bakedPaid);
-      const qachigarDebt = Math.max(0, qachigarCost - qachigarPaid);
-
-      // Also create a row when a payment was made despite zero computed cost (e.g. the rate
-      // was never entered) - otherwise a paid amount with no cost silently vanishes instead
-      // of showing up anywhere.
-      if (rawWorkerCost > 0 || rawPaid > 0) {
-        await manager.save(WorkerPayment, manager.create(WorkerPayment, {
-          workerName: 'Ishchilar (humbuz kirdi)',
-          category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
-          amount: rawWorkerCost,
-          paidAmount: rawPaid,
-          remainingDebt: rawWorkerDebt,
-            month: dto.date.slice(0, 7),
-            date: dto.date,
-            description: `Humbuzga kirdi: ${rawEntered} dona xom g'isht (${rawRate} so'm/dona) - ${dto.kilnName}`,
-            sourceType: 'KILN_OPERATION',
-            sourceId: saved.id,
-            createdById: userId,
-          }));
-        }
-
-      if (bakedWorkerCost > 0 || bakedPaid > 0) {
-        await manager.save(WorkerPayment, manager.create(WorkerPayment, {
-          workerName: 'Ishchilar (humbuz chiqdi)',
-          category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
-          amount: bakedWorkerCost,
-          paidAmount: bakedPaid,
-          remainingDebt: bakedWorkerDebt,
-            month: dto.date.slice(0, 7),
-            date: dto.date,
-            description: `Humbuzdan chiqdi: ${bakedOutput} dona pishgan g'isht (${bakedRate} so'm/dona) - ${dto.kilnName}`,
-            sourceType: 'KILN_OPERATION',
-            sourceId: saved.id,
-            createdById: userId,
-          }));
-        }
-
-      if (qachigarCost > 0 || qachigarPaid > 0) {
-        await manager.save(WorkerPayment, manager.create(WorkerPayment, {
-          workerName: 'Qachigar',
-          category: WorkerPaymentCategory.QACHIGAR,
-          amount: qachigarCost,
-          paidAmount: qachigarPaid,
-          remainingDebt: qachigarDebt,
-          month: dto.date.slice(0, 7),
-          date: dto.date,
-          description: `Qachigar: ${bakedOutput} dona pishgan g'isht (${qachigarRate} so'm/dona) - ${dto.kilnName}`,
-          sourceType: 'KILN_OPERATION',
-          sourceId: saved.id,
-          createdById: userId,
-        }));
-      }
-
-      if (rawWorkerCost > 0 || bakedWorkerCost > 0 || qachigarCost > 0 || rawPaid > 0 || bakedPaid > 0 || qachigarPaid > 0) {
-        saved.rawWorkerRatePerBrick = rawRate || null;
-        saved.rawWorkerTotalCost = rawWorkerCost;
-        saved.rawWorkerPaidAmount = rawPaid;
-        saved.rawWorkerDebt = rawWorkerDebt;
-        saved.bakedWorkerRatePerBrick = bakedRate || null;
-        saved.bakedWorkerTotalCost = bakedWorkerCost;
-        saved.bakedWorkerPaidAmount = bakedPaid;
-        saved.bakedWorkerDebt = bakedWorkerDebt;
-        saved.totalWorkerCost = rawWorkerCost + bakedWorkerCost;
-        saved.workerPaidAmount = rawPaid + bakedPaid;
-        saved.workerDebt = rawWorkerDebt + bakedWorkerDebt;
-        saved.qachigarRatePerBrick = qachigarRate || null;
-        saved.qachigarTotalCost = qachigarCost;
-        saved.qachigarPaidAmount = qachigarPaid;
-        saved.qachigarDebt = qachigarDebt;
-        await manager.save(KilnOperation, saved);
-      }
 
         if (rawEntered > 0) {
           if (dto.rawBrickSource === RawBrickSource.FIELD) {
@@ -193,6 +125,88 @@ export class KilnService {
 
       return saved;
     });
+
+    // Worker-payment rows go through WorkerPaymentsService, outside the core
+    // transaction above (same split already used by update()/syncWorkerPayments), so
+    // an overpayment here correctly redistributes across the whole group instead of
+    // being written directly and silently skipping that machinery. Read the real
+    // remainingDebt back from each created row (it may differ from the locally
+    // computed value above if existing credit/debt in the group applied to it) so
+    // the operation's own denormalized debt fields never drift from the truth.
+    if (rawWorkerCost > 0 || rawPaid > 0) {
+      const rawWp = await this.workerPaymentsService.create(
+        {
+          workerName: 'Ishchilar (humbuz kirdi)',
+          category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
+          amount: rawWorkerCost,
+          paidAmount: rawPaid,
+          month: dto.date.slice(0, 7),
+          date: dto.date,
+          description: `Humbuzga kirdi: ${rawEntered} dona xom g'isht (${rawRate} so'm/dona) - ${dto.kilnName}`,
+          sourceType: 'KILN_OPERATION',
+          sourceId: saved.id,
+        },
+        userId,
+      );
+      rawWorkerDebt = Number(rawWp.remainingDebt);
+    }
+
+    if (bakedWorkerCost > 0 || bakedPaid > 0) {
+      const bakedWp = await this.workerPaymentsService.create(
+        {
+          workerName: 'Ishchilar (humbuz chiqdi)',
+          category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
+          amount: bakedWorkerCost,
+          paidAmount: bakedPaid,
+          month: dto.date.slice(0, 7),
+          date: dto.date,
+          description: `Humbuzdan chiqdi: ${bakedOutput} dona pishgan g'isht (${bakedRate} so'm/dona) - ${dto.kilnName}`,
+          sourceType: 'KILN_OPERATION',
+          sourceId: saved.id,
+        },
+        userId,
+      );
+      bakedWorkerDebt = Number(bakedWp.remainingDebt);
+    }
+
+    if (qachigarCost > 0 || qachigarPaid > 0) {
+      const qachigarWp = await this.workerPaymentsService.create(
+        {
+          workerName: 'Qachigar',
+          category: WorkerPaymentCategory.QACHIGAR,
+          amount: qachigarCost,
+          paidAmount: qachigarPaid,
+          month: dto.date.slice(0, 7),
+          date: dto.date,
+          description: `Qachigar: ${bakedOutput} dona pishgan g'isht (${qachigarRate} so'm/dona) - ${dto.kilnName}`,
+          sourceType: 'KILN_OPERATION',
+          sourceId: saved.id,
+        },
+        userId,
+      );
+      qachigarDebt = Number(qachigarWp.remainingDebt);
+    }
+
+    if (rawWorkerCost > 0 || bakedWorkerCost > 0 || qachigarCost > 0 || rawPaid > 0 || bakedPaid > 0 || qachigarPaid > 0) {
+      saved.rawWorkerRatePerBrick = rawRate || null;
+      saved.rawWorkerTotalCost = rawWorkerCost;
+      saved.rawWorkerPaidAmount = rawPaid;
+      saved.rawWorkerDebt = rawWorkerDebt;
+      saved.bakedWorkerRatePerBrick = bakedRate || null;
+      saved.bakedWorkerTotalCost = bakedWorkerCost;
+      saved.bakedWorkerPaidAmount = bakedPaid;
+      saved.bakedWorkerDebt = bakedWorkerDebt;
+      saved.totalWorkerCost = rawWorkerCost + bakedWorkerCost;
+      saved.workerPaidAmount = rawPaid + bakedPaid;
+      saved.workerDebt = rawWorkerDebt + bakedWorkerDebt;
+      saved.qachigarRatePerBrick = qachigarRate || null;
+      saved.qachigarTotalCost = qachigarCost;
+      saved.qachigarPaidAmount = qachigarPaid;
+      saved.qachigarDebt = qachigarDebt;
+      saved = await this.kilnOperationRepository.save(saved);
+    }
+
+    return saved;
   }
 
   async findAll(paginationDto: PaginationDto & { kilnName?: string; dateFrom?: string; dateTo?: string }) {
@@ -400,6 +414,13 @@ export class KilnService {
       .andWhere('(source_type IS NULL OR source_type != :st)', { st: 'KILN_OPERATION' })
       .execute();
 
+    // The deletes above bypass WorkerPaymentsService and can touch all three groups
+    // this operation could have contributed to — recompute them so whatever debt/
+    // credit those rows had elsewhere doesn't stay frozen at its pre-delete value.
+    await this.workerPaymentsService.recalculateGroup(WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI, 'Ishchilar (humbuz kirdi)');
+    await this.workerPaymentsService.recalculateGroup(WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI, 'Ishchilar (humbuz chiqdi)');
+    await this.workerPaymentsService.recalculateGroup(WorkerPaymentCategory.QACHIGAR, 'Qachigar');
+
     await this.kilnOperationRepository.remove(op);
   }
 
@@ -417,81 +438,93 @@ export class KilnService {
     const combinedPaid = Number(operation.workerPaidAmount || 0);
     const rawPaid = Math.min(rawWorkerCost, combinedPaid);
     const bakedPaid = Math.max(0, combinedPaid - rawPaid);
-    const rawWorkerDebt = Math.max(0, rawWorkerCost - rawPaid);
-    const bakedWorkerDebt = Math.max(0, bakedWorkerCost - bakedPaid);
-    const qachigarDebt = Math.max(0, qachigarCost - qachigarPaid);
+    let rawWorkerDebt = Math.max(0, rawWorkerCost - rawPaid);
+    let bakedWorkerDebt = Math.max(0, bakedWorkerCost - bakedPaid);
+    let qachigarDebt = Math.max(0, qachigarCost - qachigarPaid);
 
-      await this.dataSource.transaction(async (manager) => {
-        await manager.delete(WorkerPayment, {
-          sourceType: 'KILN_OPERATION',
-          sourceId: operation.id,
-        });
+    await this.dataSource.getRepository(WorkerPayment).delete({
+      sourceType: 'KILN_OPERATION',
+      sourceId: operation.id,
+    });
 
-      if (rawWorkerCost > 0 || rawPaid > 0) {
-        await manager.save(WorkerPayment, manager.create(WorkerPayment, {
+    // Goes through WorkerPaymentsService (outside a manual transaction, same split
+    // create() above uses) so an overpayment here correctly redistributes across the
+    // whole group. Each branch that skips create() must still recompute the group —
+    // the delete above may have removed a row other entries were counting on.
+    if (rawWorkerCost > 0 || rawPaid > 0) {
+      const rawWp = await this.workerPaymentsService.create(
+        {
           workerName: 'Ishchilar (humbuz kirdi)',
           category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
           amount: rawWorkerCost,
           paidAmount: rawPaid,
-          debtFromPreviousMonth: 0,
-          remainingDebt: rawWorkerDebt,
           month: operation.date.slice(0, 7),
           date: operation.date,
           description: `Humbuzga kirdi: ${rawEntered} dona xom g'isht (${rawRate} so'm/dona) - ${operation.kilnName}`,
           sourceType: 'KILN_OPERATION',
           sourceId: operation.id,
-          createdById: userId,
-        }));
-      }
+        },
+        userId,
+      );
+      rawWorkerDebt = Number(rawWp.remainingDebt);
+    } else {
+      await this.workerPaymentsService.recalculateGroup(WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI, 'Ishchilar (humbuz kirdi)');
+    }
 
-      if (bakedWorkerCost > 0 || bakedPaid > 0) {
-        await manager.save(WorkerPayment, manager.create(WorkerPayment, {
+    if (bakedWorkerCost > 0 || bakedPaid > 0) {
+      const bakedWp = await this.workerPaymentsService.create(
+        {
           workerName: 'Ishchilar (humbuz chiqdi)',
           category: WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI,
           amount: bakedWorkerCost,
           paidAmount: bakedPaid,
-          debtFromPreviousMonth: 0,
-          remainingDebt: bakedWorkerDebt,
           month: operation.date.slice(0, 7),
           date: operation.date,
           description: `Humbuzdan chiqdi: ${bakedOutput} dona pishgan g'isht (${bakedRate} so'm/dona) - ${operation.kilnName}`,
           sourceType: 'KILN_OPERATION',
           sourceId: operation.id,
-          createdById: userId,
-        }));
-      }
+        },
+        userId,
+      );
+      bakedWorkerDebt = Number(bakedWp.remainingDebt);
+    } else {
+      await this.workerPaymentsService.recalculateGroup(WorkerPaymentCategory.HUMBUZ_KIRDI_CHIQDI, 'Ishchilar (humbuz chiqdi)');
+    }
 
-      if (qachigarCost > 0 || qachigarPaid > 0) {
-        await manager.save(WorkerPayment, manager.create(WorkerPayment, {
+    if (qachigarCost > 0 || qachigarPaid > 0) {
+      const qachigarWp = await this.workerPaymentsService.create(
+        {
           workerName: 'Qachigar',
           category: WorkerPaymentCategory.QACHIGAR,
           amount: qachigarCost,
           paidAmount: qachigarPaid,
-          remainingDebt: qachigarDebt,
           month: operation.date.slice(0, 7),
           date: operation.date,
           description: `Qachigar: ${bakedOutput} dona pishgan g'isht (${qachigarRate} so'm/dona) - ${operation.kilnName}`,
           sourceType: 'KILN_OPERATION',
           sourceId: operation.id,
-          createdById: userId,
-        }));
-      }
+        },
+        userId,
+      );
+      qachigarDebt = Number(qachigarWp.remainingDebt);
+    } else {
+      await this.workerPaymentsService.recalculateGroup(WorkerPaymentCategory.QACHIGAR, 'Qachigar');
+    }
 
-      operation.rawWorkerTotalCost = rawWorkerCost;
-      operation.rawWorkerPaidAmount = rawPaid;
-      operation.rawWorkerDebt = rawWorkerDebt;
-      operation.bakedWorkerTotalCost = bakedWorkerCost;
-      operation.bakedWorkerPaidAmount = bakedPaid;
-      operation.bakedWorkerDebt = bakedWorkerDebt;
-      operation.totalWorkerCost = rawWorkerCost + bakedWorkerCost;
-      operation.workerPaidAmount = rawPaid + bakedPaid;
-      operation.workerDebt = rawWorkerDebt + bakedWorkerDebt;
-      operation.qachigarRatePerBrick = qachigarRate || null;
-      operation.qachigarTotalCost = qachigarCost;
-      operation.qachigarPaidAmount = qachigarPaid;
-      operation.qachigarDebt = qachigarDebt;
-      await manager.save(KilnOperation, operation);
-    });
+    operation.rawWorkerTotalCost = rawWorkerCost;
+    operation.rawWorkerPaidAmount = rawPaid;
+    operation.rawWorkerDebt = rawWorkerDebt;
+    operation.bakedWorkerTotalCost = bakedWorkerCost;
+    operation.bakedWorkerPaidAmount = bakedPaid;
+    operation.bakedWorkerDebt = bakedWorkerDebt;
+    operation.totalWorkerCost = rawWorkerCost + bakedWorkerCost;
+    operation.workerPaidAmount = rawPaid + bakedPaid;
+    operation.workerDebt = rawWorkerDebt + bakedWorkerDebt;
+    operation.qachigarRatePerBrick = qachigarRate || null;
+    operation.qachigarTotalCost = qachigarCost;
+    operation.qachigarPaidAmount = qachigarPaid;
+    operation.qachigarDebt = qachigarDebt;
+    await this.kilnOperationRepository.save(operation);
   }
 
   async getReport(dateFrom?: string, dateTo?: string) {
